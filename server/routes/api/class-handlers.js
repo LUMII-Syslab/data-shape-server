@@ -6,7 +6,7 @@ const MAX_ANSWERS = 20;
 /* list of classes */
 const getOntologyClasses = async ontName => {
     // seems there is no way to provide the schema name as a query parameter
-    // const r = await db.any('select iri, local_name from $1.classes limit 10', [ontName]);
+    // const r = await db.any('select iri, local_name from $1.classes limit 10', [ontName]);  
 
     const r = await db.any(`select iri, local_name from ${ontName}.classes limit $1`, [MAX_ANSWERS]);
     // debug('esmu te', r)

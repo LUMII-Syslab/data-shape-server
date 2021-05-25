@@ -9,7 +9,7 @@ const {
     getOntologyClassesFiltered, 
 } = require('./class-handlers')
 
-// TODO: get this list from the db
+// TODO: get this list from the db  
 const KNOWN_ONTOLOGIES = [
     'dbpedia',
     'leldes_smilskaste',
