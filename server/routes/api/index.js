@@ -156,7 +156,7 @@ router.get('/ontologies/:ont/properties', (req, res, next) => {
 });
 
 /**
- * Example for a generic route where all parameters including the function name are provided in JSON
+ * Example for a generic route where all parameters except the function name are provided in JSON
  */
 router.post('/fn/:fname', async (req, res, next) => {
     const fname = req.params['fname']
