@@ -23,6 +23,7 @@ const KNOWN_ONTOLOGIES = [
 const KNOWN_DATA = [ 
 	{name: 'V1_dbpedia', schema:'dbpedia' },
     {name: 'V2_miniUniv', schema:'leldes_smilskaste'},
+	{name: 'V4_wikidata', schema:'wikidata'},
     {name: 'V3_empty', schema:'sample'},
 ]
 
@@ -67,6 +68,7 @@ router.get('/ontologies/:ont/ns', async (req, res, next) => {
 		const schema = getSchemaName(ont);
         if (schema === "" ) {
             res.status(404).send('unknown ontology')
+			return
         }
         const ns = await getOntologyNameSpaces(schema)
         const data = {
@@ -101,7 +103,7 @@ router.get('/ontologies/:ont/classes', async (req, res, next) => {
         const cl = await getOntologyClasses(schema)
         const data = {
             ontology: ont,
-            classes: cl,
+            data: cl,
         }
     //   res.type('application/json').status(200).send(JSON.stringify(data, null, 2));
       res.json(data)
@@ -125,19 +127,19 @@ router.get('/ontologies/:ont/classes-filtered/:filter', async (req, res, next) =
 		const schema = getSchemaName(ont);
         if (schema === "" ) {
             res.status(404).send('unknown ontology')
+			return
         }
         const filter = req.params['filter'];
         if (!filter) {
             res.status(400).send('parameter missing')
+			return
         }
 
-        const cl = await getOntologyClassesFiltered(schema, filter)
-        const data = {
-            ontology: ont,
-            classes: cl,
-        }
+        let cl = await getOntologyClassesFiltered(schema, filter)
+		cl.ontology = ont;
+		console.log(cl)
     //   res.type('application/json').status(200).send(JSON.stringify(data, null, 2));
-      res.json(data)
+      res.json(cl)
     } catch(err) {
         console.error(err)
         next(err)
@@ -167,6 +169,32 @@ router.post('/fn/:fname', async (req, res, next) => {
     let result = {kaut: 1, kas: 3, input: req.body}
 
     res.json(result)
+});
+
+router.post('/ontologies/:ont/getClasses', async (req, res, next) => {
+    try {
+        const ont = req.params['ont'];
+        if (!validateOntologyName(ont)) {
+            res.status(400).send('bad ontology name')
+            return
+        }
+
+		const schema = getSchemaName(ont);
+        if (schema === "" ) {
+            res.status(404).send('unknown ontology')
+			return
+        }
+
+		const params = req.body;
+	    console.log(params);
+        let cl = await getOntologyClassesFiltered(schema, params.filter)
+		cl.ontology = ont;
+		res.json(cl)	
+
+    } catch(err) {
+        console.error(err)
+        next(err)
+    }
 });
 
 /**
