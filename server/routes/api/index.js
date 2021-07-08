@@ -8,7 +8,16 @@ const {
     getOntologyClasses, 
     getOntologyClassesFiltered, 
 	getOntologyNameSpaces,
+	getSchemaClasses,
+	getSchemaClassesFiltered,
+	getSchemaProperties,
+	getSchemaClassProperties,
 } = require('./class-handlers')
+
+const { 
+    executeSPARQL,
+    getClassProperties,
+} = require('../../util/sparql/endpoint-queries')
 
 // TODO: get this list from the db  
 const KNOWN_ONTOLOGIES = [
@@ -35,9 +44,22 @@ const getSchemaName = name => {
 	else return "";
 }
 
+const parameterExists = (parTree, par) => {
+	let r = true;
+	if ( parTree[par] === undefined || parTree[par] === "" || parTree[par].length == 0)
+		r = false
+	return r;
+}
+
 /* API root */
 router.get('/', (req, res, next) => {
   res.send('API root');
+});
+
+router.get('/test', async (req, res, next) => {
+  const p = await getClassProperties("https://dbpedia.org/sparql", "http://dbpedia.org/ontology/Agent", false, 100);
+  res.json(p)
+  //res.send('aaa');
 });
 
 /**
@@ -187,9 +209,45 @@ router.post('/ontologies/:ont/getClasses', async (req, res, next) => {
 
 		const params = req.body;
 	    console.log(params);
-        let cl = await getOntologyClassesFiltered(schema, params.filter)
-		cl.ontology = ont;
-		res.json(cl)	
+		let r = {}
+		//if ( params.filter !== undefined && params.filter !== "")
+		if ( parameterExists(params, "filter") )
+			r = await getSchemaClassesFiltered(schema, params.filter)
+		else
+			r = await getSchemaClasses(schema)
+		r.ontology = ont;
+		res.json(r)	
+
+    } catch(err) {
+        console.error(err)
+        next(err)
+    }
+});
+
+router.post('/ontologies/:ont/getProperties', async (req, res, next) => {
+    try {
+        const ont = req.params['ont'];
+        if (!validateOntologyName(ont)) {
+            res.status(400).send('bad ontology name')
+            return
+        }
+
+		const schema = getSchemaName(ont);
+        if (schema === "" ) {
+            res.status(404).send('unknown ontology')
+			return
+        }
+
+		const params = req.body;
+	    console.log(params);
+		let r = {}
+
+		if ( parameterExists(params, "uriClass") )
+			r = await getSchemaClassProperties(schema, params.uriClass)
+		else  
+			r = await getSchemaProperties(schema)
+		r.ontology = ont;
+		res.json(r)	
 
     } catch(err) {
         console.error(err)
