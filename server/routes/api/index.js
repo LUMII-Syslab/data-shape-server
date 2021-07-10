@@ -8,11 +8,21 @@ const {
     getOntologyClasses, 
     getOntologyClassesFiltered, 
 	getOntologyNameSpaces,
-	getSchemaClasses,
-	getSchemaClassesFiltered,
+	getClasses,
 	getSchemaProperties,
 	getSchemaClassProperties,
 } = require('./class-handlers')
+
+const { 
+	getProperties,
+} = require('./property-handlers')
+
+const { 
+    parameterExists,
+	checkEndpoint,
+} = require('./utilities')
+
+	
 
 const { 
     executeSPARQL,
@@ -44,12 +54,6 @@ const getSchemaName = name => {
 	else return "";
 }
 
-const parameterExists = (parTree, par) => {
-	let r = true;
-	if ( parTree[par] === undefined || parTree[par] === "" || parTree[par].length == 0)
-		r = false
-	return r;
-}
 
 /* API root */
 router.get('/', (req, res, next) => {
@@ -159,7 +163,7 @@ router.get('/ontologies/:ont/classes-filtered/:filter', async (req, res, next) =
 
         let cl = await getOntologyClassesFiltered(schema, filter)
 		cl.ontology = ont;
-		console.log(cl)
+		//console.log(cl)
     //   res.type('application/json').status(200).send(JSON.stringify(data, null, 2));
       res.json(cl)
     } catch(err) {
@@ -192,10 +196,11 @@ router.post('/fn/:fname', async (req, res, next) => {
 
     res.json(result)
 });
-
-router.post('/ontologies/:ont/getClasses', async (req, res, next) => {
+// ***********************************************************************************88
+router.post('/ontologies/:ont/:fn', async (req, res, next) => {
     try {
         const ont = req.params['ont'];
+		const fn = req.params['fn'];
         if (!validateOntologyName(ont)) {
             res.status(400).send('bad ontology name')
             return
@@ -207,14 +212,16 @@ router.post('/ontologies/:ont/getClasses', async (req, res, next) => {
 			return
         }
 
-		const params = req.body;
+		let params = req.body;
+		params = await checkEndpoint(params)
 	    console.log(params);
-		let r = {}
-		//if ( params.filter !== undefined && params.filter !== "")
-		if ( parameterExists(params, "filter") )
-			r = await getSchemaClassesFiltered(schema, params.filter)
-		else
-			r = await getSchemaClasses(schema)
+		
+		let r;
+		if ( fn === 'getClasses')
+			r = await getClasses(schema, params)
+		if ( fn === 'getProperties')
+			r = await getProperties(schema, params)
+
 		r.ontology = ont;
 		res.json(r)	
 
@@ -224,7 +231,7 @@ router.post('/ontologies/:ont/getClasses', async (req, res, next) => {
     }
 });
 
-router.post('/ontologies/:ont/getProperties', async (req, res, next) => {
+router.post('/ontologies/:ont/getProperties2', async (req, res, next) => {
     try {
         const ont = req.params['ont'];
         if (!validateOntologyName(ont)) {
@@ -240,12 +247,8 @@ router.post('/ontologies/:ont/getProperties', async (req, res, next) => {
 
 		const params = req.body;
 	    console.log(params);
-		let r = {}
-
-		if ( parameterExists(params, "uriClass") )
-			r = await getSchemaClassProperties(schema, params.uriClass)
-		else  
-			r = await getSchemaProperties(schema)
+		
+		const r = await getProperties(schema, params)
 		r.ontology = ont;
 		res.json(r)	
 

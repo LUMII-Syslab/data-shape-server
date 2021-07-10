@@ -4,7 +4,14 @@ const debug = require('debug')('dss:classops')
 const { 
     executeSPARQL,
     getClassProperties,
+	getIndividualClasses,
 } = require('../../util/sparql/endpoint-queries')
+
+const { 
+    parameterExists,
+	formWherePart,
+	getPorpertyByName,
+} = require('./utilities')
 
 const MAX_ANSWERS = 100;
 
@@ -28,59 +35,150 @@ const getOntologyClassesFiltered = async (ontName, filter) => {
 }
 
 /* list of classes */
-const getSchemaClasses = async (sName) => {
-	const sk = await db.any(`SELECT count(*) FROM ${sName}.classes`);
-    const r = await db.any(`SELECT  * FROM ${sName}.v_classes_ns_main order by cnt desc LIMIT $1`, [MAX_ANSWERS]);
-	return {data: r, complete: sk[0].count <= MAX_ANSWERS};
-}
+// **************************************************************************************************************
+const getSchemaClasses = async (sql, params) => {
+	let complete = true;
+	let r;
+	
+	if ( parameterExists(params, "filter"))	
+		r = await db.any(sql, [params.limit+1, params.filter]);
+	else
+		r = await db.any(sql,[params.limit+1]);
 
-/* filtered list of classes */
-const getSchemaClassesFiltered = async (sName, filter) => {
-	const sk = await db.any(`SELECT count(*) FROM ${sName}.v_classes_ns WHERE namestring ~ $1`, [filter]);
-    const r = await db.any(`SELECT * FROM ${sName}.v_classes_ns  WHERE namestring ~ $2 order by cnt desc LIMIT $1`, [MAX_ANSWERS, filter]);
-	return {data: r, complete: sk[0].count <= MAX_ANSWERS};
-}
-
-/* list of properties */
-const getSchemaProperties = async (sName) => {
-	const sk = await db.any(`SELECT count(*) FROM ${sName}.properties`);
-    const r = await db.any(`SELECT  * FROM ${sName}.v_properties_ns order by cnt desc LIMIT $1`, [MAX_ANSWERS]);
-	return {data: r, complete: sk[0].count <= MAX_ANSWERS};
-}
-
-/* list of class properties */
-const getSchemaClassProperties = async (sName, uriClass) => {
-	const clInfo = await db.any(`SELECT * FROM ${sName}.classes WHERE iri = $1`, [uriClass]);
-	let propList = "('http://xmlns.com/foaf/0.1/primaryTopic', 'http://dbpedia.org/property/address', 'http://dbpedia.org/property/sponsors')"; 
-	let sk = 0;
-	//console.log(clInfo)
-	//console.log(clInfo.length)
-	if ( clInfo[0].props_in_schema === true){
-		sk = await db.any(`select count(*) FROM ${sName}.v_cp_rels WHERE class_iri = $1`, [uriClass])[0].count;
-		const pList =  await db.any(`select property_iri FROM ${sName}.v_cp_rels WHERE class_iri = $2 order by cnt desc LIMIT $1`, [MAX_ANSWERS, uriClass]);
-		const pString = pList.map(x => x.property_iri).join("','")
-		propList = "('" + pString + "')";
+	if ( r.length == params.limit+1 ){
+		complete = false;
+		r.pop();
 	}
-	else {
-		const p = await getClassProperties("https://dbpedia.org/sparql", uriClass, false, MAX_ANSWERS);
-		sk = p.map(x => x.value).length;
-		const pString = p.map(x => x.value).join("','")
-		propList = "('" + pString + "')";
-		//const sparql = "select distinct ?x where {?x a " + uriClass +". [] ?p ?x} limit 100"
+		
+	return {data: r, complete: complete};
+}
+
+const findMainProperty = async (schema, pList) => {
+
+	if ( pList.in.length === 1)
+		return { id: pList.in[0], type: 'in', typeId: 1 };
+	if ( pList.in.length > 1){
+		const r =  await db.any(`SELECT id FROM ${schema}.properties where ${formWherePart('id', 'in', pList.in, 0)} order by object_cnt limit 1`); 
+		return { id: r[0].id, type: 'in', typeId: 1 }
 	}
 	
-	const sql = "SELECT * FROM " + sName + ".v_properties_ns  WHERE iri in " + propList +" order by cnt desc"
-	const r = await db.any(sql);
-	//const r = await db.any(`SELECT * FROM ${sName}.v_properties_ns  WHERE iri in $1 order by cnt desc`, [propList]);	
-			
-	//const sk = await db.any(`SELECT count(*) FROM ${sName}.v_properties_ns WHERE namestring ~ $1`, [filter]);
-    //const r = await db.any(`SELECT * FROM ${sName}.v_classes_ns  WHERE namestring ~ $2 order by cnt desc LIMIT $1`, [MAX_ANSWERS, filter]);
-	//return {data: r, complete: sk[0].count <= MAX_ANSWERS};
-	return {data:r, complete: sk <= MAX_ANSWERS}
+	if ( pList.out.length === 1)
+		return { id: pList.out[0], type: 'out', typeId: 2 };
+	if ( pList.out.length > 1){
+		const r =  await db.any(`SELECT id FROM ${schema}.properties where ${formWherePart('id', 'in', pList.out, 0)} order by cnt limit 1`); 
+		return { id: r[0].id, type: 'out', typeId: 2  }
+	}
+	return {};
 }
 
-const getOntologyNameSpaces = async ontName => {
-	const r = await db.any(`select  id, name, priority, (select count(*) from ${ontName}.classes where ns_id = ns.id  ) cl_count from ${ontName}.ns where priority > 0`);
+const getIdsfromPList = async (schema, pList) => {
+	let r = {in:[], out:[]}
+	if ( parameterExists(pList, "in") ) {
+		for (const element of pList.in) {
+			const pr = await getPorpertyByName(element.name, schema)
+			if ( pr.length > 0 && pr[0].object_cnt > 0)
+				r.in.push(pr[0].id);
+		}	
+	}
+	
+	if ( parameterExists(pList, "out") ) {
+		for (const element of pList.out) {
+			const pr = await getPorpertyByName(element.name, schema)
+			if ( pr.length > 0)
+				r.out.push(pr[0].id);
+		}	
+	}
+			
+	return await r;
+}
+
+/* list of classes */
+const getClasses = async (schema, params) => {
+	
+	let viewname = `${schema}.v_classes_ns_main v`;
+	let whereList = [];
+	let r = { data: [], complete: false };
+	if ( parameterExists(params, "filter") ) {
+		viewname = `${schema}.v_classes_ns v`;
+		whereList.push('v.namestring ~ $2');
+	}
+
+	if ( parameterExists(params, "uriIndividual") ){
+		const classList = await getIndividualClasses(params);
+		const idList = await db.any(`SELECT id FROM ${schema}.classes where ${formWherePart('iri', 'in', classList, 1)}`); 
+		if ( idList.length > 0) {
+			whereList.push(formWherePart('id', 'in', idList.map(v => v.id), 0));
+			params.uriIndividual = "";
+		}
+	}
+	
+	if ( parameterExists(params, "namespaces") ){
+		if (params.namespaces.in !== undefined )
+			whereList.push(formWherePart('v.prefix', 'in', params.namespaces.in, 1));
+		if (params.namespaces.notIn !== undefined )
+			whereList.push(formWherePart('v.prefix', 'not in', params.namespaces.notIn, 1));
+	}
+	
+	let mainProp = {};
+	let newPList = {in:[], out:[]};
+	if ( parameterExists(params, "pList") && !parameterExists(params, "uriIndividual")  ){
+		newPList = await getIdsfromPList(schema, params.pList);
+		if ( newPList.in.length > 0 || newPList.out.length > 0 ) {
+			mainProp = await findMainProperty(schema, newPList);
+			console.log("--------galvenā----------")
+			console.log(mainProp)
+			newPList.in = newPList.in.filter(item => item !== mainProp.id);
+			newPList.out = newPList.out.filter(item => item !== mainProp.id);
+			console.log(newPList)
+		}
+	}
+	
+	let sql;	
+	//console.log("----------- whereList -------------")
+	//console.log(whereList)	
+	if ( mainProp.id === undefined ){
+		const whereStr = whereList.join(' and ');
+		if ( whereList.length === 0 ) 
+			sql = `SELECT v.*, 1 as principal_class FROM ${viewname} order by cnt desc LIMIT $1`;
+		else
+			sql = `SELECT v.*, 1 as principal_class FROM ${viewname} WHERE ${whereStr} order by cnt desc LIMIT $1`;
+		
+	}
+	else {
+		if ( newPList.in.length === 0 && newPList.out.length === 0)
+			whereList.push('( props_in_schema = false or p.id is not null )');
+		else {
+			let subWhere = [];
+			if (newPList.in.length > 0 )
+				newPList.in.forEach(element => subWhere.push(`v.id in (SELECT class_id from ${schema}.cp_rels WHERE property_id = ${element} and type_id = 1)`));
+			if (newPList.out.length > 0 )
+				newPList.out.forEach(element => subWhere.push(`v.id in (SELECT class_id from ${schema}.cp_rels WHERE property_id = ${element} and type_id = 2)`));
+			whereList.push(`( props_in_schema = false or ( p.id is not null and ${subWhere.join(' and ')} ))`);
+		}
+			
+		const whereStr = whereList.join(' and ')
+	    const JoinStr = ( parameterExists(params, "onlyPropsInSchema") && params.onlyPropsInSchema ? 'JOIN' : 'LEFT JOIN')
+		sql  = `SELECT v.*, case when p.cover_set_index is not null then 2 else case when p.id is not null then 1 else 0 end end as principal_class 
+                FROM ${viewname} ${JoinStr} ${schema}.cp_rels p ON p.class_id = v.id and p.type_id = ${mainProp.typeId} and p.property_id = ${mainProp.id} 
+				WHERE ${whereStr} order by v.cnt desc LIMIT $1`;
+
+	}
+			
+	console.log(sql)
+	r = await getSchemaClasses(sql, params)
+	
+	//let r = {}
+	//if ( parameterExists(params, "filter") )
+	//	r = await getSchemaClassesFiltered(schema, params)
+	//else
+	//	r = await getSchemaClasses(schema)
+	
+	return r;
+}
+
+// **************************************************************************************************************
+const getOntologyNameSpaces = async schema => {
+	const r = await db.any(`select  id, name, priority, (select count(*) from ${schema}.classes where ns_id = ns.id  ) cl_count from ${schema}.ns where priority > 0`);
     return r;
 }
 
@@ -88,8 +186,5 @@ module.exports = {
 	getOntologyNameSpaces,
     getOntologyClasses,
     getOntologyClassesFiltered,
-	getSchemaClasses,
-	getSchemaClassesFiltered,
-	getSchemaProperties,
-	getSchemaClassProperties,
+	getClasses,
 }

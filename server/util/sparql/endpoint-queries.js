@@ -14,6 +14,12 @@ const findClient = endpointUrl => {
     return client;
 }
 
+const getTypeString = async endpointUrl => {
+	// TODO get from DB
+    return 'rdf:type';
+}
+
+
 const getClassProperties = async (endpointUrl, classIRI, incoming = false, limit = 500) => {
 
     let sparql;
@@ -32,6 +38,16 @@ const getClassProperties = async (endpointUrl, classIRI, incoming = false, limit
     return reply.map(v => v.p);
 }
 
+const getIndividualClasses = async (params) => {
+	
+	const endpointUrl = params.endpointUrl; 
+	const typeString = await getTypeString(endpointUrl)
+	const sparql = `select distinct ?c where {<${params.uriIndividual}> ${typeString} ?c} order by ?c`;
+	
+	const reply = await executeSPARQL(endpointUrl, sparql);
+    return reply.map(v => v.c.value);
+}
+
 const executeSPARQL = async (endpointUrl, querySparql) => {
     let client = findClient(endpointUrl);
     const reply = await client.query.select(querySparql);
@@ -47,4 +63,5 @@ const executeSPARQL = async (endpointUrl, querySparql) => {
 module.exports = {
     executeSPARQL,
     getClassProperties,
+	getIndividualClasses,
 }
