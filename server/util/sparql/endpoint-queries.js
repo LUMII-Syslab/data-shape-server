@@ -20,7 +20,7 @@ const getTypeString = async endpointUrl => {
 }
 
 
-const getClassProperties = async (endpointUrl, classIRI, incoming = false, limit = 500) => {
+const sparqlGetClassProperties = async (endpointUrl, classIRI, incoming = false, limit = 500) => {
 
     let sparql;
     if (incoming) {
@@ -38,7 +38,7 @@ const getClassProperties = async (endpointUrl, classIRI, incoming = false, limit
     return reply.map(v => v.p);
 }
 
-const getIndividualClasses = async (params) => {
+const sparqlGetIndividualClasses = async (params) => {
 	
 	const endpointUrl = params.endpointUrl; 
 	const typeString = await getTypeString(endpointUrl)
@@ -48,9 +48,64 @@ const getIndividualClasses = async (params) => {
     return reply.map(v => v.c.value);
 }
 
+const sparqlGetPropertiesFromIndividuals = async (params, pos, uriIndividual) => {
+	let r = {};
+	let sparql;
+	let reply;
+	const endpointUrl = params.endpointUrl; 
+	
+	if ( pos === 'To') {
+		sparql = `select distinct ?p where {[] ?p <${uriIndividual}> .} order by ?p`;
+		reply = await executeSPARQL(endpointUrl, sparql);
+		r.A = reply.map(v => v.p.value)
+		sparql = `select distinct ?p where {<${uriIndividual}> ?p [] .} order by ?p`;
+		reply = await executeSPARQL(endpointUrl, sparql);
+		r.B = reply.map(v => v.p.value)
+	}
+	else {
+		sparql = `select distinct ?p where {<${uriIndividual}> ?p [] .} order by ?p`;
+		reply = await executeSPARQL(endpointUrl, sparql);
+		r.A = reply.map(v => v.p.value)
+		sparql = `select distinct ?p where {[] ?p <${uriIndividual}> .} order by ?p`;
+		reply = await executeSPARQL(endpointUrl, sparql);
+		r.B = reply.map(v => v.p.value)
+	}
+	return r;
+}
+
+const sparqlGetPropertiesFromClass = async (params, pos, uriClass) => {
+	let r = {};
+	let sparql;
+	let reply;
+	const endpointUrl = params.endpointUrl;
+	const typeString = await getTypeString(endpointUrl);	
+	
+	if ( pos === 'To') {
+		sparql = `select distinct ?p where {?x1 ${typeString} <${uriClass}>. [] ?p ?x1.} order by ?p`;
+		reply = await executeSPARQL(endpointUrl, sparql);
+		r.A = reply.map(v => v.p.value)
+		sparql = `select distinct ?p where {?x1 ${typeString} <${uriClass}>. ?x1 ?p [].} order by ?p`;
+		reply = await executeSPARQL(endpointUrl, sparql);
+		r.B = reply.map(v => v.p.value)
+	}
+	else {
+		sparql = `select distinct ?p where {?x1 ${typeString} <${uriClass}>. ?x1 ?p [].} order by ?p`;
+		reply = await executeSPARQL(endpointUrl, sparql);
+		r.A = reply.map(v => v.p.value)
+		sparql = `select distinct ?p where {?x1 ${typeString} <${uriClass}>. [] ?p ?x1.} order by ?p`;
+		reply = await executeSPARQL(endpointUrl, sparql);
+		r.B = reply.map(v => v.p.value)
+	}
+	return r;
+}
+
+
 const executeSPARQL = async (endpointUrl, querySparql) => {
     let client = findClient(endpointUrl);
+	console.log('--------executeSPARQL-----------------')
+	console.log(querySparql)
     const reply = await client.query.select(querySparql);
+	console.log(reply.length)
     return reply;
 }
 
@@ -62,6 +117,8 @@ const executeSPARQL = async (endpointUrl, querySparql) => {
 
 module.exports = {
     executeSPARQL,
-    getClassProperties,
-	getIndividualClasses,
+    sparqlGetClassProperties,
+	sparqlGetIndividualClasses,
+	sparqlGetPropertiesFromIndividuals,
+	sparqlGetPropertiesFromClass,
 }

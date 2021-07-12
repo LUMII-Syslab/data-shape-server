@@ -9,8 +9,7 @@ const {
     getOntologyClassesFiltered, 
 	getOntologyNameSpaces,
 	getClasses,
-	getSchemaProperties,
-	getSchemaClassProperties,
+	getNamespaces,
 } = require('./class-handlers')
 
 const { 
@@ -20,6 +19,9 @@ const {
 const { 
     parameterExists,
 	checkEndpoint,
+	getClassByName,
+	getPropertyByName,
+	getSchemaObject,
 } = require('./utilities')
 
 	
@@ -86,7 +88,6 @@ router.get('/info', (req, res, next) => {
 router.get('/ontologies/:ont/ns', async (req, res, next) => {
     try {
         const ont = req.params['ont'];
-		console.log(ont)
 		if (!validateOntologyName(ont)) {
             res.status(400).send('bad ontology name')
             return
@@ -216,11 +217,21 @@ router.post('/ontologies/:ont/:fn', async (req, res, next) => {
 		params = await checkEndpoint(params)
 	    console.log(params);
 		
-		let r;
+		let r = { complete: false };
 		if ( fn === 'getClasses')
 			r = await getClasses(schema, params)
 		if ( fn === 'getProperties')
 			r = await getProperties(schema, params)
+		if ( fn === 'getNamespaces')
+			r = await getNamespaces(schema, params)
+		if ( fn === 'resolveClassByName') {
+			const classObj = await getClassByName(params.name, schema);
+			r = getSchemaObject(classObj)
+		}
+		if ( fn === 'resolvePropertyByName') {
+			const propObj = await getPropertyByName(params.name, schema);
+			r = getSchemaObject(propObj)
+		}
 
 		r.ontology = ont;
 		res.json(r)	
@@ -231,32 +242,6 @@ router.post('/ontologies/:ont/:fn', async (req, res, next) => {
     }
 });
 
-router.post('/ontologies/:ont/getProperties2', async (req, res, next) => {
-    try {
-        const ont = req.params['ont'];
-        if (!validateOntologyName(ont)) {
-            res.status(400).send('bad ontology name')
-            return
-        }
-
-		const schema = getSchemaName(ont);
-        if (schema === "" ) {
-            res.status(404).send('unknown ontology')
-			return
-        }
-
-		const params = req.body;
-	    console.log(params);
-		
-		const r = await getProperties(schema, params)
-		r.ontology = ont;
-		res.json(r)	
-
-    } catch(err) {
-        console.error(err)
-        next(err)
-    }
-});
 
 /**
  * Example for a generic route where all parameters including the function name are provided in JSON

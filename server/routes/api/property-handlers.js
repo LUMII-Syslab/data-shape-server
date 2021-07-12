@@ -3,65 +3,174 @@ const debug = require('debug')('dss:classops')
 
 const { 
     executeSPARQL,
-    getClassProperties,
+    sparqlGetClassProperties,
+	sparqlGetPropertiesFromIndividuals,
+	sparqlGetPropertiesFromClass,
 } = require('../../util/sparql/endpoint-queries')
 
 const { 
     parameterExists,
+	getFilterColumn,
+	formWherePart,
+	getClassByName,
+	getSchemaData,
 } = require('./utilities')
 
 
-const MAX_ANSWERS = 100;
-
+const MAX_ANSWERS = 30;
 
 /* list of properties */
-const getSchemaProperties = async (sName) => {
-	const sk = await db.any(`SELECT count(*) FROM ${sName}.properties`);
-    const r = await db.any(`SELECT  * FROM ${sName}.v_properties_ns order by cnt desc LIMIT $1`, [MAX_ANSWERS]);
-	return {data: r, complete: sk[0].count <= MAX_ANSWERS};
-}
+const getProperties = async (schema, params) => {
+   // propertyKind
+   // filter
+   // namespaces
+   // className 
+   // otherEndClassName
+	
+   	let r = { data: [], complete: false };
+	let sql;
+	let viewname = `${schema}.v_properties_ns v`;
+	let classFrom = [];
+	let classTo = [];
+	let whereListA = [ true ];
+	let whereListB = [ true ];
+	let contextA = '';
+	let contextB = '';
+	let strAo ='cnt';
+	let strBo = 'cnt';
+	
+	async function addToWhereList(propListAB)  {
+		//console.log(`SELECT id FROM ${schema}.properties where ${formWherePart('iri', 'in', propListAB.A, 1)}`)
+		const idListA = await db.any(`SELECT id FROM ${schema}.properties where ${formWherePart('iri', 'in', propListAB.A, 1)}`);
+		if ( idListA.length > 0) 
+			whereListA.push(formWherePart('v.id', 'in', idListA.map(v => v.id), 0));
+		//console.log(`SELECT id FROM ${schema}.properties where ${formWherePart('iri', 'in', propListAB.B, 1)}`)	
+		const idListB = await db.any(`SELECT id FROM ${schema}.properties where ${formWherePart('iri', 'in', propListAB.B, 1)}`);
+		if ( idListB.length > 0) 
+			whereListB.push(formWherePart('v.id', 'in', idListB.map(v => v.id), 0));
+	}
+	function formSql()  {
+		const ot = ( contextA == '' ? 'v.' : 'r.')
+		const orderByPref = ( parameterExists(params, 'orderByPrefix') ? params.orderByPrefix : '')
+		let sql = `SELECT aa.* FROM ( SELECT 'out' as mark, v.*, ${ot}${strAo} as o 				
+FROM ${schema}.v_properties_ns v ${contextA}
+WHERE ${whereListA.join(' and ')} 
+) aa
+order by ${orderByPref} o desc LIMIT $1`;
+		if ( params.propertyKind === 'ObjectExt' || params.propertyKind === 'Connect') {
+			sql = `SELECT aa.* FROM (
+SELECT 'out' as mark, v.*, ${ot}${strAo} as o 
+FROM ${schema}.v_properties_ns v ${contextA}
+WHERE ${whereListA.join(' and ')} 
+UNION ALL
+SELECT 'in' as mark, v.*, ${ot}${strBo} as o   
+FROM ${schema}.v_properties_ns v ${contextB}
+WHERE ${whereListB.join(' and ')} 
+) aa
+order by ${orderByPref} o desc LIMIT $1`;
+		}
+		return sql;
+	}
+	function classType(classO) {
+		if ( classO.length == 0 )
+			return 'n';
+		if ( classO[0].props_in_schema === false )	
+			return 's';
+		if ( classO[0].props_in_schema === true )
+			return 'b';
+		return 'n'
+	} 
+	
+	if ( parameterExists(params, 'propertyKind') ) {
+		if ( params.propertyKind === 'Data' ) {
+			strAo = 'data_cnt';
+			strBo = 'data_cnt';
+			whereListA.push('v.data_cnt > 0');
+			whereListB.push('v.data_cnt > 0');
+		}
+		if ( params.propertyKind === 'Object' || params.propertyKind === 'ObjectExt' || params.propertyKind === 'Connect') {
+			strAo = 'object_cnt';
+			strBo = 'object_cnt';
+			whereListA.push('v.object_cnt > 0');
+			whereListB.push('v.object_cnt > 0');
+		}
+	}
+	else  params.propertyKind = 'All';
+	
+	if ( parameterExists(params, 'filter') ) {
+		whereListA.push(`v.getFilterColumn(params) ~ $2`); 
+		whereListB.push(`v.getFilterColumn(params) ~ $2`);
+	}
 
-/* list of class properties */
-const getSchemaClassProperties = async (sName, uriClass) => {
-	const clInfo = await db.any(`SELECT * FROM ${sName}.classes WHERE iri = $1`, [uriClass]);
-	let propList = ""; 
-	let sk = 0;
-	console.log(clInfo)
-	//console.log(clInfo.length)
-	if ( clInfo[0].props_in_schema === true){
-		//sk = await db.any(`select count(*) FROM ${sName}.v_cp_rels WHERE class_iri = $1`, [uriClass])[0].count;
-		const xx = await db.any(`select count(*) FROM ${sName}.v_cp_rels WHERE class_iri = $1`, [uriClass])
-		console.log(xx)
-		const pList =  await db.any(`select property_iri FROM ${sName}.v_cp_rels WHERE class_iri = $2 order by cnt desc LIMIT $1`, [MAX_ANSWERS, uriClass]);
-		const pString = pList.map(x => x.property_iri).join("','")
-		propList = "('" + pString + "')";
+	if ( parameterExists(params, 'namespaces') ) {
+		if (params.namespaces.in !== undefined ) {
+			whereListA.push(formWherePart('v.prefix', 'in', params.namespaces.in, 1));
+			whereListB.push(formWherePart('v.prefix', 'in', params.namespaces.in, 1));
+		}
+		if (params.namespaces.notIn !== undefined ) {
+			whereListA.push(formWherePart('v.prefix', 'not in', params.namespaces.notIn, 1));
+			whereListB.push(formWherePart('v.prefix', 'not in', params.namespaces.notIn, 1));
+		}
+	}
+
+	if ( parameterExists(params, 'className'))
+		classFrom = await getClassByName(params.className, schema);
+	if ( parameterExists(params, 'otherEndClassName'))
+		classTo = await getClassByName(params.otherEndClassName, schema);
+	
+	//console.log(classFrom)
+	if ( classType(classFrom) === 's' || classType(classTo)=== 's' || parameterExists(params, 'uriIndividual') || parameterExists(params, 'otherEndUriIndividual')) {
+		
+		if ( parameterExists(params, 'uriIndividual') || parameterExists(params, 'otherEndUriIndividual')) {
+			if ( parameterExists(params, 'uriIndividual') ) {
+				const propListAB = await sparqlGetPropertiesFromIndividuals(params, 'From', params.uriIndividual);
+				await addToWhereList(propListAB);
+			}
+			if ( parameterExists(params, 'otherEndUriIndividual') ) {
+				const propListAB = await sparqlGetPropertiesFromIndividuals(params, 'To', params.otherEndUriIndividual);
+				await addToWhereList(propListAB);
+			}
+		}
+		else {
+			if ( classType(classFrom) === 's') {
+				const propListAB = await sparqlGetPropertiesFromClass(params, 'From', classFrom[0].iri);
+				//console.log(propListAB)
+				await addToWhereList(propListAB);
+			}
+			if ( classType(classTo)=== 's' ) {
+				const propListAB = await sparqlGetPropertiesFromClass(params, 'To', classTo[0].iri);
+				await addToWhereList(propListAB);
+			}
+		}
+		
+		sql = formSql();
 	}
 	else {
-		const p = await getClassProperties("https://dbpedia.org/sparql", uriClass, false, MAX_ANSWERS);
-		sk = p.map(x => x.value).length;
-		const pString = p.map(x => x.value).join("','")
-		propList = "('" + pString + "')";
-		//const sparql = "select distinct ?x where {?x a " + uriClass +". [] ?p ?x} limit 100"
-	}
+		if ( classType(classFrom) === 'b') {
+			contextA = ', cp_rels r';
+			contextB = ', cp_rels r';
+			whereListA.push(`property_id = v.id and r.type_id = 2 and class_id = ${classFrom[0].id}`);
+			whereListB.push(`property_id = v.id and r.type_id = 1 and class_id = ${classFrom[0].id}`);
+		} 
+		if ( classType(classTo) === 'b' ){
+			if ( contextA === '' ) {
+				contextA = ', cp_rels r';
+				contextB = ', cp_rels r';
+				whereListA.push(`property_id = v.id and r.type_id = 1 and class_id = ${classTo[0].id}`);
+				whereListB.push(`property_id = v.id and r.type_id = 2 and class_id = ${classTo[0].id}`);
+			}
+			else {
+				whereListA.push(`v.id in (select property_id from cp_rels r where r.type_id = 1 and class_id = ${classTo[0].id})`);
+				whereListB.push(`v.id in (select property_id from cp_rels r where r.type_id = 2 and class_id = ${classTo[0].id})`);
+			}
+		}  
 	
-	//const sql = "SELECT * FROM " + sName + ".v_properties_ns  WHERE iri in " + propList +" order by cnt desc"
-	const sql = "SELECT * FROM " + sName + ".properties  WHERE iri in " + propList +" order by cnt desc"
-	const r = await db.any(sql);
-	//const r = await db.any(`SELECT * FROM ${sName}.v_properties_ns  WHERE iri in $1 order by cnt desc`, [propList]);	
-			
-	//const sk = await db.any(`SELECT count(*) FROM ${sName}.v_properties_ns WHERE namestring ~ $1`, [filter]);
-    //const r = await db.any(`SELECT * FROM ${sName}.v_classes_ns  WHERE namestring ~ $2 order by cnt desc LIMIT $1`, [MAX_ANSWERS, filter]);
-	//return {data: r, complete: sk[0].count <= MAX_ANSWERS};
-	return {data:r, complete: sk <= MAX_ANSWERS}
-}
+		sql = formSql();
+	}
 
-const getProperties = async (schema, params) => {
-	let r = {}
-	if ( parameterExists(params, "uriClass") )
-		r = await getSchemaClassProperties(schema, params.uriClass)
-	else  
-		r = await getSchemaProperties(schema)
-	return r
+	r = await getSchemaData(sql, params);
+	return r;
+
 }
 
 module.exports = {

@@ -2,15 +2,15 @@ const db = require('./db')
 const debug = require('debug')('dss:classops')
 
 const { 
-    executeSPARQL,
-    getClassProperties,
-	getIndividualClasses,
+	sparqlGetIndividualClasses,
 } = require('../../util/sparql/endpoint-queries')
 
 const { 
     parameterExists,
+	getFilterColumn,
 	formWherePart,
-	getPorpertyByName,
+	getPropertyByName,
+	getSchemaData,
 } = require('./utilities')
 
 const MAX_ANSWERS = 100;
@@ -36,23 +36,6 @@ const getOntologyClassesFiltered = async (ontName, filter) => {
 
 /* list of classes */
 // **************************************************************************************************************
-const getSchemaClasses = async (sql, params) => {
-	let complete = true;
-	let r;
-	
-	if ( parameterExists(params, "filter"))	
-		r = await db.any(sql, [params.limit+1, params.filter]);
-	else
-		r = await db.any(sql,[params.limit+1]);
-
-	if ( r.length == params.limit+1 ){
-		complete = false;
-		r.pop();
-	}
-		
-	return {data: r, complete: complete};
-}
-
 const findMainProperty = async (schema, pList) => {
 
 	if ( pList.in.length === 1)
@@ -75,7 +58,7 @@ const getIdsfromPList = async (schema, pList) => {
 	let r = {in:[], out:[]}
 	if ( parameterExists(pList, "in") ) {
 		for (const element of pList.in) {
-			const pr = await getPorpertyByName(element.name, schema)
+			const pr = await getPropertyByName(element.name, schema)
 			if ( pr.length > 0 && pr[0].object_cnt > 0)
 				r.in.push(pr[0].id);
 		}	
@@ -83,7 +66,7 @@ const getIdsfromPList = async (schema, pList) => {
 	
 	if ( parameterExists(pList, "out") ) {
 		for (const element of pList.out) {
-			const pr = await getPorpertyByName(element.name, schema)
+			const pr = await getPropertyByName(element.name, schema)
 			if ( pr.length > 0)
 				r.out.push(pr[0].id);
 		}	
@@ -95,21 +78,21 @@ const getIdsfromPList = async (schema, pList) => {
 /* list of classes */
 const getClasses = async (schema, params) => {
 	
-	let viewname = `${schema}.v_classes_ns_main v`;
+	const viewname = ( parameterExists(params, "filter") || parameterExists(params, "namespaces") ? `${schema}.v_classes_ns v` :`${schema}.v_classes_ns_main v` ) ;
 	let whereList = [];
 	let r = { data: [], complete: false };
 	if ( parameterExists(params, "filter") ) {
-		viewname = `${schema}.v_classes_ns v`;
-		whereList.push('v.namestring ~ $2');
+		//viewname = `${schema}.v_classes_ns v`;
+		whereList.push(`v.${getFilterColumn(params)} ~ $2`); 
 	}
 
 	if ( parameterExists(params, "uriIndividual") ){
-		const classList = await getIndividualClasses(params);
+		const classList = await sparqlGetIndividualClasses(params);
 		const idList = await db.any(`SELECT id FROM ${schema}.classes where ${formWherePart('iri', 'in', classList, 1)}`); 
-		if ( idList.length > 0) {
+		if ( idList.length > 0) 
 			whereList.push(formWherePart('id', 'in', idList.map(v => v.id), 0));
+		else
 			params.uriIndividual = "";
-		}
 	}
 	
 	if ( parameterExists(params, "namespaces") ){
@@ -164,15 +147,8 @@ const getClasses = async (schema, params) => {
 
 	}
 			
-	console.log(sql)
-	r = await getSchemaClasses(sql, params)
-	
-	//let r = {}
-	//if ( parameterExists(params, "filter") )
-	//	r = await getSchemaClassesFiltered(schema, params)
-	//else
-	//	r = await getSchemaClasses(schema)
-	
+	r = await getSchemaData(sql, params)
+
 	return r;
 }
 
@@ -181,10 +157,20 @@ const getOntologyNameSpaces = async schema => {
 	const r = await db.any(`select  id, name, priority, (select count(*) from ${schema}.classes where ns_id = ns.id  ) cl_count from ${schema}.ns where priority > 0`);
     return r;
 }
+	
+const getNamespaces = async schema => {
+	const r = await db.any(`SELECT  *, 
+	          (SELECT count(*) FROM ${schema}.classes where ns_id = ns.id  ) cl_count, 
+			  (SELECT count(*) FROM ${schema}.properties where ns_id = ns.id  ) prop_count 
+		FROM ${schema}.ns order by priority desc`);
+    return r;
+}
+// **************************************************************************************************************
 
 module.exports = {
 	getOntologyNameSpaces,
     getOntologyClasses,
     getOntologyClassesFiltered,
 	getClasses,
+	getNamespaces,
 }
