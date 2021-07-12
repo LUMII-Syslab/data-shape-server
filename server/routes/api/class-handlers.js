@@ -78,7 +78,7 @@ const getIdsfromPList = async (schema, pList) => {
 /* list of classes */
 const getClasses = async (schema, params) => {
 	
-	const viewname = ( parameterExists(params, "filter") || parameterExists(params, "namespaces") ? `${schema}.v_classes_ns v` :`${schema}.v_classes_ns_main v` ) ;
+	const viewname = ( parameterExists(params, "filter") || ( parameterExists(params, "namespaces") && params.namespaces.in !== undefined)  ? `${schema}.v_classes_ns v` :`${schema}.v_classes_ns_main v` ) ;
 	let whereList = [];
 	let r = { data: [], complete: false };
 	if ( parameterExists(params, "filter") ) {

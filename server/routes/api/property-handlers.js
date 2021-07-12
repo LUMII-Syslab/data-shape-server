@@ -29,7 +29,7 @@ const getProperties = async (schema, params) => {
 	
    	let r = { data: [], complete: false };
 	let sql;
-	let viewname = `${schema}.v_properties_ns v`;
+	let viewname = 'v_properties_ns';
 	let classFrom = [];
 	let classTo = [];
 	let whereListA = [ true ];
@@ -53,18 +53,18 @@ const getProperties = async (schema, params) => {
 		const ot = ( contextA == '' ? 'v.' : 'r.')
 		const orderByPref = ( parameterExists(params, 'orderByPrefix') ? params.orderByPrefix : '')
 		let sql = `SELECT aa.* FROM ( SELECT 'out' as mark, v.*, ${ot}${strAo} as o 				
-FROM ${schema}.v_properties_ns v ${contextA}
+FROM ${schema}.${viewname} v ${contextA}
 WHERE ${whereListA.join(' and ')} 
 ) aa
 order by ${orderByPref} o desc LIMIT $1`;
 		if ( params.propertyKind === 'ObjectExt' || params.propertyKind === 'Connect') {
 			sql = `SELECT aa.* FROM (
 SELECT 'out' as mark, v.*, ${ot}${strAo} as o 
-FROM ${schema}.v_properties_ns v ${contextA}
+FROM ${schema}.${viewname} v ${contextA}
 WHERE ${whereListA.join(' and ')} 
 UNION ALL
 SELECT 'in' as mark, v.*, ${ot}${strBo} as o   
-FROM ${schema}.v_properties_ns v ${contextB}
+FROM ${schema}.${viewname} v ${contextB}
 WHERE ${whereListB.join(' and ')} 
 ) aa
 order by ${orderByPref} o desc LIMIT $1`;
@@ -98,8 +98,8 @@ order by ${orderByPref} o desc LIMIT $1`;
 	else  params.propertyKind = 'All';
 	
 	if ( parameterExists(params, 'filter') ) {
-		whereListA.push(`v.getFilterColumn(params) ~ $2`); 
-		whereListB.push(`v.getFilterColumn(params) ~ $2`);
+		whereListA.push(`v.${getFilterColumn(params)} ~ $2`); 
+		whereListB.push(`v.${getFilterColumn(params)} ~ $2`);
 	}
 
 	if ( parameterExists(params, 'namespaces') ) {
