@@ -199,6 +199,7 @@ router.post('/fn/:fname', async (req, res, next) => {
 });
 // ***********************************************************************************88
 router.post('/ontologies/:ont/:fn', async (req, res, next) => {
+	console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~');
     try {
         const ont = req.params['ont'];
 		const fn = req.params['fn'];

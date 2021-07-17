@@ -9,7 +9,7 @@ const parameterExists = (parTree, par) => {
 }
 
 const getFilterColumn = params => {
-	return ( parameterExists('filterColumn') ? params.filterColumn : 'namestring' );
+	return ( parameterExists(params, 'filterColumn') ? params.filterColumn : 'namestring' );
 }
 const checkEndpoint = async params => {
    // TODO find value in DB

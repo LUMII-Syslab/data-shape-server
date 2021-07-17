@@ -51,6 +51,10 @@ const getProperties = async (schema, params) => {
 	}
 	function formSql()  {
 		const ot = ( contextA == '' ? 'v.' : 'r.')
+		if ( strAo !== 'cnt' ) {
+			whereListA.push(`${ot}${strAo} > 0`);
+			whereListB.push(`${ot}${strBo} > 0`);	
+		}
 		const orderByPref = ( parameterExists(params, 'orderByPrefix') ? params.orderByPrefix : '')
 		let sql = `SELECT aa.* FROM ( SELECT 'out' as mark, v.*, ${ot}${strAo} as o 				
 FROM ${schema}.${viewname} v ${contextA}
@@ -85,14 +89,10 @@ order by ${orderByPref} o desc LIMIT $1`;
 		if ( params.propertyKind === 'Data' ) {
 			strAo = 'data_cnt';
 			strBo = 'data_cnt';
-			whereListA.push('v.data_cnt > 0');
-			whereListB.push('v.data_cnt > 0');
 		}
 		if ( params.propertyKind === 'Object' || params.propertyKind === 'ObjectExt' || params.propertyKind === 'Connect') {
 			strAo = 'object_cnt';
 			strBo = 'object_cnt';
-			whereListA.push('v.object_cnt > 0');
-			whereListB.push('v.object_cnt > 0');
 		}
 	}
 	else  params.propertyKind = 'All';
