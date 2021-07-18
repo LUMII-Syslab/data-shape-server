@@ -24,21 +24,10 @@ const {
 	getSchemaObject,
 } = require('./utilities')
 
-	
-
 const { 
     executeSPARQL,
     getClassProperties,
 } = require('../../util/sparql/endpoint-queries')
-
-// TODO: get this list from the db  
-const KNOWN_ONTOLOGIES = [
-    'dbpedia',
-    'leldes_smilskaste',
-    'c',
-    'd',
-	'sample',
-]
 
 // TODO: get this info from the db
 const KNOWN_DATA = [ 
@@ -60,19 +49,6 @@ const getSchemaName = name => {
 /* API root */
 router.get('/', (req, res, next) => {
   res.send('API root');
-});
-
-router.get('/test', async (req, res, next) => {
-  const p = await getClassProperties("https://dbpedia.org/sparql", "http://dbpedia.org/ontology/Agent", false, 100);
-  res.json(p)
-  //res.send('aaa');
-});
-
-/**
- * List of known ontologies
- */
-router.get('/ontologies', (req, res, next) => {
-  res.json(KNOWN_ONTOLOGIES);
 });
 
 /**
@@ -173,30 +149,6 @@ router.get('/ontologies/:ont/classes-filtered/:filter', async (req, res, next) =
     }
 });
 
-/* list of properties */
-router.get('/ontologies/:ont/properties', (req, res, next) => {
-    const data = [
-        'a',
-        'b',
-        'c',
-        'd',
-    ]
-  res.send(JSON.stringify(data, null, 2));
-});
-
-/**
- * Example for a generic route where all parameters except the function name are provided in JSON
- */
-router.post('/fn/:fname', async (req, res, next) => {
-    const fname = req.params['fname']
-    const params = req.body;
-    console.log(fname, params);
-
-    // calculate the result
-    let result = {kaut: 1, kas: 3, input: req.body}
-
-    res.json(result)
-});
 // ***********************************************************************************88
 router.post('/ontologies/:ont/:fn', async (req, res, next) => {
 	console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~');

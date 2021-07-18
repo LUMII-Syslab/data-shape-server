@@ -144,7 +144,7 @@ const getClasses = async (schema, params) => {
 
 		sql = `SELECT v.*, case when p.cover_set_index is not null then 2 else case when p.id is not null then 1 else 0 end end as principal_class 
                 FROM ${viewname} ${JoinStr} ${schema}.cp_rels p ON p.class_id = v.id and p.type_id = ${mainProp.typeId} and p.property_id = ${mainProp.id} 
-				WHERE ${whereStr} order by v.cnt desc LIMIT $1`;
+				WHERE ${whereStr} order by p.cnt desc LIMIT $1`;
 
 	}
 			

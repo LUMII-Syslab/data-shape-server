@@ -90,7 +90,7 @@ const getSchemaData = async (sql, params) => {
 		r.pop();
 	}
 		
-	return {data: r, complete: complete};
+	return {data: r, complete: complete, params: params};
 }
 
 const formWherePart = (col, inT, list, listType) => {
