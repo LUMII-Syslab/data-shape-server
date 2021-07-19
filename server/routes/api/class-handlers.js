@@ -142,6 +142,7 @@ const getClasses = async (schema, params) => {
 const getTreeClasses = async (schema, params) => {
 	let whereList = [ true ];
 	let sql = '';
+	let sql_plus = '';
 	let r = { data: [], complete: false };
 	
 	const viewname = ( parameterExists(params, "filter") || ( parameterExists(params, "namespaces") && params.namespaces.in !== undefined)  ? `${schema}.v_classes_ns v` :`${schema}.v_classes_ns_main v` ) ;
@@ -153,20 +154,33 @@ const getTreeClasses = async (schema, params) => {
 			whereList.push(formWherePart('v.prefix', 'not in', params.namespaces.notIn, 1));
 	}
 	
-	if (params.mode === 'Top') {
+	if ( parameterExists(params, "filter") )
+		whereList.push(`v.${getFilterColumn(params)} ~ $2`); 
 	
-		if ( parameterExists(params, "filter") )
-			whereList.push(`v.${getFilterColumn(params)} ~ $2`); 
-		
-		sql = `SELECT v.*, ( SELECT count(*) FROM cc_rels r WHERE r.class_2_id = v.id ) as ch_count FROM ${viewname} WHERE ${whereList.join(' and ')} order by cnt desc LIMIT $1`;
+	if (params.mode === 'Top') {
+		sql = `SELECT v.*, ( SELECT count(*) FROM ${schema}.cc_rels r WHERE r.class_2_id = v.id ) as ch_count FROM ${viewname} WHERE ${whereList.join(' and ')} order by cnt desc LIMIT $1`;
 	}
 	
 	if (params.mode === 'Sub') {
 		whereList.push(`r.class_2_id = ${params.class_id} and r.class_1_id = v.id`);
-		sql = `SELECT v.* from ${schema}.v_classes_ns v, ${schema}.cc_rels r WHERE ${whereList.join(' and ')} order by cnt desc LIMIT $1`;
+		sql = `SELECT v.*, ( SELECT count(*) FROM ${schema}.cc_rels r WHERE r.class_2_id = v.id ) as ch_count from ${schema}.v_classes_ns v, ${schema}.cc_rels r WHERE ${whereList.join(' and ')} order by cnt desc LIMIT $1`;
 	}
 	
-	r = await getSchemaData(sql, params);
+	if (params.mode === 'SubAll' && params.class_id > 0) {
+		
+		if ( parameterExists(params, "filter") ) 
+			whereList.push(`v.${getFilterColumn(params)} ~ $2`); 
+
+		whereList.push(`r.class_2_id = ${params.class_id} and r.class_1_id = v.id`);
+		sql = `SELECT v.* from ${schema}.v_classes_ns v, ${schema}.cc_rels r WHERE ${whereList.join(' and ')} order by cnt desc LIMIT $1`;
+		sql_plus = `with recursive pairs(A,B) as ( SELECT class_1_id, class_2_id from ${schema}.cc_rels  union all  SELECT X.A, Y.class_2_id FROM pairs X, ${schema}.cc_rels Y WHERE X.B = Y.class_1_id)
+				SELECT v.* from pairs, ${schema}.v_classes_ns v WHERE v.id = A and B = ${params.class_id} and ${whereList.join(' and ')} order by cnt desc LIMIT $1`;
+	}
+	
+	if ( sql_plus !== '')
+		r = await getSchemaDataPlus(sql, sql_plus, params);
+	if ( sql !== '')
+		r = await getSchemaData(sql, params);
 
 	return r;
 }
