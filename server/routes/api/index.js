@@ -32,15 +32,13 @@ const {
 
 // TODO: get this info from the db
 const KNOWN_DATA = [ 
-	{name: 'V1_dbpedia', schema:'dbpedia' },
-    {name: 'V2_miniUniv', schema:'leldes_smilskaste'},
-	{name: 'V4_wikidata', schema:'wikidata'},
-    {name: 'V3_empty', schema:'sample'},
+	{name: 'DBpedia', schema:'dbpedia' },
 ]
 
 const validateOntologyName = name => /^[a-zA-Z0-9_]+$/.test(name)
 
 const getSchemaName = name => {
+	if ( name === 'V1_dbpedia' ) name = 'DBpedia'; // TODO: remove
 	const s = KNOWN_DATA.find(x => x.name == name);
 	if (s !== undefined) return s.schema;
 	else return "";
