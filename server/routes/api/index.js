@@ -9,6 +9,7 @@ const {
     getOntologyClassesFiltered, 
 	getOntologyNameSpaces,
 	getClasses,
+	getTreeClasses,
 	getNamespaces,
 } = require('./class-handlers')
 
@@ -173,6 +174,8 @@ router.post('/ontologies/:ont/:fn', async (req, res, next) => {
 		let r = { complete: false };
 		if ( fn === 'getClasses')
 			r = await getClasses(schema, params)
+		if ( fn === 'getTreeClasses')
+			r = await getTreeClasses(schema, params)
 		if ( fn === 'getProperties')
 			r = await getProperties(schema, params)
 		if ( fn === 'getNamespaces')

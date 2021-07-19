@@ -11,6 +11,8 @@ const {
 	formWherePart,
 	getPropertyByName,
 	getSchemaData,
+	getSchemaDataPlus,
+	getIdsfromPList,
 } = require('./utilities')
 
 const MAX_ANSWERS = 100;
@@ -54,32 +56,12 @@ const findMainProperty = async (schema, pList) => {
 	return {};
 }
 
-const getIdsfromPList = async (schema, pList) => {
-	let r = {in:[], out:[]}
-	if ( parameterExists(pList, "in") ) {
-		for (const element of pList.in) {
-			const pr = await getPropertyByName(element.name, schema)
-			if ( pr.length > 0 && pr[0].object_cnt > 0)
-				r.in.push(pr[0].id);
-		}	
-	}
-	
-	if ( parameterExists(pList, "out") ) {
-		for (const element of pList.out) {
-			const pr = await getPropertyByName(element.name, schema)
-			if ( pr.length > 0)
-				r.out.push(pr[0].id);
-		}	
-	}
-			
-	return await r;
-}
 
 /* list of classes */
 const getClasses = async (schema, params) => {
 	
 	const viewname = ( parameterExists(params, "filter") || ( parameterExists(params, "namespaces") && params.namespaces.in !== undefined)  ? `${schema}.v_classes_ns v` :`${schema}.v_classes_ns_main v` ) ;
-	let whereList = [];
+	let whereList = [ true ];
 	let r = { data: [], complete: false };
 	if ( parameterExists(params, "filter") ) {
 		//viewname = `${schema}.v_classes_ns v`;
@@ -112,11 +94,12 @@ const getClasses = async (schema, params) => {
 			console.log(mainProp)
 			newPList.in = newPList.in.filter(item => item !== mainProp.id);
 			newPList.out = newPList.out.filter(item => item !== mainProp.id);
-			console.log(newPList)
+			//console.log(newPList)
 		}
 	}
 	
 	let sql;	
+	let sql_plus = '';
 	//console.log("----------- whereList -------------")
 	//console.log(whereList)	
 	if ( mainProp.id === undefined ){
@@ -128,27 +111,62 @@ const getClasses = async (schema, params) => {
 		
 	}
 	else {
-		if ( newPList.in.length === 0 && newPList.out.length === 0)
-			whereList.push('( props_in_schema = false or p.id is not null )');
-		else {
-			let subWhere = [];
+		if ( newPList.in.length > 0 || newPList.out.length > 0) {
 			if (newPList.in.length > 0 )
-				newPList.in.forEach(element => subWhere.push(`v.id in (SELECT class_id from ${schema}.cp_rels WHERE property_id = ${element} and type_id = 1)`));
+				newPList.in.forEach(element => whereList.push(`v.id in (SELECT class_id FROM ${schema}.cp_rels WHERE property_id = ${element} and type_id = 1)`));
 			if (newPList.out.length > 0 )
-				newPList.out.forEach(element => subWhere.push(`v.id in (SELECT class_id from ${schema}.cp_rels WHERE property_id = ${element} and type_id = 2)`));
-			whereList.push(`( props_in_schema = false or ( p.id is not null and ${subWhere.join(' and ')} ))`);
+				newPList.out.forEach(element => whereList.push(`v.id in (SELECT class_id FROM ${schema}.cp_rels WHERE property_id = ${element} and type_id = 2)`));
 		}
 			
 		const whereStr = whereList.join(' and ')
-	    const JoinStr = ( parameterExists(params, "onlyPropsInSchema") && params.onlyPropsInSchema ? 'JOIN' : 'LEFT JOIN')
+	    //const JoinStr = ( parameterExists(params, "onlyPropsInSchema") && params.onlyPropsInSchema ? 'JOIN' : 'LEFT JOIN')
 
-		sql = `SELECT v.*, case when p.cover_set_index is not null then 2 else case when p.id is not null then 1 else 0 end end as principal_class 
-                FROM ${viewname} ${JoinStr} ${schema}.cp_rels p ON p.class_id = v.id and p.type_id = ${mainProp.typeId} and p.property_id = ${mainProp.id} 
+		sql = `SELECT v.*, case when p.cover_set_index is not null then 2 else 1 end as principal_class 
+                FROM ${viewname} JOIN ${schema}.cp_rels p ON p.class_id = v.id and p.type_id = ${mainProp.typeId} and p.property_id = ${mainProp.id} 
 				WHERE ${whereStr} order by p.cnt desc LIMIT $1`;
+		
+		const w2 = ( parameterExists(params, "filter") ? `v.${getFilterColumn(params)} ~ $2 and props_in_schema = false` : 'props_in_schema = false' );
+		sql_plus = `SELECT v.*, 0 as principal_class FROM ${viewname} WHERE ${w2} order by v.cnt desc LIMIT $1`;
 
 	}
 			
-	r = await getSchemaData(sql, params)
+	if ( sql_plus !== '')
+		r = await getSchemaDataPlus(sql, sql_plus, params);
+	else
+		r = await getSchemaData(sql, params);
+
+	return r;
+}
+
+/* list of tree classes */
+const getTreeClasses = async (schema, params) => {
+	let whereList = [ true ];
+	let sql = '';
+	let r = { data: [], complete: false };
+	
+	const viewname = ( parameterExists(params, "filter") || ( parameterExists(params, "namespaces") && params.namespaces.in !== undefined)  ? `${schema}.v_classes_ns v` :`${schema}.v_classes_ns_main v` ) ;
+		
+	if ( parameterExists(params, "namespaces") ){
+		if (params.namespaces.in !== undefined )
+			whereList.push(formWherePart('v.prefix', 'in', params.namespaces.in, 1));
+		if (params.namespaces.notIn !== undefined )
+			whereList.push(formWherePart('v.prefix', 'not in', params.namespaces.notIn, 1));
+	}
+	
+	if (params.mode === 'Top') {
+	
+		if ( parameterExists(params, "filter") )
+			whereList.push(`v.${getFilterColumn(params)} ~ $2`); 
+		
+		sql = `SELECT v.*, ( SELECT count(*) FROM cc_rels r WHERE r.class_2_id = v.id ) as ch_count FROM ${viewname} WHERE ${whereList.join(' and ')} order by cnt desc LIMIT $1`;
+	}
+	
+	if (params.mode === 'Sub') {
+		whereList.push(`r.class_2_id = ${params.class_id} and r.class_1_id = v.id`);
+		sql = `SELECT v.* from ${schema}.v_classes_ns v, ${schema}.cc_rels r WHERE ${whereList.join(' and ')} order by cnt desc LIMIT $1`;
+	}
+	
+	r = await getSchemaData(sql, params);
 
 	return r;
 }
@@ -174,4 +192,5 @@ module.exports = {
     getOntologyClassesFiltered,
 	getClasses,
 	getNamespaces,
+	getTreeClasses,
 }

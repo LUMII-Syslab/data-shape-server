@@ -11,6 +11,7 @@ const parameterExists = (parTree, par) => {
 const getFilterColumn = params => {
 	return ( parameterExists(params, 'filterColumn') ? params.filterColumn : 'namestring' );
 }
+
 const checkEndpoint = async params => {
    // TODO find value in DB
 	if ( params.endpointUrl === undefined )
@@ -93,6 +94,40 @@ const getSchemaData = async (sql, params) => {
 	return {data: r, complete: complete, params: params};
 }
 
+const getSchemaDataPlus = async (sql, sql2, params) => {
+	let complete = true;
+	let r;
+	let r2;
+	console.log('--------executeSQL-----------------');
+	console.log(sql);
+	if ( parameterExists(params, 'filter'))	
+		r = await db.any(sql, [params.limit+1, params.filter]);
+	else
+		r = await db.any(sql,[params.limit+1]);
+	
+	if ( r.length == params.limit+1 ){
+		complete = false;
+		r.pop();
+	}
+	else {
+		if (parameterExists(params, "onlyPropsInSchema") === false || params.onlyPropsInSchema === false) {
+			console.log('--------executeSQL Plus-----------------');
+			console.log(sql2);
+			if ( parameterExists(params, 'filter'))	
+				r2 = await db.any(sql2, [params.limit-r.length+1, params.filter]);
+			else
+				r2 = await db.any(sql2,[params.limit-r.length+1]);
+			
+			if ( r2.length == params.limit-r.length+1 ){
+				complete = false;
+				r2.pop();
+			}
+			r2.forEach(element => r.push(element));				
+		}
+	}
+	return {data: r, complete: complete, params: params};
+}
+
 const formWherePart = (col, inT, list, listType) => {
 	//console.log('------------------------------------------------------')
 	let sep = "";
@@ -105,6 +140,27 @@ const formWherePart = (col, inT, list, listType) => {
 	return  ` ${col} ${inT} (${sep}${list.join(`${sep},${sep}`)}${sep})`;
 }
 
+const getIdsfromPList = async (schema, pList) => {
+	let r = {in:[], out:[]}
+	if ( parameterExists(pList, "in") ) {
+		for (const element of pList.in) {
+			const pr = await getPropertyByName(element.name, schema)
+			if ( pr.length > 0 && pr[0].object_cnt > 0)
+				r.in.push(pr[0].id);
+		}	
+	}
+	
+	if ( parameterExists(pList, "out") ) {
+		for (const element of pList.out) {
+			const pr = await getPropertyByName(element.name, schema)
+			if ( pr.length > 0)
+				r.out.push(pr[0].id);
+		}	
+	}
+			
+	return await r;
+}
+
 module.exports = {
 	parameterExists,
 	getFilterColumn,
@@ -113,5 +169,7 @@ module.exports = {
 	getClassByName,
 	getPropertyByName,
 	getSchemaData,
+	getSchemaDataPlus,
 	getSchemaObject,
+	getIdsfromPList,
 }
