@@ -145,7 +145,7 @@ const getTreeClasses = async (schema, params) => {
 	let sql_plus = '';
 	let r = { data: [], complete: false };
 	
-	const viewname = ( parameterExists(params, "filter") || ( parameterExists(params, "namespaces") && params.namespaces.in !== undefined)  ? `${schema}.v_classes_ns_plus v` :`${schema}.v_classes_ns_main_plus v` ) ;
+	const viewname = ( parameterExists(params, "filter") || ( parameterExists(params, "namespaces") && params.namespaces.in !== undefined && params.namespaces.in.length > 0 ) ? `${schema}.v_classes_ns_plus v` :`${schema}.v_classes_ns_main_plus v` ) ;
 		
 	if ( parameterExists(params, "namespaces") ){
 		if (params.namespaces.in !== undefined && params.namespaces.in.length > 0 )
