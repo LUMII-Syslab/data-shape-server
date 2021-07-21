@@ -145,12 +145,12 @@ const getTreeClasses = async (schema, params) => {
 	let sql_plus = '';
 	let r = { data: [], complete: false };
 	
-	const viewname = ( parameterExists(params, "filter") || ( parameterExists(params, "namespaces") && params.namespaces.in !== undefined)  ? `${schema}.v_classes_ns v` :`${schema}.v_classes_ns_main v` ) ;
+	const viewname = ( parameterExists(params, "filter") || ( parameterExists(params, "namespaces") && params.namespaces.in !== undefined)  ? `${schema}.v_classes_ns_plus v` :`${schema}.v_classes_ns_main_plus v` ) ;
 		
 	if ( parameterExists(params, "namespaces") ){
-		if (params.namespaces.in !== undefined )
+		if (params.namespaces.in !== undefined && params.namespaces.in.length > 0 )
 			whereList.push(formWherePart('v.prefix', 'in', params.namespaces.in, 1));
-		if (params.namespaces.notIn !== undefined )
+		if (params.namespaces.notIn !== undefined && params.namespaces.notIn .length > 0 )
 			whereList.push(formWherePart('v.prefix', 'not in', params.namespaces.notIn, 1));
 	}
 	
@@ -158,12 +158,12 @@ const getTreeClasses = async (schema, params) => {
 		whereList.push(`v.${getFilterColumn(params)} ~ $2`); 
 	
 	if (params.mode === 'Top') {
-		sql = `SELECT v.*, ( SELECT count(*) FROM ${schema}.cc_rels r WHERE r.class_2_id = v.id ) as ch_count FROM ${viewname} WHERE ${whereList.join(' and ')} order by cnt desc LIMIT $1`;
+		sql = `SELECT v.* FROM ${viewname} WHERE ${whereList.join(' and ')} order by cnt desc LIMIT $1`;
 	}
 	
 	if (params.mode === 'Sub') {
 		whereList.push(`r.class_2_id = ${params.class_id} and r.class_1_id = v.id`);
-		sql = `SELECT v.*, ( SELECT count(*) FROM ${schema}.cc_rels r WHERE r.class_2_id = v.id ) as ch_count from ${schema}.v_classes_ns v, ${schema}.cc_rels r WHERE ${whereList.join(' and ')} order by cnt desc LIMIT $1`;
+		sql = `SELECT v.* from ${schema}.v_classes_ns_plus v, ${schema}.cc_rels r WHERE ${whereList.join(' and ')} order by cnt desc LIMIT $1`;
 	}
 	
 	if (params.mode === 'SubAll' && params.class_id > 0) {
