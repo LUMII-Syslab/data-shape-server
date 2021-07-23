@@ -1,4 +1,5 @@
 const db = require('./db')
+const util = require('./utilities')
 const debug = require('debug')('dss:classops')
 
 const { 
@@ -8,43 +9,33 @@ const {
 	sparqlGetPropertiesFromClass,
 } = require('../../util/sparql/endpoint-queries')
 
-const { 
-    parameterExists,
-	getFilterColumn,
-	formWherePart,
-	getClassByName,
-	getSchemaData,
-	getIdsfromPList,
-} = require('./utilities')
-
-
 const findMainProperty = async (schema, pListFrom, pListTo) => {
 
 	if ( pListFrom.in.length === 1)
 		return { id: pListFrom.in[0], type: 'in', class: 'from' };
 	if ( pListFrom.in.length > 1){
-		const r =  await db.any(`SELECT id FROM ${schema}.properties where ${formWherePart('id', 'in', pListFrom.in, 0)} order by object_cnt limit 1`); 
+		const r =  await db.any(`SELECT id FROM ${schema}.properties where ${util.formWherePart('id', 'in', pListFrom.in, 0)} order by object_cnt limit 1`); 
 		return { id: r[0].id, type: 'in', class: 'from' }
 	}
 	
 	if ( pListTo.in.length === 1)
 		return { id: pListTo.in[0], type: 'in', class: 'to' };
 	if ( pListTo.in.length > 1){
-		const r =  await db.any(`SELECT id FROM ${schema}.properties where ${formWherePart('id', 'in', pListTo.in, 0)} order by object_cnt limit 1`); 
+		const r =  await db.any(`SELECT id FROM ${schema}.properties where ${util.formWherePart('id', 'in', pListTo.in, 0)} order by object_cnt limit 1`); 
 		return { id: r[0].id, type: 'in', class: 'to' }
 	}
 	
 	if ( pListFrom.out.length === 1)
 		return { id: pListFrom.out[0], type: 'out', class: 'from' };
 	if ( pListFrom.out.length > 1){
-		const r =  await db.any(`SELECT id FROM ${schema}.properties where ${formWherePart('id', 'in', pListFrom.out, 0)} order by cnt limit 1`); 
+		const r =  await db.any(`SELECT id FROM ${schema}.properties where ${util.formWherePart('id', 'in', pListFrom.out, 0)} order by cnt limit 1`); 
 		return { id: r[0].id, type: 'out', class: 'from'  }
 	}
 	
 	if ( pListTo.out.length === 1)
 		return { id: pListTo.out[0], type: 'out', class: 'to' };
 	if ( pListTo.out.length > 1){
-		const r =  await db.any(`SELECT id FROM ${schema}.properties where ${formWherePart('id', 'in', pListTo.out, 0)} order by cnt limit 1`); 
+		const r =  await db.any(`SELECT id FROM ${schema}.properties where ${util.formWherePart('id', 'in', pListTo.out, 0)} order by cnt limit 1`); 
 		return { id: r[0].id, type: 'out', class: 'to' }
 	}
 	return {};
@@ -52,12 +43,6 @@ const findMainProperty = async (schema, pListFrom, pListTo) => {
 
 /* list of properties */
 const getProperties = async (schema, params) => {
-   // propertyKind
-   // filter
-   // namespaces
-   // className 
-   // otherEndClassName
-	
    	let r = { data: [], complete: false };
 	let sql;
 	let viewname = 'v_properties_ns';
@@ -72,27 +57,27 @@ const getProperties = async (schema, params) => {
 	let strBo = '';
 	
 	async function addToWhereList(propListAB)  {
-		//console.log(`SELECT id FROM ${schema}.properties where ${formWherePart('iri', 'in', propListAB.A, 1)}`)
-		const idListA = await db.any(`SELECT id FROM ${schema}.properties where ${formWherePart('iri', 'in', propListAB.A, 1)}`);
+		//console.log(`SELECT id FROM ${schema}.properties where ${util.formWherePart('iri', 'in', propListAB.A, 1)}`)
+		const idListA = await db.any(`SELECT id FROM ${schema}.properties where ${util.formWherePart('iri', 'in', propListAB.A, 1)} order by id`);
 		if ( idListA.length > 0) 
-			whereListA.push(formWherePart('v.id', 'in', idListA.map(v => v.id), 0));
-		//console.log(`SELECT id FROM ${schema}.properties where ${formWherePart('iri', 'in', propListAB.B, 1)}`)	
-		const idListB = await db.any(`SELECT id FROM ${schema}.properties where ${formWherePart('iri', 'in', propListAB.B, 1)}`);
+			whereListA.push(util.formWherePart('v.id', 'in', idListA.map(v => v.id), 0));
+		//console.log(`SELECT id FROM ${schema}.properties where ${util.formWherePart('iri', 'in', propListAB.B, 1)}`)	
+		const idListB = await db.any(`SELECT id FROM ${schema}.properties where ${util.formWherePart('iri', 'in', propListAB.B, 1)} order by id`);
 		if ( idListB.length > 0) 
-			whereListB.push(formWherePart('v.id', 'in', idListB.map(v => v.id), 0));
+			whereListB.push(util.formWherePart('v.id', 'in', idListB.map(v => v.id), 0));
 	}
 	function formSql()  {
 		if ( strOrderField !== 'cnt' ) {
 			whereListA.push(`${strAo} > 0`);
 			whereListB.push(`${strBo} > 0`);	
 		}
-		const orderByPref = ( parameterExists(params, 'orderByPrefix') ? params.orderByPrefix : '')
+		const orderByPref = ( util.isOrderByPrefix(params) ? util.getOrderByPrefix(params) : '')
 		let sql = `SELECT aa.* FROM ( SELECT 'out' as mark, v.*, ${strAo} as o 				
 FROM ${schema}.${viewname} v ${contextA}
 WHERE ${whereListA.join(' and ')} 
 ) aa
 order by ${orderByPref} o desc LIMIT $1`;
-		if ( params.propertyKind === 'ObjectExt' || params.propertyKind === 'Connect') {
+		if ( util.getPropertyKind(params) === 'ObjectExt' || util.getPropertyKind(params) === 'Connect') {
 			sql = `SELECT aa.* FROM (
 SELECT 'out' as mark, v.*, ${strAo} as o 
 FROM ${schema}.${viewname} v ${contextA}
@@ -116,53 +101,47 @@ order by ${orderByPref} o desc LIMIT $1`;
 		return 'n'
 	} 
 	
-	if ( parameterExists(params, 'propertyKind') ) {
-		if ( params.propertyKind === 'Data' ) 
+	if ( util.isPropertyKind(params)) {
+		if ( util.getPropertyKind(params) === 'Data' ) 
 			strOrderField = 'data_cnt';
-		if ( params.propertyKind === 'Object' || params.propertyKind === 'ObjectExt' || params.propertyKind === 'Connect') 
+		if ( util.getPropertyKind(params) === 'Object' || util.getPropertyKind(params) === 'ObjectExt' || util.getPropertyKind(params) === 'Connect') 
 			strOrderField = 'object_cnt';
 	}
-	else  params.propertyKind = 'All';
+	else  params = util.setPropertyKind(params, 'All');
 	
-	if ( parameterExists(params, 'filter') ) {
-		whereListA.push(`v.${getFilterColumn(params)} ~ $2`); 
-		whereListB.push(`v.${getFilterColumn(params)} ~ $2`);
+	if ( util.isFilter(params)) {
+		whereListA.push(`v.${util.getFilterColumn(params)} ~ $2`); 
+		whereListB.push(`v.${util.getFilterColumn(params)} ~ $2`);
+	}
+	
+	if ( util.isNamespaces(params)) {
+		whereListA.push(util.getNsWhere(params));
+		whereListB.push(util.getNsWhere(params));
 	}
 
-	if ( parameterExists(params, 'namespaces') ) {
-		if (params.namespaces.in !== undefined ) {
-			whereListA.push(formWherePart('v.prefix', 'in', params.namespaces.in, 1));
-			whereListB.push(formWherePart('v.prefix', 'in', params.namespaces.in, 1));
-		}
-		if (params.namespaces.notIn !== undefined ) {
-			whereListA.push(formWherePart('v.prefix', 'not in', params.namespaces.notIn, 1));
-			whereListB.push(formWherePart('v.prefix', 'not in', params.namespaces.notIn, 1));
-		}
-	}
-
-	if ( parameterExists(params, 'className'))
-		classFrom = await getClassByName(params.className, schema);
-	if ( parameterExists(params, 'otherEndClassName'))
-		classTo = await getClassByName(params.otherEndClassName, schema);
+	if ( util.isClassName(params, 0))
+		classFrom = await util.getClassByName(util.getClassName(params, 0), schema);
+	if ( util.isClassName(params, 1))
+		classTo = await util.getClassByName(util.getClassName(params, 1), schema);
 
 	let newPListFrom = {in:[], out:[]};
 	let newPListTo = {in:[], out:[]};
-	if ( parameterExists(params, "pListFrom") )
-		newPListFrom = await getIdsfromPList(schema, params.pListFrom);
-	if ( parameterExists(params, "pListTo") )
-		newPListTo = await getIdsfromPList(schema, params.pListTo);
+	if ( util.isPList(params, 0) )
+		newPListFrom = await util.getIdsfromPList(schema, util.getPList(params, 0));
+	if ( util.isPList(params, 1) )
+		newPListTo = await util.getIdsfromPList(schema, util.getPList(params, 1));
 
 	
 	//console.log(classFrom)
-	if ( classType(classFrom) === 's' || classType(classTo)=== 's' || parameterExists(params, 'uriIndividual') || parameterExists(params, 'otherEndUriIndividual')) {
+	if ( classType(classFrom) === 's' || classType(classTo)=== 's' || util.isUriIndividual(params, 0) || util.isUriIndividual(params, 1)) {
 		
-		if ( parameterExists(params, 'uriIndividual') || parameterExists(params, 'otherEndUriIndividual')) {
-			if ( parameterExists(params, 'uriIndividual') ) {
-				const propListAB = await sparqlGetPropertiesFromIndividuals(params, 'From', params.uriIndividual);
+		if ( util.isUriIndividual(params, 0) || util.isUriIndividual(params, 1)) {
+			if ( util.isUriIndividual(params, 0) ) {
+				const propListAB = await sparqlGetPropertiesFromIndividuals(params, 'From', util.getUriIndividual(params, 0));
 				await addToWhereList(propListAB);
 			}
-			if ( parameterExists(params, 'otherEndUriIndividual') ) {
-				const propListAB = await sparqlGetPropertiesFromIndividuals(params, 'To', params.otherEndUriIndividual);
+			if ( util.isUriIndividual(params, 1) ) {
+				const propListAB = await sparqlGetPropertiesFromIndividuals(params, 'To', util.getUriIndividual(params, 1));
 				await addToWhereList(propListAB);
 			}
 		}
@@ -279,7 +258,7 @@ order by ${orderByPref} o desc LIMIT $1`;
 		sql = formSql();
 	}
 	
-	r = await getSchemaData(sql, params);
+	r = await util.getSchemaData(sql, params);
 	return r;
 
 }

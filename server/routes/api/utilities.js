@@ -8,14 +8,112 @@ const parameterExists = (parTree, par) => {
 	return r;
 }
 
-const getFilterColumn = params => {
-	return ( parameterExists(params, 'filterColumn') ? params.filterColumn : 'namestring' );
+const isValue = val => {
+	let r = true
+	if ( val === undefined || val === null || val === '' || val.length == 0 )
+		r = false;
+	return r;
 }
+
+const getValue = val => {
+	let r
+	if ( val === undefined || val === null || val === '' || val.length == 0 )
+		r = '';
+	else
+		r = val;
+	return r;
+}
+
+const isEndpointUrl = params => { return isValue(params.main.endpointUrl);}
+const getEndpointUrl = params => { return getValue(params.main.endpointUrl);}
+const setEndpointUrl = (params, val) => {
+	params.main.endpointUrl = val;
+	return params;
+}
+const isFilter = params => { return isValue(params.main.filter); }
+const getFilter = params => { return getValue(params.main.filter); }
+const getFilterColumn = params => { 
+	r = 'namestring';
+	if (isValue(params.main.filterColumn))
+		r = getValue(params.main.filterColumn)
+	return r;
+}
+const getLimit = params => { return getValue(params.main.limit); }
+const getName = params => { return getValue(params.main.name); }
+const getTreeMode = params => { return getValue(params.main.treeMode); }
+const isNamespaces = params => { return isValue(params.main.namespaces);}
+const isInNamespaces = params => { return isValue(params.main.namespaces.in);}
+const isNotInNamespaces = params => { return isValue(params.main.namespaces.notIn);}
+const getInNamespaces = params => { return getValue(params.main.namespaces.in);}
+const getNotInNamespaces = params => { return getValue(params.main.namespaces.notIn);}
+const isOnlyPropsInSchema = params => { return isValue(params.main.onlyPropsInSchema);}
+const isUriIndividual = ( params, poz) => {
+	if ( poz === 0 && isValue(params.element) && isValue(params.element.uriIndividual)) 
+		return true;
+	if ( poz === 1 && isValue(params.elementOE) && isValue(params.elementOE.uriIndividual)) 
+		return true;
+	return false;
+}
+const getUriIndividual = ( params, poz) => {
+	if ( poz === 0 && isValue(params.element) ) 
+		return getValue(params.element.uriIndividual);
+	if ( poz === 1 && isValue(params.elementOE) ) 
+		return getValue(params.elementOE.uriIndividual);
+	return '';
+}
+const clearUriIndividual = ( params, poz) => {
+	if ( poz === 0 ) 
+		params.element.uriIndividual = '';
+	if ( poz === 1 ) 
+		params.elementOE.uriIndividual = '';
+	return params;
+}
+const getClassId = (params) => {
+	if ( isValue(params.element) ) 
+		return getValue(params.element.classId);
+	return '';
+}
+const isClassName = ( params, poz) => {
+	if ( poz === 0 && isValue(params.element) && isValue(params.element.className)) 
+		return true;
+	if ( poz === 1 && isValue(params.elementOE) && isValue(params.elementOE.className)) 
+		return true;
+	return false;
+}
+const getClassName = ( params, poz) => {
+	if ( poz === 0 && isValue(params.element) ) 
+		return getValue(params.element.className);
+	if ( poz === 1 && isValue(params.elementOE) ) 
+		return getValue(params.elementOE.className);
+	return '';
+}
+const isPList = ( params, poz) => {
+	if ( poz === 0 && isValue(params.element) && isValue(params.element.pList)) 
+		return true;
+	if ( poz === 1 && isValue(params.elementOE) && isValue(params.elementOE.pList)) 
+		return true;
+	return false;
+}
+const getPList = ( params, poz) => {
+	if ( poz === 0 && isValue(params.element) ) 
+		return getValue(params.element.pList);
+	if ( poz === 1 && isValue(params.elementOE)) 
+		return getValue(params.elementOE.pList);
+	return false;
+}
+const isPropertyKind = params => { return isValue(params.main.propertyKind); }
+const getPropertyKind = params => { return getValue(params.main.propertyKind); }
+const setPropertyKind = ( params, val) => { 
+	params.main.propertyKind = val;
+	return params; 
+}
+const isOrderByPrefix = params => { return isValue(params.main.orderByPrefix);}
+const getOrderByPrefix = params => { return getValue(params.main.orderByPrefix);}
 
 const checkEndpoint = async params => {
    // TODO find value in DB
-	if ( params.endpointUrl === undefined )
-		params.endpointUrl = 'https://dbpedia.org/sparql';
+	if ( !isEndpointUrl(params))
+		params = setEndpointUrl(params, 'https://dbpedia.org/sparql');
 	return params;
 }
 
@@ -81,12 +179,12 @@ const getSchemaData = async (sql, params) => {
 	let r;
 	console.log('--------executeSQL-----------------');
 	console.log(sql);
-	if ( parameterExists(params, 'filter'))	
-		r = await db.any(sql, [params.limit+1, params.filter]);
+	if ( isFilter(params))	
+		r = await db.any(sql, [getLimit(params)+1, getFilter(params)]);
 	else
-		r = await db.any(sql,[params.limit+1]);
+		r = await db.any(sql,[getLimit(params)+1]);
 
-	if ( r.length == params.limit+1 ){
+	if ( r.length == getLimit(params)+1 ){
 		complete = false;
 		r.pop();
 	}
@@ -100,25 +198,25 @@ const getSchemaDataPlus = async (sql, sql2, params) => {
 	let r2;
 	console.log('--------executeSQL-----------------');
 	console.log(sql);
-	if ( parameterExists(params, 'filter'))	
-		r = await db.any(sql, [params.limit+1, params.filter]);
+	if ( isFilter(params))	
+		r = await db.any(sql, [getLimit(params)+1, getFilter(params)]);
 	else
-		r = await db.any(sql,[params.limit+1]);
+		r = await db.any(sql,[getLimit(params)+1]);
 	
-	if ( r.length == params.limit+1 ){
+	if ( r.length == getLimit(params)+1 ){
 		complete = false;
 		r.pop();
 	}
 	else {
-		if (parameterExists(params, "onlyPropsInSchema") === false || params.onlyPropsInSchema === false) {
+		if ( !isOnlyPropsInSchema(params)) {
 			console.log('--------executeSQL Plus-----------------');
 			console.log(sql2);
-			if ( parameterExists(params, 'filter'))	
-				r2 = await db.any(sql2, [params.limit-r.length+1, params.filter]);
+			if ( isFilter(params))	
+				r2 = await db.any(sql2, [getLimit(params)-r.length+1, getFilter(params)]);
 			else
-				r2 = await db.any(sql2,[params.limit-r.length+1]);
+				r2 = await db.any(sql2,[getLimit(params)-r.length+1]);
 			
-			if ( r2.length == params.limit-r.length+1 ){
+			if ( r2.length == getLimit(params)-r.length+1 ){
 				complete = false;
 				r2.pop();
 			}
@@ -161,6 +259,15 @@ const getIdsfromPList = async (schema, pList) => {
 	return await r;
 }
 
+const getNsWhere = params => {
+	let whereList = [];
+	if (isInNamespaces(params))
+		whereList.push(formWherePart('v.prefix', 'in', getInNamespaces(params), 1));
+	if (isNotInNamespaces(params))
+		whereList.push(formWherePart('v.prefix', 'not in', getNotInNamespaces(params), 1));
+	return whereList.join(' and ');
+}
+
 module.exports = {
 	parameterExists,
 	getFilterColumn,
@@ -172,4 +279,26 @@ module.exports = {
 	getSchemaDataPlus,
 	getSchemaObject,
 	getIdsfromPList,
+	isFilter,
+	getFilter,
+	getLimit,
+	getName,
+	isNamespaces,
+	isInNamespaces,
+	getEndpointUrl,
+	isUriIndividual,
+	getUriIndividual,
+	clearUriIndividual,
+	getClassId,
+	isClassName,
+	getClassName,
+	getNsWhere,
+	getTreeMode,
+	isPropertyKind, 
+	getPropertyKind, 
+	setPropertyKind, 
+	isOrderByPrefix,
+	getOrderByPrefix,
+	isPList,
+	getPList,
 }

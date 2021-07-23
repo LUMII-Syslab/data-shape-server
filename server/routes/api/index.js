@@ -1,13 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const debug = require('debug')('dss:index')
+const util = require('./utilities')
 
 const db = require('./db')
 
 const { 
-    getOntologyClasses, 
-    getOntologyClassesFiltered, 
-	getOntologyNameSpaces,
 	getClasses,
 	getTreeClasses,
 	getNamespaces,
@@ -18,16 +16,7 @@ const {
 } = require('./property-handlers')
 
 const { 
-    parameterExists,
-	checkEndpoint,
-	getClassByName,
-	getPropertyByName,
-	getSchemaObject,
-} = require('./utilities')
-
-const { 
     executeSPARQL,
-    getClassProperties,
 } = require('../../util/sparql/endpoint-queries')
 
 // TODO: get this info from the db
@@ -44,6 +33,25 @@ const getSchemaName = name => {
 	else return "";
 }
 
+const makeOutput = data => {
+	return {prefix:data.prefix, name:data.display_name, cnt:data.cnt_x, iri:data.iri};
+}
+
+const checkOntology = ont => {
+	let err = {err_msg: ''};
+	if (!validateOntologyName(ont)) {
+		err.status = 400;
+		err.err_msg = 'bad ontology name';
+	}
+	const schema = getSchemaName(ont);
+	if (schema === '' ) {
+		err.status = 404;
+		err.err_msg = 'unknown ontology';
+	}
+	else 
+		err.schema = schema;
+	return err;
+}
 
 /* API root */
 router.get('/', (req, res, next) => {
@@ -51,10 +59,10 @@ router.get('/', (req, res, next) => {
 });
 
 /**
- * List of known data
+ * List of known ontologies
  */
 router.get('/info', (req, res, next) => {
-  res.json({info:KNOWN_DATA});
+  res.json(KNOWN_DATA);
 });
 
 /**
@@ -63,22 +71,16 @@ router.get('/info', (req, res, next) => {
 router.get('/ontologies/:ont/ns', async (req, res, next) => {
     try {
         const ont = req.params['ont'];
-		if (!validateOntologyName(ont)) {
-            res.status(400).send('bad ontology name')
-            return
-        }
-		const schema = getSchemaName(ont);
-        if (schema === "" ) {
-            res.status(404).send('unknown ontology')
-			return
-        }
-        const ns = await getOntologyNameSpaces(schema)
-        const data = {
-            ontology: ont,
-            ns: ns,
-        }
+		
+		const err = checkOntology(ont);
+		if ( err.err_msg !== '') {
+			res.status(err.status).send(err.err_msg);
+			return;
+		}
+		const schema = err.schema;
+        const ns = await getNamespaces(schema);
 		//   res.type('application/json').status(200).send(JSON.stringify(data, null, 2));
-        res.json(data)
+        res.json(ns)
     } catch(err) {
         console.error(err)
         next(err)
@@ -88,27 +90,21 @@ router.get('/ontologies/:ont/ns', async (req, res, next) => {
 /**
  * List of classes in given ontology
  */
-router.get('/ontologies/:ont/classes', async (req, res, next) => {
+router.get('/ontologies/:ont/classes/:limit', async (req, res, next) => {
     try {
         const ont = req.params['ont'];
-        if (!validateOntologyName(ont)) {
-            res.status(400).send('bad ontology name')
-            return
-        }
-		
-		const schema = getSchemaName(ont);
-        if (schema === "" ) {
-            res.status(404).send('unknown ontology')
-            return
-        }
+		const limit = Number(req.params['limit']);
+		const err = checkOntology(ont);
+		if ( err.err_msg !== '') {
+			res.status(err.status).send(err.err_msg);
+			return;
+		}
+		const schema = err.schema;
 
-        const cl = await getOntologyClasses(schema)
-        const data = {
-            ontology: ont,
-            data: cl,
-        }
-    //   res.type('application/json').status(200).send(JSON.stringify(data, null, 2));
-      res.json(data)
+        const rr = await getClasses(schema, {main:{limit: limit}});  
+		rr.data = rr.data.map(v => {return makeOutput(v)});
+        res.json(rr);
+		
     } catch(err) {
         console.error(err)
         next(err)
@@ -116,32 +112,72 @@ router.get('/ontologies/:ont/classes', async (req, res, next) => {
 });
 
 /**
- * List of classes in given ontology whose IRI matches given filter
+ * List of classes in given ontology whose name or prefix matches given filter
  */
-router.get('/ontologies/:ont/classes-filtered/:filter', async (req, res, next) => {
+router.get('/ontologies/:ont/classes-filtered/:filter/:limit', async (req, res, next) => {
     try {
         const ont = req.params['ont'];
-        if (!validateOntologyName(ont)) {
-            res.status(400).send('bad ontology name')
-            return
-        }
+		const filter = req.params['filter'];
+		const limit = Number(req.params['limit']);
+		const err = checkOntology(ont);
+		if ( err.err_msg !== '') {
+			res.status(err.status).send(err.err_msg);
+			return;
+		}
+		const schema = err.schema;
 
-		const schema = getSchemaName(ont);
-        if (schema === "" ) {
-            res.status(404).send('unknown ontology')
-			return
-        }
-        const filter = req.params['filter'];
-        if (!filter) {
-            res.status(400).send('parameter missing')
-			return
-        }
+        const rr = await getClasses(schema, {main:{limit: limit, filter: filter}});  
+		rr.data = rr.data.map(v => {return makeOutput(v)});
+        res.json(rr);
+		
+    } catch(err) {
+        console.error(err)
+        next(err)
+    }
+});
+/**
+ * List of properties in given ontology
+ */
+router.get('/ontologies/:ont/properties/:limit', async (req, res, next) => {
+    try {
+        const ont = req.params['ont'];
+		const limit = Number(req.params['limit']);
+		const err = checkOntology(ont);
+		if ( err.err_msg !== '') {
+			res.status(err.status).send(err.err_msg);
+			return;
+		}
+		const schema = err.schema;
 
-        let cl = await getOntologyClassesFiltered(schema, filter)
-		cl.ontology = ont;
-		//console.log(cl)
-    //   res.type('application/json').status(200).send(JSON.stringify(data, null, 2));
-      res.json(cl)
+        const rr = await getProperties(schema, {main:{propertyKind:'All', limit: limit}});  
+		rr.data = rr.data.map(v => {return makeOutput(v)});
+        res.json(rr);
+		
+    } catch(err) {
+        console.error(err)
+        next(err)
+    }
+});
+
+/**
+ * List of properties in given ontology whose name or prefix matches given filter
+ */
+router.get('/ontologies/:ont/properties-filtered/:filter/:limit', async (req, res, next) => {
+    try {
+        const ont = req.params['ont'];
+		const filter = req.params['filter'];
+		const limit = Number(req.params['limit']);
+		const err = checkOntology(ont);
+		if ( err.err_msg !== '') {
+			res.status(err.status).send(err.err_msg);
+			return;
+		}
+		const schema = err.schema;
+
+        const rr = await getProperties(schema, {main:{propertyKind:'All', limit: limit, filter: filter}});  
+		rr.data = rr.data.map(v => {return makeOutput(v)});
+        res.json(rr);
+		
     } catch(err) {
         console.error(err)
         next(err)
@@ -150,41 +186,38 @@ router.get('/ontologies/:ont/classes-filtered/:filter', async (req, res, next) =
 
 // ***********************************************************************************88
 router.post('/ontologies/:ont/:fn', async (req, res, next) => {
-	console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~');
+	console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~');
     try {
         const ont = req.params['ont'];
 		const fn = req.params['fn'];
-        if (!validateOntologyName(ont)) {
-            res.status(400).send('bad ontology name')
-            return
-        }
-
-		const schema = getSchemaName(ont);
-        if (schema === "" ) {
-            res.status(404).send('unknown ontology')
-			return
-        }
+		
+		const err = checkOntology(ont);
+		if ( err.err_msg !== '') {
+			res.status(err.status).send(err.err_msg);
+			return;
+		}
+		const schema = err.schema;
 
 		let params = req.body;
-		params = await checkEndpoint(params)
+		params = await util.checkEndpoint(params)
 	    console.log(params);
 		
 		let r = { complete: false };
 		if ( fn === 'getClasses')
-			r = await getClasses(schema, params)
+			r = await getClasses(schema, params);
 		if ( fn === 'getTreeClasses')
-			r = await getTreeClasses(schema, params)
+			r = await getTreeClasses(schema, params);
 		if ( fn === 'getProperties')
-			r = await getProperties(schema, params)
+			r = await getProperties(schema, params);
 		if ( fn === 'getNamespaces')
-			r = await getNamespaces(schema, params)
+			r = await getNamespaces(schema);
 		if ( fn === 'resolveClassByName') {
-			const classObj = await getClassByName(params.name, schema);
-			r = getSchemaObject(classObj)
+			const classObj = await util.getClassByName(util.getName(params), schema);
+			r = util.getSchemaObject(classObj);
 		}
 		if ( fn === 'resolvePropertyByName') {
-			const propObj = await getPropertyByName(params.name, schema);
-			r = getSchemaObject(propObj)
+			const propObj = await util.getPropertyByName(util.getName(params), schema);
+			r = util.getSchemaObject(propObj);
 		}
 
 		r.ontology = ont;

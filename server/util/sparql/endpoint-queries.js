@@ -1,3 +1,4 @@
+const util = require('../../routes/api/utilities')
 const SparqlClient = require('sparql-http-client/ParsingClient')
 // const client = new SparqlClient({ endpointUrl: ENDPOINT_URL })
 
@@ -19,30 +20,11 @@ const getTypeString = async endpointUrl => {
     return 'rdf:type';
 }
 
-
-const sparqlGetClassProperties = async (endpointUrl, classIRI, incoming = false, limit = 500) => {
-
-    let sparql;
-    if (incoming) {
-        sparql = `select distinct ?p where {?x a <${classIRI}>. [] ?p ?x}`;
-    } else {
-        sparql = `select distinct ?p where {?x a <${classIRI}>. ?x ?p []}`;
-    }
-    if (limit) sparql += ` limit ${limit}`
-
-    // let client = findClient(endpointUrl);
-    // const reply = await client.query.select(sparql);
-
-    const reply = await executeSPARQL(endpointUrl, sparql);
-
-    return reply.map(v => v.p);
-}
-
-const sparqlGetIndividualClasses = async (params) => {
+const sparqlGetIndividualClasses = async (params, uriIndividual) => {
 	
-	const endpointUrl = params.endpointUrl; 
+	const endpointUrl = util.getEndpointUrl(params); 
 	const typeString = await getTypeString(endpointUrl)
-	const sparql = `select distinct ?c where {<${params.uriIndividual}> ${typeString} ?c} order by ?c`;
+	const sparql = `select distinct ?c where {<${uriIndividual}> ${typeString} ?c} order by ?c`;
 	
 	const reply = await executeSPARQL(endpointUrl, sparql);
     return reply.map(v => v.c.value);
@@ -52,7 +34,7 @@ const sparqlGetPropertiesFromIndividuals = async (params, pos, uriIndividual) =>
 	let r = {};
 	let sparql;
 	let reply;
-	const endpointUrl = params.endpointUrl; 
+	const endpointUrl = util.getEndpointUrl(params); 
 	
 	if ( pos === 'To') {
 		sparql = `select distinct ?p where {[] ?p <${uriIndividual}> .} order by ?p`;
@@ -77,7 +59,7 @@ const sparqlGetPropertiesFromClass = async (params, pos, uriClass) => {
 	let r = {};
 	let sparql;
 	let reply;
-	const endpointUrl = params.endpointUrl;
+	const endpointUrl = util.getEndpointUrl(params);
 	const typeString = await getTypeString(endpointUrl);	
 	
 	if ( pos === 'To') {
@@ -117,7 +99,6 @@ const executeSPARQL = async (endpointUrl, querySparql) => {
 
 module.exports = {
     executeSPARQL,
-    sparqlGetClassProperties,
 	sparqlGetIndividualClasses,
 	sparqlGetPropertiesFromIndividuals,
 	sparqlGetPropertiesFromClass,
