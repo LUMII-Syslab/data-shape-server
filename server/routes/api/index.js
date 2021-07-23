@@ -17,6 +17,7 @@ const {
 
 const { 
     executeSPARQL,
+	sparqlGetIndividuals,
 } = require('../../util/sparql/endpoint-queries')
 
 // TODO: get this info from the db
@@ -211,6 +212,8 @@ router.post('/ontologies/:ont/:fn', async (req, res, next) => {
 			r = await getProperties(schema, params);
 		if ( fn === 'getNamespaces')
 			r = await getNamespaces(schema);
+		if ( fn === 'getIndividuals')
+			r = await sparqlGetIndividuals(schema, params);
 		if ( fn === 'resolveClassByName') {
 			const classObj = await util.getClassByName(util.getName(params), schema);
 			r = util.getSchemaObject(classObj);

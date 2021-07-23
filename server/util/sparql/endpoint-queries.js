@@ -91,6 +91,36 @@ const executeSPARQL = async (endpointUrl, querySparql) => {
     return reply;
 }
 
+const sparqlGetIndividuals = async (schema, params) => {
+	
+	const endpointUrl = util.getEndpointUrl(params); 
+	const typeString = await getTypeString(endpointUrl);
+	let newPList = {in:[], out:[]};
+	let whereList = [];
+	newPList = await util.getUrifromPList(schema, util.getPList(params, 0));
+	console.log(newPList)
+	
+	if (util.isClassName(params, 0)) {
+		const clInfo = await util.getClassByName(util.getClassName(params, 0), schema);
+		if (clInfo.length > 0)
+			whereList.push(`?x ${typeString} <${clInfo[0].iri}>`);
+	}
+	if (newPList.in.length > 0 )
+		newPList.in.forEach(element => whereList.push(`[] <${element}> ?x`));
+	if (newPList.out.length > 0 )
+		newPList.out.forEach(element => whereList.push(`?x <${element}> []`));
+
+	console.log(whereList)
+	let sparql;
+	if (util.isFilter(params))
+		sparql = `select ?x where { ${whereList.join('. ')} FILTER ( REGEX(?x,'${util.getFilter(params)}')  ) } LIMIT ${util.getLimit(params)}`;
+	else
+		sparql = `select ?x where { ${whereList.join('. ')} } LIMIT ${util.getLimit(params)}`;
+		
+	const reply = await executeSPARQL(endpointUrl, sparql);
+    return reply.map(v => v.x.value);
+}
+
 /**
  * Jautājumi:
  * - kā padot parametrus? options: { endpoint, incoming, limit, ....}
@@ -102,4 +132,5 @@ module.exports = {
 	sparqlGetIndividualClasses,
 	sparqlGetPropertiesFromIndividuals,
 	sparqlGetPropertiesFromClass,
+	sparqlGetIndividuals,
 }

@@ -47,21 +47,21 @@ const isNotInNamespaces = params => { return isValue(params.main.namespaces.notI
 const getInNamespaces = params => { return getValue(params.main.namespaces.in);}
 const getNotInNamespaces = params => { return getValue(params.main.namespaces.notIn);}
 const isOnlyPropsInSchema = params => { return isValue(params.main.onlyPropsInSchema);}
-const isUriIndividual = ( params, poz) => {
+const isUriIndividual = ( params, poz = 0) => {
 	if ( poz === 0 && isValue(params.element) && isValue(params.element.uriIndividual)) 
 		return true;
 	if ( poz === 1 && isValue(params.elementOE) && isValue(params.elementOE.uriIndividual)) 
 		return true;
 	return false;
 }
-const getUriIndividual = ( params, poz) => {
+const getUriIndividual = ( params, poz = 0) => {
 	if ( poz === 0 && isValue(params.element) ) 
 		return getValue(params.element.uriIndividual);
 	if ( poz === 1 && isValue(params.elementOE) ) 
 		return getValue(params.elementOE.uriIndividual);
 	return '';
 }
-const clearUriIndividual = ( params, poz) => {
+const clearUriIndividual = ( params, poz = 0) => {
 	if ( poz === 0 ) 
 		params.element.uriIndividual = '';
 	if ( poz === 1 ) 
@@ -73,28 +73,28 @@ const getClassId = (params) => {
 		return getValue(params.element.classId);
 	return '';
 }
-const isClassName = ( params, poz) => {
+const isClassName = ( params, poz = 0) => {
 	if ( poz === 0 && isValue(params.element) && isValue(params.element.className)) 
 		return true;
 	if ( poz === 1 && isValue(params.elementOE) && isValue(params.elementOE.className)) 
 		return true;
 	return false;
 }
-const getClassName = ( params, poz) => {
+const getClassName = ( params, poz = 0) => {
 	if ( poz === 0 && isValue(params.element) ) 
 		return getValue(params.element.className);
 	if ( poz === 1 && isValue(params.elementOE) ) 
 		return getValue(params.elementOE.className);
 	return '';
 }
-const isPList = ( params, poz) => {
+const isPList = ( params, poz = 0) => {
 	if ( poz === 0 && isValue(params.element) && isValue(params.element.pList)) 
 		return true;
 	if ( poz === 1 && isValue(params.elementOE) && isValue(params.elementOE.pList)) 
 		return true;
 	return false;
 }
-const getPList = ( params, poz) => {
+const getPList = ( params, poz = 0) => {
 	if ( poz === 0 && isValue(params.element) ) 
 		return getValue(params.element.pList);
 	if ( poz === 1 && isValue(params.elementOE)) 
@@ -230,7 +230,7 @@ const formWherePart = (col, inT, list, listType) => {
 	//console.log('------------------------------------------------------')
 	let sep = "";
 	if ( listType === 1) {
-		list = list.map( x => x.toString().replace("'",""))  // TODO 
+		list = list.map( x => x.toString().replace("'","''"))
 		sep = "'";
 	}
 	
@@ -259,6 +259,27 @@ const getIdsfromPList = async (schema, pList) => {
 	return await r;
 }
 
+const getUrifromPList = async (schema, pList) => {
+	let r = {in:[], out:[]}
+	if ( parameterExists(pList, "in") ) {
+		for (const element of pList.in) {
+			const pr = await getPropertyByName(element.name, schema)
+			if ( pr.length > 0 && pr[0].object_cnt > 0)
+				r.in.push(pr[0].iri);
+		}	
+	}
+	
+	if ( parameterExists(pList, "out") ) {
+		for (const element of pList.out) {
+			const pr = await getPropertyByName(element.name, schema)
+			if ( pr.length > 0)
+				r.out.push(pr[0].iri);
+		}	
+	}
+			
+	return await r;
+}
+
 const getNsWhere = params => {
 	let whereList = [];
 	if (isInNamespaces(params))
@@ -279,6 +300,7 @@ module.exports = {
 	getSchemaDataPlus,
 	getSchemaObject,
 	getIdsfromPList,
+	getUrifromPList,
 	isFilter,
 	getFilter,
 	getLimit,
