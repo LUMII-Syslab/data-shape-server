@@ -113,9 +113,9 @@ const sparqlGetIndividuals = async (schema, params) => {
 	console.log(whereList)
 	let sparql;
 	if (util.isFilter(params))
-		sparql = `select ?x where { ${whereList.join('. ')} FILTER ( REGEX(?x,'${util.getFilter(params)}')  ) } LIMIT ${util.getLimit(params)}`;
+		sparql = `select distinct ?x where { ${whereList.join('. ')} FILTER ( REGEX(?x,'${util.getFilter(params)}')  ) } LIMIT ${util.getLimit(params)}`;
 	else
-		sparql = `select ?x where { ${whereList.join('. ')} } LIMIT ${util.getLimit(params)}`;
+		sparql = `select distinct ?x where { ${whereList.join('. ')} } LIMIT ${util.getLimit(params)}`;
 		
 	const reply = await executeSPARQL(endpointUrl, sparql);
     return reply.map(v => v.x.value);

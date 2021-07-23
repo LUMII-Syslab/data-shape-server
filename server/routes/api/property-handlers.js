@@ -45,7 +45,9 @@ const findMainProperty = async (schema, pListFrom, pListTo) => {
 const getProperties = async (schema, params) => {
    	let r = { data: [], complete: false };
 	let sql;
-	let viewname = 'v_properties_ns';
+	//let viewname = 'v_properties_ns';  
+	let viewname_out = 'v_properties_targets_single';  // TODO
+	let viewname_in = 'v_properties_sources_single';   // TODO
 	let classFrom = [];
 	let classTo = [];
 	let whereListA = [ true ];
@@ -73,18 +75,18 @@ const getProperties = async (schema, params) => {
 		}
 		const orderByPref = ( util.isOrderByPrefix(params) ? util.getOrderByPrefix(params) : '')
 		let sql = `SELECT aa.* FROM ( SELECT 'out' as mark, v.*, ${strAo} as o 				
-FROM ${schema}.${viewname} v ${contextA}
+FROM ${schema}.${viewname_out} v ${contextA}
 WHERE ${whereListA.join(' and ')} 
 ) aa
 order by ${orderByPref} o desc LIMIT $1`;
 		if ( util.getPropertyKind(params) === 'ObjectExt' || util.getPropertyKind(params) === 'Connect') {
 			sql = `SELECT aa.* FROM (
 SELECT 'out' as mark, v.*, ${strAo} as o 
-FROM ${schema}.${viewname} v ${contextA}
+FROM ${schema}.${viewname_out} v ${contextA}
 WHERE ${whereListA.join(' and ')} 
 UNION ALL
 SELECT 'in' as mark, v.*, ${strBo} as o   
-FROM ${schema}.${viewname} v ${contextB}
+FROM ${schema}.${viewname_in} v ${contextB}
 WHERE ${whereListB.join(' and ')} 
 ) aa
 order by ${orderByPref} o desc LIMIT $1`;
