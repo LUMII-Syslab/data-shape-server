@@ -55,11 +55,15 @@ const isUriIndividual = ( params, poz = 0) => {
 	return false;
 }
 const getUriIndividual = ( params, poz = 0) => {
+	let r;
 	if ( poz === 0 && isValue(params.element) ) 
-		return getValue(params.element.uriIndividual);
+		r = getValue(params.element.uriIndividual);
 	if ( poz === 1 && isValue(params.elementOE) ) 
-		return getValue(params.elementOE.uriIndividual);
-	return '';
+		r = getValue(params.elementOE.uriIndividual);
+	
+	if (r.substring(0,7) === 'http://')
+		r = `<${r}>`;
+	return r;
 }
 const clearUriIndividual = ( params, poz = 0) => {
 	if ( poz === 0 ) 
