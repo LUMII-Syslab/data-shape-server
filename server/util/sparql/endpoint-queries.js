@@ -92,6 +92,15 @@ const executeSPARQL = async (endpointUrl, querySparql) => {
 }
 
 const sparqlGetIndividuals = async (schema, params) => {
+	function getShortName(name) {
+		name = name.replace('http://dbpedia.org/resource/','dbr:');
+		name = name.replace('http://dbpedia.org/resource/Category:','dbc:');
+		name = name.replace('http://www.w3.org/1999/02/22-rdf-syntax-ns#','rdf:');
+		name = name.replace('http://www.w3.org/2001/XMLSchema#','xsd:');
+		name = name.replace('http://www.w3.org/2002/07/owl#','owl:');
+		name = name.replace('http://en.wikipedia.org/wiki/','en_wiki:');
+		return name;
+	}
 	
 	const endpointUrl = util.getEndpointUrl(params); 
 	const typeString = await getTypeString(endpointUrl);
@@ -118,7 +127,7 @@ const sparqlGetIndividuals = async (schema, params) => {
 		sparql = `select distinct ?x where { ${whereList.join('. ')} } LIMIT ${util.getLimit(params)}`;
 		
 	const reply = await executeSPARQL(endpointUrl, sparql);
-    return reply.map(v => v.x.value);
+    return reply.map(v => getShortName(v.x.value));
 }
 
 /**

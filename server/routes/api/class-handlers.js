@@ -68,9 +68,9 @@ const getClasses = async (schema, params) => {
 	if ( mainProp.id === undefined ){
 		const whereStr = whereList.join(' and ');
 		if ( whereList.length === 0 ) 
-			sql = `SELECT v.*, 1 as principal_class FROM ${viewname} order by cnt desc LIMIT $1`;
+			sql = `SELECT v.*, 1 as principal_class FROM ${viewname} order by v.cnt desc LIMIT $1`;
 		else
-			sql = `SELECT v.*, 1 as principal_class FROM ${viewname} WHERE ${whereStr} order by cnt desc LIMIT $1`;
+			sql = `SELECT v.*, 1 as principal_class FROM ${viewname} WHERE ${whereStr} order by ${util.getOrderByPrefix(params)} v.cnt desc LIMIT $1`;
 		
 	}
 	else {
@@ -85,10 +85,10 @@ const getClasses = async (schema, params) => {
 
 		sql = `SELECT v.*, case when p.cover_set_index is not null then 2 else 1 end as principal_class 
                 FROM ${viewname} JOIN ${schema}.cp_rels p ON p.class_id = v.id and p.type_id = ${mainProp.typeId} and p.property_id = ${mainProp.id} 
-				WHERE ${whereStr} order by p.cnt desc LIMIT $1`;
+				WHERE ${whereStr} order by ${util.getOrderByPrefix(params)} p.cnt desc LIMIT $1`;
 		
 		const w2 = ( util.isFilter(params) ? `v.${util.getFilterColumn(params)} ~ $2 and props_in_schema = false` : 'props_in_schema = false' );
-		sql_plus = `SELECT v.*, 0 as principal_class FROM ${viewname} WHERE ${w2} order by v.cnt desc LIMIT $1`;
+		sql_plus = `SELECT v.*, 0 as principal_class FROM ${viewname} WHERE ${w2} order by ${util.getOrderByPrefix(params)} v.cnt desc LIMIT $1`;
 
 	}
 	
