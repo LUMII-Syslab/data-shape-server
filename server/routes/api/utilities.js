@@ -81,9 +81,7 @@ const clearUriIndividual = ( params, poz = 0) => {
 	return params;
 }
 const getClassId = (params) => {
-	if ( isValue(params.element) ) 
-		return getValue(params.element.classId);
-	return '';
+	return getValue(params.main.classId);
 }
 const isClassName = ( params, poz = 0) => {
 	if ( poz === 0 && isValue(params.element) && isValue(params.element.className)) 
@@ -161,15 +159,18 @@ const getClassByName = async (cName, schema) => {
 
 const getPropertyByName = async (pName, schema) => {
 	let r;
+	const col = 'v.*, dc.prefix as dc_prefix, dc.display_name as dc_display_name, dc.is_local as dc_is_local, rc.prefix as rc_prefix, rc.display_name as rc_display_name, rc.is_local as rc_is_local';
+	const join = `LEFT JOIN ${schema}.v_classes_ns dc ON v.domain_class_id = dc.id LEFT JOIN ${schema}.v_classes_ns rc ON v.range_class_id = rc.id`;
+
 	if ( pName.includes(':')){
 		const nList = pName.split(':');
-		r = await db.any(`SELECT * FROM ${schema}.v_properties_ns WHERE display_name = $2 and prefix = $1 order by cnt desc limit 1`, [nList[0], nList[1]]);
+		r = await db.any(`SELECT ${col} FROM ${schema}.v_properties_ns v ${join} WHERE v.display_name = $2 and v.prefix = $1 order by v.cnt desc limit 1`, [nList[0], nList[1]]);
 	}
 	else {
 		const ns = await getLocalNamespace(schema);
-		r = await db.any(`SELECT * FROM ${schema}.v_properties_ns WHERE display_name = $2 and prefix = $1 order by cnt desc limit 1`, [ns.name, pName]);
+		r = await db.any(`SELECT ${col} FROM ${schema}.v_properties_ns v ${join} WHERE v.display_name = $2 and v.prefix = $1 order by v.cnt desc limit 1`, [ns.name, pName]);
 		if ( r.length === 0)
-			r = await db.any(`SELECT * FROM ${schema}.v_properties_ns WHERE display_name = $1 order by cnt desc limit 1`, [pName]);
+			r = await db.any(`SELECT ${col} FROM ${schema}.v_properties_ns v ${join} WHERE v.display_name = $1 order by v.cnt desc limit 1`, [pName]);
 	}
 	
 	return r;
