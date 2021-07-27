@@ -130,12 +130,6 @@ const sparqlGetIndividuals = async (schema, params) => {
     return reply.map(v => getShortName(v.x.value));
 }
 
-/**
- * Jautājumi:
- * - kā padot parametrus? options: { endpoint, incoming, limit, ....}
- * 
- */
-
 module.exports = {
     executeSPARQL,
 	sparqlGetIndividualClasses,
