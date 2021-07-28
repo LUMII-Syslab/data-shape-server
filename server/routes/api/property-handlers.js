@@ -45,9 +45,18 @@ const findMainProperty = async (schema, pListFrom, pListTo) => {
 const getProperties = async (schema, params) => {
    	let r = { data: [], complete: false };
 	let sql;
+	let viewname_out;
+	let viewname_in;
 	//let viewname = 'v_properties_ns';  
-	let viewname_out = 'v_properties_targets_single';  // TODO
-	let viewname_in = 'v_properties_sources_single';   // TODO
+	if ( util.isLinksWithTargets(params)) {
+		viewname_out = 'v_properties_targets_single';
+		viewname_in = 'v_properties_sources_single';
+	}
+	else {
+		viewname_out = 'v_properties_ns';
+		viewname_in = 'v_properties_ns';
+	}
+
 	let classFrom = [];
 	let classTo = [];
 	let whereListA = [ true ];

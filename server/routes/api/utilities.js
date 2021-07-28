@@ -47,6 +47,7 @@ const isNotInNamespaces = params => { return isValue(params.main.namespaces.notI
 const getInNamespaces = params => { return getValue(params.main.namespaces.in);}
 const getNotInNamespaces = params => { return getValue(params.main.namespaces.notIn);}
 const isOnlyPropsInSchema = params => { return isValue(params.main.onlyPropsInSchema);}
+const isLinksWithTargets = params => { return isValue(params.main.linksWithTargets);}
 const isUriIndividual = ( params, poz = 0) => {
 	if ( poz === 0 && isValue(params.element) && isValue(params.element.uriIndividual)) 
 		return true;
@@ -221,7 +222,7 @@ const getSchemaDataPlus = async (sql, sql2, params) => {
 		r.pop();
 	}
 	else {
-		if ( !isOnlyPropsInSchema(params)) {
+		if ( !isOnlyPropsInSchema(params)) {  // TODO - check this
 			console.log('--------executeSQL Plus-----------------');
 			console.log(sql2);
 			if ( isFilter(params))	
@@ -334,6 +335,7 @@ module.exports = {
 	setPropertyKind, 
 	isOrderByPrefix,
 	getOrderByPrefix,
+	isLinksWithTargets,
 	isPList,
 	getPList,
 }
