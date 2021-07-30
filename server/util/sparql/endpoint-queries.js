@@ -93,8 +93,8 @@ const executeSPARQL = async (endpointUrl, querySparql) => {
 
 const sparqlGetIndividuals = async (schema, params) => {
 	function getShortName(name) {
-		name = name.replace('http://dbpedia.org/resource/','dbr:');
 		name = name.replace('http://dbpedia.org/resource/Category:','dbc:');
+		name = name.replace('http://dbpedia.org/resource/','dbr:');
 		name = name.replace('http://www.w3.org/1999/02/22-rdf-syntax-ns#','rdf:');
 		name = name.replace('http://www.w3.org/2001/XMLSchema#','xsd:');
 		name = name.replace('http://www.w3.org/2002/07/owl#','owl:');
@@ -107,7 +107,7 @@ const sparqlGetIndividuals = async (schema, params) => {
 	let newPList = {in:[], out:[]};
 	let whereList = [];
 	newPList = await util.getUrifromPList(schema, util.getPList(params, 0));
-	console.log(newPList)
+	//console.log(newPList)
 	
 	if (util.isClassName(params, 0)) {
 		const clInfo = await util.getClassByName(util.getClassName(params, 0), schema);
@@ -119,7 +119,7 @@ const sparqlGetIndividuals = async (schema, params) => {
 	if (newPList.out.length > 0 )
 		newPList.out.forEach(element => whereList.push(`?x <${element}> []`));
 
-	console.log(whereList)
+	//console.log(whereList)
 	let sparql;
 	if (util.isFilter(params))
 		sparql = `select distinct ?x where { ${whereList.join('. ')} FILTER ( REGEX(?x,'${util.getFilter(params)}')  ) } LIMIT ${util.getLimit(params)}`;

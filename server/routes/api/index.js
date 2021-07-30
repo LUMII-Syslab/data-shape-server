@@ -212,8 +212,15 @@ router.post('/ontologies/:ont/:fn', async (req, res, next) => {
 			r = await getProperties(schema, params);
 		if ( fn === 'getNamespaces')
 			r = await getNamespaces(schema);
-		if ( fn === 'getIndividuals')
+		if ( fn === 'getIndividuals') {
+			r = [];			
+			const find = await util.checkIndividualsParams(schema, params);
+			if ( find )
+				r = await sparqlGetIndividuals(schema, params);
+		}
+		if ( fn === 'getTreeIndividuals') {
 			r = await sparqlGetIndividuals(schema, params);
+		}
 		if ( fn === 'resolveClassByName') {
 			const classObj = await util.getClassByName(util.getName(params), schema);
 			r = util.getSchemaObject(classObj);

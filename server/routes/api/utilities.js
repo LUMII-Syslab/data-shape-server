@@ -303,6 +303,36 @@ const getNsWhere = params => {
 	return whereList.join(' and ');
 }
 
+const checkIndividualsParams = async (schema, params) => {
+	let find = false; 
+	const cnt_limit = 10000;
+
+	if ( isClassName(params,0)) {
+		const classObj = await getClassByName( getClassName(params,0), schema);
+		if (classObj[0].cnt < cnt_limit)
+			find = true;
+	}
+	
+	if ( isPList(params,0)) {
+		const pList = getPList(params,0);
+		let prop;
+		if ( pList.in.length === 1 && pList.out.length === 0) 
+			prop = pList.in[0];
+		if ( pList.in.length === 0 && pList.out.length === 1) 
+			prop = pList.out[0];
+		
+		if ( prop !== undefined && prop !== null) {
+			const propObj = await getPropertyByName(prop.name, schema);
+			if (propObj[0].cnt < cnt_limit)
+			find = true;
+		}
+		if ( pList.in.length + pList.out.length > 1 )
+			find = true;
+	}			
+
+	return find;
+}
+
 module.exports = {
 	parameterExists,
 	getFilterColumn,
@@ -338,4 +368,5 @@ module.exports = {
 	isLinksWithTargets,
 	isPList,
 	getPList,
+	checkIndividualsParams,
 }
