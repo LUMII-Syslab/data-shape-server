@@ -305,7 +305,7 @@ const getNsWhere = params => {
 
 const checkIndividualsParams = async (schema, params) => {
 	let find = false; 
-	const cnt_limit = 10000;
+	const cnt_limit = 300000;
 
 	if ( isClassName(params,0)) {
 		const classObj = await getClassByName( getClassName(params,0), schema);
