@@ -91,17 +91,18 @@ const executeSPARQL = async (endpointUrl, querySparql) => {
     return reply;
 }
 
-const sparqlGetIndividuals = async (schema, params) => {
-	function getShortName(name) {
-		name = name.replace('http://dbpedia.org/resource/Category:','dbc:');
-		name = name.replace('http://dbpedia.org/resource/','dbr:');
-		name = name.replace('http://www.w3.org/1999/02/22-rdf-syntax-ns#','rdf:');
-		name = name.replace('http://www.w3.org/2001/XMLSchema#','xsd:');
-		name = name.replace('http://www.w3.org/2002/07/owl#','owl:');
-		name = name.replace('http://en.wikipedia.org/wiki/','en_wiki:');
+const sparqlGetIndividuals =  async (schema, params) => {
+	function getShortName(list, name) {
+		list.forEach(e => { name = name.replace(e.value,e.prefix) });
+		//name = name.replace('http://dbpedia.org/resource/Category:','dbc:');
+		//name = name.replace('http://dbpedia.org/resource/','dbr:');
+		//name = name.replace('http://www.w3.org/1999/02/22-rdf-syntax-ns#','rdf:');
+		//name = name.replace('http://www.w3.org/2001/XMLSchema#','xsd:');
+		//name = name.replace('http://www.w3.org/2002/07/owl#','owl:');
+		//name = name.replace('http://en.wikipedia.org/wiki/','en_wiki:');
 		return name;
 	}
-	
+
 	const endpointUrl = util.getEndpointUrl(params); 
 	const typeString = await getTypeString(endpointUrl);
 	let newPList = {in:[], out:[]};
@@ -120,14 +121,31 @@ const sparqlGetIndividuals = async (schema, params) => {
 		newPList.out.forEach(element => whereList.push(`?x <${element}> []`));
 
 	//console.log(whereList)
+	const list = await util.getIndividualsNS(schema);
 	let sparql;
-	if (util.isFilter(params))
+	let reply;
+	let rr = [];
+	
+	if (util.isFilter(params)) {
+		// *******************************
+		let ii = [];
+		list.forEach(e => { ii.push(`?x =<${e.value}${util.getFilter(params)}>`);});
+		const sparql0 = `select distinct ?x where { ${whereList.join('. ')} FILTER ( ${ii.join(' or ')}) } LIMIT ${list.length}`;
+		reply = await executeSPARQL(endpointUrl, sparql0);
+		reply.forEach(v => { rr.push(getShortName(list, v.x.value));});
+		// *******************************
 		sparql = `select distinct ?x where { ${whereList.join('. ')} FILTER ( REGEX(?x,'${util.getFilter(params)}')  ) } LIMIT ${util.getLimit(params)}`;
+	}
 	else
 		sparql = `select distinct ?x where { ${whereList.join('. ')} } LIMIT ${util.getLimit(params)}`;
 		
-	const reply = await executeSPARQL(endpointUrl, sparql);
-    return reply.map(v => getShortName(v.x.value));
+	reply = await executeSPARQL(endpointUrl, sparql);
+	reply.forEach(v => { rr.push(getShortName(list, v.x.value));});
+	if ( rr.length === 2 && rr[0] === rr[1])
+		rr.pop();
+	
+	return rr;
+    //return reply.map(v => getShortName(list, v.x.value));
 }
 
 module.exports = {

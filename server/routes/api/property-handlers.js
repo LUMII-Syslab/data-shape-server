@@ -148,11 +148,13 @@ order by ${orderByPref} o desc LIMIT $1`;
 		
 		if ( util.isUriIndividual(params, 0) || util.isUriIndividual(params, 1)) {
 			if ( util.isUriIndividual(params, 0) ) {
-				const propListAB = await sparqlGetPropertiesFromIndividuals(params, 'From', util.getUriIndividual(params, 0));
+				const ind = await util.getUriIndividual(schema, params, 0);
+				const propListAB = await sparqlGetPropertiesFromIndividuals(params, 'From', ind);
 				await addToWhereList(propListAB);
 			}
 			if ( util.isUriIndividual(params, 1) ) {
-				const propListAB = await sparqlGetPropertiesFromIndividuals(params, 'To', util.getUriIndividual(params, 1));
+				const ind = await util.getUriIndividual(schema, params, 1);
+				const propListAB = await sparqlGetPropertiesFromIndividuals(params, 'To', ind);
 				await addToWhereList(propListAB);
 			}
 		}

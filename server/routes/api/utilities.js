@@ -55,20 +55,26 @@ const isUriIndividual = ( params, poz = 0) => {
 		return true;
 	return false;
 }
-const getUriIndividual = ( params, poz = 0) => {
+const getIndividualsNS =  async schema => {
+	const sql = `SELECT CONCAT(name,':') as prefix, value from ${schema}.ns WHERE name in ('dbc','dbr','rdf','xsd','owl', 'en_wiki') order by value desc`; // TODO 
+	const r = await db.any(sql);
+	return r;
+}
+const getUriIndividual = async ( schema, params, poz = 0) => {
 	let r;
 	if ( poz === 0 && isValue(params.element) ) 
 		r = getValue(params.element.uriIndividual);
 	if ( poz === 1 && isValue(params.elementOE) ) 
 		r = getValue(params.elementOE.uriIndividual);
-		
-	r = r.replace('dbr:','http://dbpedia.org/resource/');
-	r = r.replace('dbc:','http://dbpedia.org/resource/Category:');
-	r = r.replace('rdf:','http://www.w3.org/1999/02/22-rdf-syntax-ns#');
-	r = r.replace('xsd:','http://www.w3.org/2001/XMLSchema#');
-	r = r.replace('owl:','http://www.w3.org/2002/07/owl#');
-	r = r.replace('en_wiki:','http://en.wikipedia.org/wiki/');	
 	
+	const list = await getIndividualsNS(schema);
+	list.forEach(e => { r = r.replace(e.prefix, e.value) });	
+	//r = r.replace('dbr:','http://dbpedia.org/resource/');
+	//r = r.replace('dbc:','http://dbpedia.org/resource/Category:');
+	//r = r.replace('rdf:','http://www.w3.org/1999/02/22-rdf-syntax-ns#');
+	//r = r.replace('xsd:','http://www.w3.org/2001/XMLSchema#');
+	//r = r.replace('owl:','http://www.w3.org/2002/07/owl#');
+	//r = r.replace('en_wiki:','http://en.wikipedia.org/wiki/');	
 	
 	if (r.substring(0,7) === 'http://')
 		r = `<${r}>`;
@@ -244,7 +250,7 @@ const formWherePart = (col, inT, list, listType) => {
 	//console.log('------------------------------------------------------')
 	let sep = "";
 	if ( listType === 1) {
-		list = list.map( x => x.toString().replace("'","''"))
+		list = list.map( x => x.toString().replace("'","''"));
 		sep = "'";
 	}
 	
@@ -369,4 +375,5 @@ module.exports = {
 	isPList,
 	getPList,
 	checkIndividualsParams,
+	getIndividualsNS,
 }
