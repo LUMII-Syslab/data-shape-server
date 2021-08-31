@@ -26,6 +26,7 @@ const KNOWN_DATA = [
 	{name: 'Tweets_cov', schema:'tweets_cov' },
 ]
 
+
 const validateOntologyName = name => /^[a-zA-Z0-9_]+$/.test(name)
 
 const getSchemaName = name => {
