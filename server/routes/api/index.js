@@ -23,6 +23,7 @@ const {
 // TODO: get this info from the db
 const KNOWN_DATA = [ 
 	{name: 'DBpedia', schema:'dbpedia' },
+	{name: 'Tweets_cov', schema:'tweets_cov' },
 ]
 
 const validateOntologyName = name => /^[a-zA-Z0-9_]+$/.test(name)
