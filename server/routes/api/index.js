@@ -22,8 +22,8 @@ const {
 
 // TODO: get this info from the db
 const KNOWN_DATA = [ 
-	{name: 'DBpedia', schema:'dbpedia' },
-	{name: 'Tweets_cov', schema:'tweets_cov' },
+	{name: 'DBpedia', schema:'dbpedia', endpoint: 'https://dbpedia.org/sparql' },
+	{name: 'Tweets_cov', schema:'tweets_cov', endpoint: 'https://data.gesis.org/tweetscov19/sparql' },
 ]
 
 
@@ -202,7 +202,7 @@ router.post('/ontologies/:ont/:fn', async (req, res, next) => {
 		const schema = err.schema;
 
 		let params = req.body;
-		params = await util.checkEndpoint(params)
+		params = await util.checkEndpoint(params, schema, KNOWN_DATA)
 	    console.log(params);
 		
 		let r = { complete: false };

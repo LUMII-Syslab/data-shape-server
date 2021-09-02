@@ -127,10 +127,14 @@ const setPropertyKind = ( params, val) => {
 const isOrderByPrefix = params => { return isValue(params.main.orderByPrefix);}
 const getOrderByPrefix = params => { return getValue(params.main.orderByPrefix);}
 
-const checkEndpoint = async params => {
+const checkEndpoint = async (params, schema, KNOWN_DATA) => {
    // TODO find value in DB
-	if ( !isEndpointUrl(params))
-		params = setEndpointUrl(params, 'https://dbpedia.org/sparql');
+	if ( !isEndpointUrl(params)) {
+		const s = KNOWN_DATA.find(x => x.schema == schema);
+		if (s !== undefined) 
+			params = setEndpointUrl(params, s.endpoint);
+	}
+	//params = setEndpointUrl(params, 'https://dbpedia.org/sparql');
 	return params;
 }
 
