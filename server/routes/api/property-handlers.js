@@ -180,21 +180,21 @@ order by ${orderByPref} o desc LIMIT $1`;
 	}
 	else {
 		if ( classType(classFrom) === 'b') {
-			contextA = ', cp_rels r';
-			contextB = ', cp_rels r';
+			contextA = `, ${schema}.cp_rels r`;
+			contextB = `, ${schema}.cp_rels r`;
 			whereListA.push(`property_id = v.id and r.type_id = 2 and class_id = ${classFrom[0].id}`);
 			whereListB.push(`property_id = v.id and r.type_id = 1 and class_id = ${classFrom[0].id}`);
 		} 
 		if ( classType(classTo) === 'b' ){
 			if ( contextA === '' ) {
-				contextA = ', cp_rels r';
-				contextB = ', cp_rels r';
+				contextA = `, ${schema}.cp_rels r`;
+				contextB = `, ${schema}.cp_rels r`;
 				whereListA.push(`property_id = v.id and r.type_id = 1 and class_id = ${classTo[0].id}`);
 				whereListB.push(`property_id = v.id and r.type_id = 2 and class_id = ${classTo[0].id}`);
 			}
 			else {
-				whereListA.push(`v.id in (select property_id from cp_rels r where r.type_id = 1 and class_id = ${classTo[0].id})`);
-				whereListB.push(`v.id in (select property_id from cp_rels r where r.type_id = 2 and class_id = ${classTo[0].id})`);
+				whereListA.push(`v.id in (select property_id from ${schema}.cp_rels r where r.type_id = 1 and class_id = ${classTo[0].id})`);
+				whereListB.push(`v.id in (select property_id from ${schema}.cp_rels r where r.type_id = 2 and class_id = ${classTo[0].id})`);
 			}
 		}  
 		if ( newPListFrom.in.length > 0 || newPListFrom.out.length > 0 || newPListTo.in.length > 0 || newPListTo.out.length > 0) {
