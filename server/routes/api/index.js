@@ -25,6 +25,7 @@ const KNOWN_DATA = [
 	{name: 'DBpedia', schema:'dbpedia', endpoint: 'https://dbpedia.org/sparql' },
 	{name: 'Tweets_cov', schema:'tweets_cov', endpoint: 'https://data.gesis.org/tweetscov19/sparql' },
 	{name: 'Europeana', schema:'europeana', endpoint: 'http://sparql.europeana.eu/' },
+	{name: 'Covid_On_The_Web', schema:'covid_on_the_web', endpoint: 'https://covidontheweb.inria.fr/sparql' },
 ]
 
 const validateOntologyName = name => /^[a-zA-Z0-9_]+$/.test(name)
