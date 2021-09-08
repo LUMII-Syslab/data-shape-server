@@ -207,8 +207,8 @@ order by ${orderByPref} o desc LIMIT $1`;
 				newPListTo.in = newPListTo.in.filter(item => item !== mainProp.id);
 				newPListTo.out = newPListTo.out.filter(item => item !== mainProp.id);
 				console.log(newPListFrom)
-				contextA = ', pp_rels r';
-				contextB = ', pp_rels r';
+				contextA = `, ${schema}.pp_rels r`;
+				contextB = `, ${schema}.pp_rels r`;
 				if ( mainProp.type === 'in' && mainProp.class === 'from' ) {
 					whereListA.push(`v.id = r.property_2_id and r.type_id = 1 and property_1_id = ${mainProp.id}`);
 					whereListB.push(`v.id = r.property_2_id and r.type_id = 3 and property_1_id = ${mainProp.id}`);
