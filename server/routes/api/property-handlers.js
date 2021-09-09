@@ -79,8 +79,10 @@ const getProperties = async (schema, params) => {
 	}
 	function formSql()  {
 		if ( strOrderField !== 'cnt' ) {
-			whereListA.push(`${strAo} > 0`);
-			whereListB.push(`${strBo} > 0`);	
+			//whereListA.push(`${strAo} > 0`);
+			//whereListB.push(`${strBo} > 0`);	
+			whereListA.push(`v.${strOrderField} > 0`);
+			whereListB.push(`v.${strOrderField} > 0`);	
 		}
 		const orderByPref = ( util.isOrderByPrefix(params) ? util.getOrderByPrefix(params) : '')
 		let sql = `SELECT aa.* FROM ( SELECT 'out' as mark, v.*, ${strAo} as o 				
