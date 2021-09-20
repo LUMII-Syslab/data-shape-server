@@ -13,6 +13,7 @@ const {
 
 const { 
 	getProperties,
+	checkProperty,
 } = require('./property-handlers')
 
 const { 
@@ -232,6 +233,10 @@ router.post('/ontologies/:ont/:fn', async (req, res, next) => {
 			const propObj = await util.getPropertyByName(util.getName(params), schema);
 			r = util.getSchemaObject(propObj);
 		}
+		if ( fn === 'checkProperty') {
+			r = await checkProperty(schema, params);
+		}
+		
 
 		r.ontology = ont;
 		res.json(r)	
