@@ -13,6 +13,7 @@ const {
 
 const { 
 	getProperties,
+	checkProperty,
 } = require('./property-handlers')
 
 const { 
@@ -22,10 +23,11 @@ const {
 
 // TODO: get this info from the db
 const KNOWN_DATA = [ 
-	{name: 'DBpedia', schema:'dbpedia' },
-	{name: 'Tweets_cov', schema:'tweets_cov' },
+	{name: 'DBpedia', schema:'dbpedia', endpoint: 'https://dbpedia.org/sparql' },
+	{name: 'Tweets_cov', schema:'tweets_cov', endpoint: 'https://data.gesis.org/tweetscov19/sparql' },
+	{name: 'Europeana', schema:'europeana', endpoint: 'http://sparql.europeana.eu/' },
+	{name: 'Covid_On_The_Web', schema:'covid_on_the_web', endpoint: 'https://covidontheweb.inria.fr/sparql' },
 ]
-
 
 const validateOntologyName = name => /^[a-zA-Z0-9_]+$/.test(name)
 
@@ -202,7 +204,7 @@ router.post('/ontologies/:ont/:fn', async (req, res, next) => {
 		const schema = err.schema;
 
 		let params = req.body;
-		params = await util.checkEndpoint(params)
+		params = await util.checkEndpoint(params, schema, KNOWN_DATA)
 	    console.log(params);
 		
 		let r = { complete: false };
@@ -231,6 +233,10 @@ router.post('/ontologies/:ont/:fn', async (req, res, next) => {
 			const propObj = await util.getPropertyByName(util.getName(params), schema);
 			r = util.getSchemaObject(propObj);
 		}
+		if ( fn === 'checkProperty') {
+			r = await checkProperty(schema, params);
+		}
+		
 
 		r.ontology = ont;
 		res.json(r)	

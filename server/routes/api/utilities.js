@@ -40,6 +40,7 @@ const getFilterColumn = params => {
 }
 const getLimit = params => { return getValue(params.main.limit); }
 const getName = params => { return getValue(params.main.name); }
+const getPropertyName = params => { return getValue(params.main.propertyName); }
 const getTreeMode = params => { return getValue(params.main.treeMode); }
 const isNamespaces = params => { return isValue(params.main.namespaces);}
 const isInNamespaces = params => { return isValue(params.main.namespaces.in);}
@@ -127,10 +128,14 @@ const setPropertyKind = ( params, val) => {
 const isOrderByPrefix = params => { return isValue(params.main.orderByPrefix);}
 const getOrderByPrefix = params => { return getValue(params.main.orderByPrefix);}
 
-const checkEndpoint = async params => {
+const checkEndpoint = async (params, schema, KNOWN_DATA) => {
    // TODO find value in DB
-	if ( !isEndpointUrl(params))
-		params = setEndpointUrl(params, 'https://dbpedia.org/sparql');
+	if ( !isEndpointUrl(params)) {
+		const s = KNOWN_DATA.find(x => x.schema == schema);
+		if (s !== undefined) 
+			params = setEndpointUrl(params, s.endpoint);
+	}
+	//params = setEndpointUrl(params, 'https://dbpedia.org/sparql');
 	return params;
 }
 
@@ -151,7 +156,10 @@ const getLocalNamespace = async schema => {
 
 const getClassByName = async (cName, schema) => {
 	let r;
-	if ( cName.includes(':')){
+	if ( cName.includes('://')){
+		r = await db.any(`SELECT * FROM ${schema}.v_classes_ns WHERE iri = $1 order by cnt desc limit 1`, [cName]);
+	}
+	else if ( cName.includes(':')){
 		const nList = cName.split(':');
 		r = await db.any(`SELECT * FROM ${schema}.v_classes_ns WHERE display_name = $2 and prefix = $1 order by cnt desc limit 1`, [nList[0], nList[1]]);
 	}
@@ -169,7 +177,10 @@ const getPropertyByName = async (pName, schema) => {
 	const col = 'v.*, dc.prefix as dc_prefix, dc.display_name as dc_display_name, dc.is_local as dc_is_local, rc.prefix as rc_prefix, rc.display_name as rc_display_name, rc.is_local as rc_is_local';
 	const join = `LEFT JOIN ${schema}.v_classes_ns dc ON v.domain_class_id = dc.id LEFT JOIN ${schema}.v_classes_ns rc ON v.range_class_id = rc.id`;
 
-	if ( pName.includes(':')){
+	if ( pName.includes('://')){
+		r = await db.any(`SELECT * FROM ${schema}.v_properties_ns WHERE iri = $1 order by cnt desc limit 1`, [pName]);
+	}
+	else if ( pName.includes(':')){
 		const nList = pName.split(':');
 		r = await db.any(`SELECT ${col} FROM ${schema}.v_properties_ns v ${join} WHERE v.display_name = $2 and v.prefix = $1 order by v.cnt desc limit 1`, [nList[0], nList[1]]);
 	}
@@ -355,6 +366,7 @@ module.exports = {
 	getFilter,
 	getLimit,
 	getName,
+	getPropertyName,
 	isNamespaces,
 	isInNamespaces,
 	getEndpointUrl,

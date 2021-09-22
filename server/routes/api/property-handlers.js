@@ -9,6 +9,34 @@ const {
 	sparqlGetPropertiesFromClass,
 } = require('../../util/sparql/endpoint-queries')
 
+const checkProperty = async (schema, params) => {
+	let r = { data: [], complete: false };
+	const className = util.getName(params);
+	const propertyName = util.getPropertyName(params);
+	const classObj = await util.getClassByName(className, schema);
+	const propObj = await util.getPropertyByName(propertyName, schema); 
+	console.log(classObj)
+	if ( classObj.length > 0 && propObj.length > 0 && classObj[0].props_in_schema ) {
+		const sql = `SELECT * from ${schema}.v_cp_rels where class_id = ${classObj[0].id} and property_id = ${propObj[0].id}`;
+		r = await util.getSchemaData(sql, params);
+	}
+	else if (classObj.length > 0 && propObj.length > 0) {
+		const sparqlOut = `select count(?x1) where {?x1 rdf:type <${classObj[0].iri}>. ?x1 <${propObj[0].iri}> [].}`;
+		const outPropC = await executeSPARQL(util.getEndpointUrl(params), sparqlOut);
+		if ( outPropC[0]['callret-0'].value !== '0') 
+			r.data.push({ctn: parseInt(outPropC[0]['callret-0'].value), type_id: 2});
+
+		const sparqlIn = `select count(?x1) where {?x1 rdf:type <${classObj[0].iri}>. [] <${propObj[0].iri}> $x1.}`;
+		const inPropC = await executeSPARQL(util.getEndpointUrl(params), sparqlIn);
+		if ( inPropC[0]['callret-0'].value !== '0') 
+			r.data.push({ctn: parseInt(inPropC[0]['callret-0'].value), type_id: 1});		
+	}
+
+	//*** select count(?x1) where {?x1 rdf:type <http://dbpedia.org/ontology/Country>. ?x1 <http://dbpedia.org/ontology/abstract> [].}
+	//*** select count(?x1) where {?x1 rdf:type <http://dbpedia.org/ontology/Country>. [] <http://dbpedia.org/ontology/birthPlace> ?x1.}
+	return r;
+}
+
 const findMainProperty = async (schema, pListFrom, pListTo) => {
 
 	if ( pListFrom.in.length === 1)
@@ -79,8 +107,10 @@ const getProperties = async (schema, params) => {
 	}
 	function formSql()  {
 		if ( strOrderField !== 'cnt' ) {
-			whereListA.push(`${strAo} > 0`);
-			whereListB.push(`${strBo} > 0`);	
+			//whereListA.push(`${strAo} > 0`);
+			//whereListB.push(`${strBo} > 0`);	
+			whereListA.push(`v.${strOrderField} > 0`);
+			whereListB.push(`v.${strOrderField} > 0`);	
 		}
 		const orderByPref = ( util.isOrderByPrefix(params) ? util.getOrderByPrefix(params) : '')
 		let sql = `SELECT aa.* FROM ( SELECT 'out' as mark, v.*, ${strAo} as o 				
@@ -180,21 +210,21 @@ order by ${orderByPref} o desc LIMIT $1`;
 	}
 	else {
 		if ( classType(classFrom) === 'b') {
-			contextA = ', cp_rels r';
-			contextB = ', cp_rels r';
+			contextA = `, ${schema}.cp_rels r`;
+			contextB = `, ${schema}.cp_rels r`;
 			whereListA.push(`property_id = v.id and r.type_id = 2 and class_id = ${classFrom[0].id}`);
 			whereListB.push(`property_id = v.id and r.type_id = 1 and class_id = ${classFrom[0].id}`);
 		} 
 		if ( classType(classTo) === 'b' ){
 			if ( contextA === '' ) {
-				contextA = ', cp_rels r';
-				contextB = ', cp_rels r';
+				contextA = `, ${schema}.cp_rels r`;
+				contextB = `, ${schema}.cp_rels r`;
 				whereListA.push(`property_id = v.id and r.type_id = 1 and class_id = ${classTo[0].id}`);
 				whereListB.push(`property_id = v.id and r.type_id = 2 and class_id = ${classTo[0].id}`);
 			}
 			else {
-				whereListA.push(`v.id in (select property_id from cp_rels r where r.type_id = 1 and class_id = ${classTo[0].id})`);
-				whereListB.push(`v.id in (select property_id from cp_rels r where r.type_id = 2 and class_id = ${classTo[0].id})`);
+				whereListA.push(`v.id in (select property_id from ${schema}.cp_rels r where r.type_id = 1 and class_id = ${classTo[0].id})`);
+				whereListB.push(`v.id in (select property_id from ${schema}.cp_rels r where r.type_id = 2 and class_id = ${classTo[0].id})`);
 			}
 		}  
 		if ( newPListFrom.in.length > 0 || newPListFrom.out.length > 0 || newPListTo.in.length > 0 || newPListTo.out.length > 0) {
@@ -207,8 +237,8 @@ order by ${orderByPref} o desc LIMIT $1`;
 				newPListTo.in = newPListTo.in.filter(item => item !== mainProp.id);
 				newPListTo.out = newPListTo.out.filter(item => item !== mainProp.id);
 				console.log(newPListFrom)
-				contextA = ', pp_rels r';
-				contextB = ', pp_rels r';
+				contextA = `, ${schema}.pp_rels r`;
+				contextB = `, ${schema}.pp_rels r`;
 				if ( mainProp.type === 'in' && mainProp.class === 'from' ) {
 					whereListA.push(`v.id = r.property_2_id and r.type_id = 1 and property_1_id = ${mainProp.id}`);
 					whereListB.push(`v.id = r.property_2_id and r.type_id = 3 and property_1_id = ${mainProp.id}`);
@@ -278,4 +308,5 @@ order by ${orderByPref} o desc LIMIT $1`;
 
 module.exports = {
 getProperties,
+checkProperty,
 }
