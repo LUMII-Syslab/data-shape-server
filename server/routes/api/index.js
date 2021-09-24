@@ -27,6 +27,8 @@ const KNOWN_DATA = [
 	{name: 'Tweets_cov', schema:'tweets_cov', endpoint: 'https://data.gesis.org/tweetscov19/sparql' },
 	{name: 'Europeana', schema:'europeana', endpoint: 'http://sparql.europeana.eu/' },
 	{name: 'Covid_On_The_Web', schema:'covid_on_the_web', endpoint: 'https://covidontheweb.inria.fr/sparql' },
+	{name: 'Mini-university', schema:'mini_university', endpoint: 'http://85.254.199.72:8890/sparql' },
+	{name: 'Mini-hospital', schema:'mini_hospital', endpoint: 'http://localhost:8890/sparql' },
 ]
 
 const validateOntologyName = name => /^[a-zA-Z0-9_]+$/.test(name)
