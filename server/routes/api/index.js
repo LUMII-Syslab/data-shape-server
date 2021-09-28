@@ -31,7 +31,7 @@ const KNOWN_DATA = [
 	{name: 'Mini-hospital', schema:'mini_hospital', endpoint: 'http://localhost:8890/sparql' },
 ]
 
-const validateOntologyName = name => /^[a-zA-Z0-9_]+$/.test(name)
+const validateOntologyName = name => /^[a-zA-Z0-9_-]+$/.test(name)
 
 const getSchemaName = name => {
 	if ( name === 'V1_dbpedia' ) name = 'DBpedia'; // TODO: remove
