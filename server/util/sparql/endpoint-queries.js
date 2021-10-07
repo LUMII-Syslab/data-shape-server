@@ -93,7 +93,7 @@ const executeSPARQL = async (endpointUrl, querySparql) => {
 
 const sparqlGetIndividuals =  async (schema, params) => {
 	function getShortName(list, name) {
-		list.forEach(e => { name = name.replace(e.value,e.prefix) });
+		list.forEach(e => { if ( name.indexOf(e.value) == 0) name = name.replace(e.value,e.prefix) });
 		//name = name.replace('http://dbpedia.org/resource/Category:','dbc:');
 		//name = name.replace('http://dbpedia.org/resource/','dbr:');
 		//name = name.replace('http://www.w3.org/1999/02/22-rdf-syntax-ns#','rdf:');

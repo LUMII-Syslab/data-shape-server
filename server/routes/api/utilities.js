@@ -57,7 +57,8 @@ const isUriIndividual = ( params, poz = 0) => {
 	return false;
 }
 const getIndividualsNS =  async schema => {
-	const sql = `SELECT CONCAT(name,':') as prefix, value from ${schema}.ns WHERE name in ('dbc','dbr','rdf','xsd','owl', 'en_wiki') order by value desc`; // TODO 
+	//const sql = `SELECT CONCAT(name,':') as prefix, value from ${schema}.ns WHERE name in ('dbc','dbr','rdf','xsd','owl', 'en_wiki') order by value desc`; // TODO 
+	const sql = `SELECT CONCAT(name,':') as prefix, value from ${schema}.ns WHERE name != '' and value != '' order by value desc`;  
 	const r = await db.any(sql);
 	return r;
 }
@@ -69,7 +70,7 @@ const getUriIndividual = async ( schema, params, poz = 0) => {
 		r = getValue(params.elementOE.uriIndividual);
 	
 	const list = await getIndividualsNS(schema);
-	list.forEach(e => { r = r.replace(e.prefix, e.value) });	
+	list.forEach(e => { if ( r.indexOf(e.prefix) == 0)  r = r.replace(e.prefix, e.value) });	
 	//r = r.replace('dbr:','http://dbpedia.org/resource/');
 	//r = r.replace('dbc:','http://dbpedia.org/resource/Category:');
 	//r = r.replace('rdf:','http://www.w3.org/1999/02/22-rdf-syntax-ns#');
@@ -77,7 +78,7 @@ const getUriIndividual = async ( schema, params, poz = 0) => {
 	//r = r.replace('owl:','http://www.w3.org/2002/07/owl#');
 	//r = r.replace('en_wiki:','http://en.wikipedia.org/wiki/');	
 	
-	if (r.substring(0,7) === 'http://')
+	if (r.substring(0,7) === 'http://' || r.substring(0,8) === 'https://')
 		r = `<${r}>`;
 	return r;
 }

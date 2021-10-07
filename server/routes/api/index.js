@@ -23,12 +23,12 @@ const {
 
 // TODO: get this info from the db
 const KNOWN_DATA = [ 
-	{name: 'DBpedia', schema:'dbpedia', endpoint: 'https://dbpedia.org/sparql' },
-	{name: 'Tweets_cov', schema:'tweets_cov', endpoint: 'https://data.gesis.org/tweetscov19/sparql' },
-	{name: 'Europeana', schema:'europeana', endpoint: 'http://sparql.europeana.eu/' },
-	{name: 'Covid_On_The_Web', schema:'covid_on_the_web', endpoint: 'https://covidontheweb.inria.fr/sparql' },
-	{name: 'Mini_university', schema:'mini_university', endpoint: 'http://85.254.199.72:8890/sparql' },
-	{name: 'Mini_hospital', schema:'mini_hospital', endpoint: 'http://localhost:8890/sparql' },
+	{name: 'DBpedia', schema:'dbpedia', endpoint: 'https://dbpedia.org/sparql', tree_profile: 'DBpedia', use_pp_rels: true },
+	{name: 'Tweets_cov', schema:'tweets_cov', endpoint: 'https://data.gesis.org/tweetscov19/sparql', tree_profile: 'DBpediaL', use_pp_rels: true  },
+	{name: 'Europeana', schema:'europeana', endpoint: 'http://sparql.europeana.eu/', tree_profile: 'Basic', use_pp_rels: false  },
+	{name: 'Covid_On_The_Web', schema:'covid_on_the_web', endpoint: 'https://covidontheweb.inria.fr/sparql', tree_profile: 'DBpediaL', use_pp_rels: false  },
+	{name: 'Mini_university', schema:'mini_university', endpoint: 'http://85.254.199.72:8890/sparql', tree_profile: 'Basic', use_pp_rels: true  },
+	{name: 'Mini_hospital', schema:'mini_hospital', endpoint: 'http://localhost:8890/sparql', tree_profile: 'Basic', use_pp_rels: true  },
 ]
 
 const validateOntologyName = name => /^[a-zA-Z0-9_-]+$/.test(name)
