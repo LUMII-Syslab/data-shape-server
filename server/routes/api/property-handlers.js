@@ -9,13 +9,26 @@ const {
 	sparqlGetPropertiesFromClass,
 } = require('../../util/sparql/endpoint-queries')
 
+const getNextProperties = async (schema, params) => {
+	let r = { data: [], complete: false };
+	const propertyName = util.getName(params);
+	const propObj = await util.getPropertyByName(propertyName, schema); 
+	
+	const sql = `select * from ${schema}.v_properties_ns vpn where id in
+(select distinct property_id from ${schema}.cp_rels where type_id = 2 and class_id in (select class_id from ${schema}.cp_rels where property_id = ${propObj[0].id} and type_id = 1))
+order by cnt desc limit $1`;
+
+	r = await util.getSchemaData(sql, params);
+	return r;
+}
+
 const checkProperty = async (schema, params) => {
 	let r = { data: [], complete: false };
 	const className = util.getName(params);
 	const propertyName = util.getPropertyName(params);
 	const classObj = await util.getClassByName(className, schema);
 	const propObj = await util.getPropertyByName(propertyName, schema); 
-	console.log(classObj)
+
 	if ( classObj.length > 0 && propObj.length > 0 && classObj[0].props_in_schema ) {
 		const sql = `SELECT * from ${schema}.v_cp_rels where class_id = ${classObj[0].id} and property_id = ${propObj[0].id}`;
 		r = await util.getSchemaData(sql, params);
@@ -308,5 +321,6 @@ order by ${orderByPref} o desc LIMIT $1`;
 
 module.exports = {
 getProperties,
+getNextProperties,
 checkProperty,
 }
