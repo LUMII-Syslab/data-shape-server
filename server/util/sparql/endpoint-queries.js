@@ -105,45 +105,71 @@ const sparqlGetIndividuals =  async (schema, params) => {
 
 	const endpointUrl = util.getEndpointUrl(params); 
 	const typeString = await getTypeString(endpointUrl);
+	const list = await util.getIndividualsNS(schema);
+	let sparql;
+	let sql;
+	let reply;
+	let rr = [];
 	let newPList = {in:[], out:[]};
 	let whereList = [];
 	newPList = await util.getUrifromPList(schema, util.getPList(params, 0));
 	//console.log(newPList)
 	
-	if (util.isClassName(params, 0)) {
-		const clInfo = await util.getClassByName(util.getClassName(params, 0), schema);
-		if (clInfo.length > 0)
-			whereList.push(`?x ${typeString} <${clInfo[0].iri}>`);
-	}
-	if (newPList.in.length > 0 )
-		newPList.in.forEach(element => whereList.push(`[] <${element}> ?x`));
-	if (newPList.out.length > 0 )
-		newPList.out.forEach(element => whereList.push(`?x <${element}> []`));
+	if (util.isClassName(params, 0) && util.getClassName(params, 0).includes('All classes') && util.isFilter(params)) {
 
-	//console.log(whereList)
-	const list = await util.getIndividualsNS(schema);
-	let sparql;
-	let reply;
-	let rr = [];
-	
-	if (util.isFilter(params)) {
-		// *******************************
-		let ii = [];
-		list.forEach(e => { ii.push(`?x =<${e.value}${util.getFilter(params)}>`);});
-		const sparql0 = `select distinct ?x where { ${whereList.join('. ')} FILTER ( ${ii.join(' or ')}) } LIMIT ${list.length}`;
-		reply = await executeSPARQL(endpointUrl, sparql0);
-		reply.forEach(v => { rr.push(getShortName(list, v.x.value));});
-		// *******************************
-		//sparql = `select distinct ?x where { ${whereList.join('. ')} FILTER ( REGEX(lcase(str(?x)),'${util.getFilter(params).toLowerCase()}') ) } LIMIT ${util.getLimit(params)}`;
-		sparql = `select distinct ?x where { ${whereList.join('. ')} FILTER ( REGEX(?x,'${util.getFilter(params)}','i') ) } LIMIT ${util.getLimit(params)}`;
-	}
-	else
-		sparql = `select distinct ?x where { ${whereList.join('. ')} } LIMIT ${util.getLimit(params)}`;
+		if (util.getClassName(params, 0) == 'All classes T') {  //TODO
+			sql = `SELECT local_name, name FROM (SELECT * FROM ${schema}.instances where test @@ to_tsquery($2) order by length(test) limit $1) AA , ${schema}.ns where ns_id = ns.id`;
+			reply = await util.getSchemaData(sql, params);
+			reply.data.forEach(v => { rr.push(`${v.name}:${v.local_name}`);});
+		}
 		
-	reply = await executeSPARQL(endpointUrl, sparql);
-	reply.forEach(v => { rr.push(getShortName(list, v.x.value));});
-	if ( rr.length === 2 && rr[0] === rr[1])
-		rr.pop();
+		if (util.getClassName(params, 0) == 'All classes LN') {  //TODO
+			sql = `SELECT local_name, name FROM (SELECT * FROM ${schema}.instances where local_name like '${util.getFilter(params)}%' limit $1) AA , ${schema}.ns where ns_id = ns.id`;
+			reply = await util.getSchemaData(sql, params);
+			reply.data.forEach(v => { rr.push(`${v.name}:${v.local_name}`);});
+		}
+		if (util.getClassName(params, 0) == 'All classes U') {  //TODO
+			sql = `SELECT local_name, name FROM (SELECT * FROM ${schema}.instances where local_name = $2 limit $1) AA , ${schema}.ns where ns_id = ns.id`;
+			reply = await util.getSchemaData(sql, params);
+			reply.data.forEach(v => { rr.push(`${v.name}:${v.local_name}`);});
+			sql = `SELECT local_name, name FROM (SELECT * FROM ${schema}.instances where test @@ to_tsquery($2) order by length(test) limit $1) AA , ${schema}.ns where ns_id = ns.id`;
+			reply = await util.getSchemaData(sql, params);
+			reply.data.forEach(v => { rr.push(`${v.name}:${v.local_name}`);});
+		}
+
+		}
+	else {
+		if (util.isClassName(params, 0) && !util.getClassName(params, 0).includes('All classes') ) {
+			const clInfo = await util.getClassByName(util.getClassName(params, 0), schema);
+			if (clInfo.length > 0)
+				whereList.push(`?x ${typeString} <${clInfo[0].iri}>`);
+		}
+		if (newPList.in.length > 0 )
+			newPList.in.forEach(element => whereList.push(`[] <${element}> ?x`));
+		if (newPList.out.length > 0 )
+			newPList.out.forEach(element => whereList.push(`?x <${element}> []`));
+
+		//console.log(whereList)
+
+		if (util.isFilter(params)) {
+			// *******************************
+			let ii = [];
+			list.forEach(e => { ii.push(`?x =<${e.value}${util.getFilter(params)}>`);});
+			const sparql0 = `select distinct ?x where { ${whereList.join('. ')} FILTER ( ${ii.join(' or ')}) } LIMIT ${list.length}`;
+			reply = await executeSPARQL(endpointUrl, sparql0);
+			reply.forEach(v => { rr.push(getShortName(list, v.x.value));});
+			// *******************************
+			//sparql = `select distinct ?x where { ${whereList.join('. ')} FILTER ( REGEX(lcase(str(?x)),'${util.getFilter(params).toLowerCase()}') ) } LIMIT ${util.getLimit(params)}`;
+			sparql = `select distinct ?x where { ${whereList.join('. ')} FILTER ( REGEX(?x,'${util.getFilter(params)}','i') ) } LIMIT ${util.getLimit(params)}`;
+		}
+		else
+			sparql = `select distinct ?x where { ${whereList.join('. ')} } LIMIT ${util.getLimit(params)}`;
+			
+		reply = await executeSPARQL(endpointUrl, sparql);
+		reply.forEach(v => { rr.push(getShortName(list, v.x.value));});
+		if ( rr.length === 2 && rr[0] === rr[1])
+			rr.pop();
+	}
 	
 	return rr;
     //return reply.map(v => getShortName(list, v.x.value));

@@ -14,11 +14,14 @@ const getNextProperties = async (schema, params) => {
 	const propertyName = util.getName(params);
 	const propObj = await util.getPropertyByName(propertyName, schema); 
 	
-	const sql = `select * from ${schema}.v_properties_ns vpn where id in
-(select distinct property_id from ${schema}.cp_rels where type_id = 2 and class_id in (select class_id from ${schema}.cp_rels where property_id = ${propObj[0].id} and type_id = 1))
-order by cnt desc limit $1`;
+	if ( propObj.length > 0 ) {
+	
+		const sql = `select * from ${schema}.v_properties_ns vpn where id in
+	(select distinct property_id from ${schema}.cp_rels where type_id = 2 and class_id in (select class_id from ${schema}.cp_rels where property_id = ${propObj[0].id} and type_id = 1))
+	order by cnt desc limit $1`;
 
-	r = await util.getSchemaData(sql, params);
+		r = await util.getSchemaData(sql, params);
+	}
 	return r;
 }
 
@@ -152,7 +155,7 @@ order by ${orderByPref} o desc LIMIT $1`;
 			return 's';
 		if ( classO[0].props_in_schema === true )
 			return 'b';
-		return 'n'
+		return 'n'  
 	} 
 	
 	if ( util.isPropertyKind(params)) {
