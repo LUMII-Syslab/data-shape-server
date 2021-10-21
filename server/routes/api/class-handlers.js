@@ -127,6 +127,22 @@ const getTreeClasses = async (schema, params) => {
 	}
 	
 	r = await util.getSchemaData(sql, params);
+	
+	if ( r.complete && util.getTreeMode(params) === 'Top' && !util.isFilter(params)) {
+		var owlThing = await util.getClassByName( 'owl:Thing', schema);
+		whereList = [];
+		whereList.push(util.formWherePart('v.id', 'in', r.data.map(v => v.id), 0))
+		if ( owlThing.length == 1) {
+			whereList.push(`(not exists ( select * from ${schema}.cc_rels where class_1_id = v.id and type_id = 1) or 
+			                 exists (select * from ${schema}.cc_rels where class_1_id = v.id and class_2_id = ${owlThing[0].id} and type_id = 1))`);
+		}
+		else {
+			whereList.push(`not exists ( select * from ${schema}.cc_rels where class_1_id = v.id and type_id = 1)`);
+		}
+		
+		sql = `SELECT v.* FROM ${viewname} WHERE ${whereList.join(' and ')} order by cnt desc LIMIT $1`;
+		r = await util.getSchemaData(sql, params);
+	}
 
 	return r;
 }
