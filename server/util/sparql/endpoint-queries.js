@@ -91,6 +91,8 @@ const executeSPARQL = async (endpointUrl, querySparql) => {
     return reply;
 }
 
+const validateFilter = name => /^[a-žA-Ž0-9_()'-]+$/.test(name)
+
 const sparqlGetIndividuals =  async (schema, params) => {
 	function getShortName(list, name) {
 		list.forEach(e => { if ( name.indexOf(e.value) == 0) name = name.replace(e.value,e.prefix) });
@@ -116,24 +118,35 @@ const sparqlGetIndividuals =  async (schema, params) => {
 	//console.log(newPList)
 	
 	if (util.isClassName(params, 0) && util.getClassName(params, 0).includes('All classes') && util.isFilter(params)) {
-
-		if (util.getClassName(params, 0) == 'All classes T') {  //TODO
-			sql = `SELECT local_name, name FROM (SELECT * FROM ${schema}.instances where test @@ to_tsquery($2) order by length(test) limit $1) AA , ${schema}.ns where ns_id = ns.id`;
-			reply = await util.getSchemaData(sql, params);
-			reply.data.forEach(v => { rr.push(`${v.name}:${v.local_name}`);});
+		let filter = util.getFilter(params);
+		if ( !validateFilter(filter)) {
+			const filter_list = filter.split('');
+			let filter_list2 = [];
+			filter_list.forEach(f => { 
+				if (validateFilter(f))
+					filter_list2.push(f);
+			});
+			filter = filter_list2.join('');
+			params.main.filter = filter;
 		}
 		
-		if (util.getClassName(params, 0) == 'All classes LN') {  //TODO
-			sql = `SELECT local_name, name FROM (SELECT * FROM ${schema}.instances where local_name like '${util.getFilter(params)}%' limit $1) AA , ${schema}.ns where ns_id = ns.id`;
+		if (util.getClassName(params, 0) == 'All classes LN' || util.getClassName(params, 0) == 'All classes') {  //TODO
+			sql = `SELECT local_name, name FROM (SELECT local_name, ns_id FROM ${schema}.instances where local_name = $2 limit $1) AA , ${schema}.ns where ns_id = ns.id`;
+			reply = await util.getSchemaData(sql, params);
+			reply.data.forEach(v => { rr.push(`${v.name}:${v.local_name}`);});
+			filter = filter.replace("'","''");
+			sql = `SELECT local_name, name FROM (SELECT * FROM ${schema}.instances where local_name like '${filter}%' limit $1) AA , ${schema}.ns where ns_id = ns.id order by length(local_name)`;
 			reply = await util.getSchemaData(sql, params);
 			reply.data.forEach(v => { rr.push(`${v.name}:${v.local_name}`);});
 		}
-		if (util.getClassName(params, 0) == 'All classes U') {  //TODO
-			sql = `SELECT local_name, name FROM (SELECT * FROM ${schema}.instances where local_name = $2 limit $1) AA , ${schema}.ns where ns_id = ns.id`;
+		if (util.getClassName(params, 0) == 'All classes T') {  //TODO
+			//sql = `SELECT local_name, name FROM (SELECT local_name, ns_id FROM ${schema}.instances where local_name = $2 limit $1) AA , ${schema}.ns where ns_id = ns.id`;
+			//reply = await util.getSchemaData(sql, params);
+			//reply.data.forEach(v => { rr.push(`${v.name}:${v.local_name}`);});
+			params.main.filter = params.main.filter.replace("(","").replace(")","");
+			sql = `SELECT local_name, name FROM (SELECT local_name, ns_id FROM ${schema}.instances where test @@ to_tsquery($2) order by length(test) limit $1) AA , ${schema}.ns where ns_id = ns.id  order by length(local_name)`;
 			reply = await util.getSchemaData(sql, params);
-			reply.data.forEach(v => { rr.push(`${v.name}:${v.local_name}`);});
-			sql = `SELECT local_name, name FROM (SELECT * FROM ${schema}.instances where test @@ to_tsquery($2) order by length(test) limit $1) AA , ${schema}.ns where ns_id = ns.id`;
-			reply = await util.getSchemaData(sql, params);
+			console.log(reply.data)
 			reply.data.forEach(v => { rr.push(`${v.name}:${v.local_name}`);});
 		}
 
