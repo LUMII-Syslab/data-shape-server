@@ -22,23 +22,16 @@ const {
 	sparqlGetIndividuals,
 } = require('../../util/sparql/endpoint-queries')
 
-// TODO: get this info from the db
-const KNOWN_DATA = [ 
-	{name: 'DBpedia', schema:'dbpedia', endpoint: 'https://dbpedia.org/sparql', tree_profile: 'DBpedia', use_pp_rels: true , hide_individuals: false },
-	{name: 'Tweets_cov', schema:'tweets_cov', endpoint: 'https://data.gesis.org/tweetscov19/sparql', tree_profile: 'DBpediaL', use_pp_rels: true  , hide_individuals: false },
-	{name: 'Europeana', schema:'europeana', endpoint: 'http://sparql.europeana.eu/', tree_profile: 'Basic', use_pp_rels: false  , hide_individuals: false },
-	{name: 'Covid_On_The_Web', schema:'covid_on_the_web', endpoint: 'https://covidontheweb.inria.fr/sparql', tree_profile: 'DBpediaL', use_pp_rels: false  , hide_individuals: false },
-	{name: 'Mini_university', schema:'mini_university', endpoint: 'http://85.254.199.72:8890/sparql', tree_profile: 'BasicL', use_pp_rels: true , hide_individuals: true },
-	{name: 'Mini_hospital', schema:'mini_hospital', endpoint: 'http://185.23.162.167:8833/sparql', tree_profile: 'BasicL', use_pp_rels: true  , hide_individuals: true },
-]
-
 const validateOntologyName = name => /^[a-zA-Z0-9_-]+$/.test(name)
 
 const getSchemaName = name => {
-	if ( name === 'V1_dbpedia' ) name = 'DBpedia'; // TODO: remove
-	const s = KNOWN_DATA.find(x => x.name == name);
+	//if ( name === 'V1_dbpedia' ) name = 'DBpedia'; // TODO: remove
+	//const s = KNOWN_DATA.find(x => x.name == name);
+	//if (s !== undefined) return s.schema;
+	//else return "";
+	const s = util.get_KNOWN_DATA().find(x => x.schema == name);
 	if (s !== undefined) return s.schema;
-	else return "";
+	else return '';
 }
 
 const makeOutput = data => {
@@ -71,7 +64,7 @@ router.get('/', (req, res, next) => {
  * List of known ontologies
  */
 router.get('/info', (req, res, next) => {
-  res.json(KNOWN_DATA);
+  res.json(util.get_KNOWN_DATA());
 });
 
 /**
@@ -208,7 +201,7 @@ router.post('/ontologies/:ont/:fn', async (req, res, next) => {
 		const schema = err.schema;
 
 		let params = req.body;
-		params = await util.checkEndpoint(params, schema, KNOWN_DATA)
+		params = await util.checkEndpoint(params, schema, util.get_KNOWN_DATA())
 	    console.log(params);
 		
 		let r = { complete: false };

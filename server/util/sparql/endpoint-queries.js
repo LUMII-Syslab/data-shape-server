@@ -15,15 +15,16 @@ const findClient = endpointUrl => {
     return client;
 }
 
-const getTypeString = async endpointUrl => {
-	// TODO get from DB
-    return 'rdf:type';
+const getTypeString = async (params) => {
+	const roles = util.getTypeStrings(params);
+	return  roles[0];
+    //return 'rdf:type';
 }
 
 const sparqlGetIndividualClasses = async (params, uriIndividual) => {
 	
 	const endpointUrl = util.getEndpointUrl(params); 
-	const typeString = await getTypeString(endpointUrl)
+	const typeString = await getTypeString(params);
 	const sparql = `select distinct ?c where {${uriIndividual} ${typeString} ?c} order by ?c`;
 	
 	const reply = await executeSPARQL(endpointUrl, sparql);
@@ -60,7 +61,7 @@ const sparqlGetPropertiesFromClass = async (params, pos, uriClass) => {
 	let sparql;
 	let reply;
 	const endpointUrl = util.getEndpointUrl(params);
-	const typeString = await getTypeString(endpointUrl);	
+	const typeString = await getTypeString(params);	
 	
 	if ( pos === 'To') {
 		sparql = `select distinct ?p where {?x1 ${typeString} <${uriClass}>. [] ?p ?x1.} order by ?p`;
@@ -106,7 +107,7 @@ const sparqlGetIndividuals =  async (schema, params) => {
 	}
 
 	const endpointUrl = util.getEndpointUrl(params); 
-	const typeString = await getTypeString(endpointUrl);
+	const typeString = await getTypeString(params);
 	const list = await util.getIndividualsNS(schema);
 	let sparql;
 	let sql;
@@ -129,12 +130,12 @@ const sparqlGetIndividuals =  async (schema, params) => {
 			filter = filter_list2.join('');
 			params.main.filter = filter;
 		}
+		filter = filter.replace("'","''");
 		
 		if (util.getClassName(params, 0) == 'All classes LN' ) {  //TODO
 			sql = `SELECT local_name, name FROM (SELECT local_name, ns_id FROM ${schema}.instances where local_name = $2 limit $1) AA , ${schema}.ns where ns_id = ns.id`;
 			reply = await util.getSchemaData(sql, params);
 			reply.data.forEach(v => { rr.push(`${v.name}:${v.local_name}`);});
-			filter = filter.replace("'","''");
 			sql = `SELECT local_name, name FROM (SELECT * FROM ${schema}.instances where local_name like '${filter}%' limit $1) AA , ${schema}.ns where ns_id = ns.id order by length(local_name)`;
 			reply = await util.getSchemaData(sql, params);
 			reply.data.forEach(v => { rr.push(`${v.name}:${v.local_name}`);});
@@ -145,6 +146,7 @@ const sparqlGetIndividuals =  async (schema, params) => {
 			//reply.data.forEach(v => { rr.push(`${v.name}:${v.local_name}`);});
 			params.main.filter = params.main.filter.replace("(","").replace(")","");
 			sql = `SELECT local_name, name FROM (SELECT local_name, ns_id FROM ${schema}.instances where test @@ to_tsquery($2) order by length(test) limit $1) AA , ${schema}.ns where ns_id = ns.id  order by length(local_name)`;
+			//*** sql = `SELECT local_name, name FROM (SELECT local_name, ns_id FROM ${schema}.instances where test @@ to_tsquery($2) and local_name ilike '%${filter}%' order by length(test) limit $1) AA , ${schema}.ns where ns_id = ns.id  order by length(local_name)`;
 			reply = await util.getSchemaData(sql, params);
 			reply.data.forEach(v => { rr.push(`${v.name}:${v.local_name}`);});
 		}
