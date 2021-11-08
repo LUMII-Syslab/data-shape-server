@@ -9,7 +9,7 @@ const KNOWN_DATA = [
 	{name: 'Covid_On_The_Web', schema:'covid_on_the_web', endpoint: 'https://covidontheweb.inria.fr/sparql', tree_profile: 'DBpediaL', use_pp_rels: false, hide_individuals: false, direct_role:'rdf:type', indirect_role:'' },
 	{name: 'Mini_university', schema:'mini_university', endpoint: 'http://85.254.199.72:8890/sparql', tree_profile: 'BasicL', use_pp_rels: true, hide_individuals: true, direct_role:'rdf:type', indirect_role:'' },
 	{name: 'Mini_hospital', schema:'mini_hospital', endpoint: 'http://185.23.162.167:8833/sparql', tree_profile: 'BasicL', use_pp_rels: true, hide_individuals: true, direct_role:'rdf:type', indirect_role:'' },
-	{name: 'Wikidata', schema:'wikidata', endpoint: 'https://query.wikidata.org', tree_profile: 'DBpediaL', use_pp_rels: false, hide_individuals: false, direct_role:'wdt:P31', indirect_role:'wdt:P279' },
+	{name: 'Wikidata', schema:'wikidata', endpoint: 'https://query.wikidata.org', tree_profile: 'BasicL', use_pp_rels: false, hide_individuals: true, direct_role:'wdt:P31', indirect_role:'wdt:P279' },
 ]
 
 const get_KNOWN_DATA = () => {
@@ -79,7 +79,8 @@ const isUriIndividual = ( params, poz = 0) => {
 }
 const getIndividualsNS =  async schema => {
 	//const sql = `SELECT CONCAT(name,':') as prefix, value from ${schema}.ns WHERE name in ('dbc','dbr','rdf','xsd','owl', 'en_wiki') order by value desc`; // TODO 
-	const sql = `SELECT CONCAT(name,':') as prefix, value from ${schema}.ns WHERE name != '' and value != '' order by value desc`;  
+	//const sql = `SELECT CONCAT(name,':') as prefix, value from ${schema}.ns WHERE name != '' and value != '' order by value desc`;  
+	const sql = `SELECT CONCAT(name,':') as prefix, value from ${schema}.ns WHERE value != '' order by value desc`; 
 	const r = await db.any(sql);
 	return r;
 }
@@ -245,7 +246,7 @@ const getSchemaData = async (sql, params) => {
 		complete = false;
 		r.pop();
 	}
-		
+	console.log(r.length)	
 	return {data: r, complete: complete, params: params};
 }
 
@@ -260,6 +261,7 @@ const getSchemaDataPlus = async (sql, sql2, params) => {
 	else
 		r = await db.any(sql,[getLimit(params)+1]);
 	
+	console.log(r.length)	
 	if ( r.length == getLimit(params)+1 ){
 		complete = false;
 		r.pop();
@@ -277,7 +279,8 @@ const getSchemaDataPlus = async (sql, sql2, params) => {
 				complete = false;
 				r2.pop();
 			}
-			r2.forEach(element => r.push(element));				
+			r2.forEach(element => r.push(element));	
+			console.log(r2.length)			
 		}
 	}
 	return {data: r, complete: complete, params: params};

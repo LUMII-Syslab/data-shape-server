@@ -178,7 +178,7 @@ const sparqlGetIndividuals =  async (schema, params) => {
 		}
 		else
 			sparql = `select distinct ?x where { ${whereList.join('. ')} } LIMIT ${util.getLimit(params)}`;
-			
+		
 		reply = await executeSPARQL(endpointUrl, sparql);
 		reply.forEach(v => { rr.push(getShortName(list, v.x.value));});
 		if ( rr.length === 2 && rr[0] === rr[1])

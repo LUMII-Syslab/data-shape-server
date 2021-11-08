@@ -37,12 +37,12 @@ const checkProperty = async (schema, params) => {
 		r = await util.getSchemaData(sql, params);
 	}
 	else if (classObj.length > 0 && propObj.length > 0) {
-		const sparqlOut = `select count(?x1) where {?x1 rdf:type <${classObj[0].iri}>. ?x1 <${propObj[0].iri}> [].}`;
+		const sparqlOut = `select count(?x1) where {?x1 ${util.getTypeStrings(params)[0]} <${classObj[0].iri}>. ?x1 <${propObj[0].iri}> [].}`;
 		const outPropC = await executeSPARQL(util.getEndpointUrl(params), sparqlOut);
 		if ( outPropC[0]['callret-0'].value !== '0') 
 			r.data.push({ctn: parseInt(outPropC[0]['callret-0'].value), type_id: 2});
 
-		const sparqlIn = `select count(?x1) where {?x1 rdf:type <${classObj[0].iri}>. [] <${propObj[0].iri}> $x1.}`;
+		const sparqlIn = `select count(?x1) where {?x1 ${util.getTypeStrings(params)[0]} <${classObj[0].iri}>. [] <${propObj[0].iri}> $x1.}`;
 		const inPropC = await executeSPARQL(util.getEndpointUrl(params), sparqlIn);
 		if ( inPropC[0]['callret-0'].value !== '0') 
 			r.data.push({ctn: parseInt(inPropC[0]['callret-0'].value), type_id: 1});		
@@ -123,10 +123,10 @@ const getProperties = async (schema, params) => {
 	}
 	function formSql()  {
 		if ( strOrderField !== 'cnt' ) {
-			//whereListA.push(`${strAo} > 0`);
-			//whereListB.push(`${strBo} > 0`);	
-			whereListA.push(`v.${strOrderField} > 0`);
-			whereListB.push(`v.${strOrderField} > 0`);	
+			whereListA.push(`${strAo} > 0`);
+			whereListB.push(`${strBo} > 0`);	
+			//whereListA.push(`v.${strOrderField} > 0`);  // Bija kaut kāds iemesls, kāpec tika mainīts
+			//whereListB.push(`v.${strOrderField} > 0`);	
 		}
 		const orderByPref = ( util.isOrderByPrefix(params) ? util.getOrderByPrefix(params) : '')
 		let sql = `SELECT aa.* FROM ( SELECT 'out' as mark, v.*, ${strAo} as o 				
@@ -244,7 +244,7 @@ order by ${orderByPref} o desc LIMIT $1`;
 			}
 		}  
 		if ( newPListFrom.in.length > 0 || newPListFrom.out.length > 0 || newPListTo.in.length > 0 || newPListTo.out.length > 0) {
-			if ( contextA === '' ) {
+			if ( contextA === '' ) {  // Ir tikai properijas
 				const mainProp = await findMainProperty(schema, newPListFrom, newPListTo);
 				console.log("--------galvenā----------")
 				console.log(mainProp)
@@ -252,7 +252,7 @@ order by ${orderByPref} o desc LIMIT $1`;
 				newPListFrom.out = newPListFrom.out.filter(item => item !== mainProp.id);
 				newPListTo.in = newPListTo.in.filter(item => item !== mainProp.id);
 				newPListTo.out = newPListTo.out.filter(item => item !== mainProp.id);
-				console.log(newPListFrom)
+				//console.log(newPListFrom)
 				contextA = `, ${schema}.pp_rels r`;
 				contextB = `, ${schema}.pp_rels r`;
 				if ( mainProp.type === 'in' && mainProp.class === 'from' ) {

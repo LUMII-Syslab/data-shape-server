@@ -216,7 +216,7 @@ router.post('/ontologies/:ont/:fn', async (req, res, next) => {
 		if ( fn === 'getNamespaces')
 			r = await getNamespaces(schema);
 		if ( fn === 'getIndividuals') {
-			r = [];			
+			r = [];	
 			const find = await util.checkIndividualsParams(schema, params);
 			if ( find )
 				r = await sparqlGetIndividuals(schema, params);
