@@ -91,6 +91,7 @@ const getProperties = async (schema, params) => {
 	let sql;
 	let viewname_out;
 	let viewname_in;
+	const use_pp_rels = util.getUsePP(params);
 	//let viewname = 'v_properties_ns';  
 	if ( util.isLinksWithTargets(params)) {
 		viewname_out = 'v_properties_targets_single';
@@ -188,7 +189,6 @@ order by ${orderByPref} o desc LIMIT $1`;
 	if ( util.isPList(params, 1) )
 		newPListTo = await util.getIdsfromPList(schema, util.getPList(params, 1));
 
-	
 	//console.log(classFrom)
 	if ( classType(classFrom) === 's' || classType(classTo)=== 's' || util.isUriIndividual(params, 0) || util.isUriIndividual(params, 1)) {
 		
@@ -244,68 +244,116 @@ order by ${orderByPref} o desc LIMIT $1`;
 			}
 		}  
 		if ( newPListFrom.in.length > 0 || newPListFrom.out.length > 0 || newPListTo.in.length > 0 || newPListTo.out.length > 0) {
-			if ( contextA === '' ) {  // Ir tikai properijas
-				const mainProp = await findMainProperty(schema, newPListFrom, newPListTo);
-				console.log("--------galvenā----------")
-				console.log(mainProp)
-				newPListFrom.in = newPListFrom.in.filter(item => item !== mainProp.id);
-				newPListFrom.out = newPListFrom.out.filter(item => item !== mainProp.id);
-				newPListTo.in = newPListTo.in.filter(item => item !== mainProp.id);
-				newPListTo.out = newPListTo.out.filter(item => item !== mainProp.id);
-				//console.log(newPListFrom)
-				contextA = `, ${schema}.pp_rels r`;
-				contextB = `, ${schema}.pp_rels r`;
-				if ( mainProp.type === 'in' && mainProp.class === 'from' ) {
-					whereListA.push(`v.id = r.property_2_id and r.type_id = 1 and property_1_id = ${mainProp.id}`);
-					whereListB.push(`v.id = r.property_2_id and r.type_id = 3 and property_1_id = ${mainProp.id}`);
-				}
-				if ( mainProp.type === 'out' && mainProp.class === 'from' ) {
-					whereListA.push(`v.id = r.property_2_id and r.type_id = 2 and property_1_id = ${mainProp.id}`);
-					whereListB.push(`v.id = r.property_1_id and r.type_id = 1 and property_2_id = ${mainProp.id}`);
-				}
-				if ( mainProp.type === 'in' && mainProp.class === 'to' ) {
-					whereListA.push(`v.id = r.property_2_id and r.type_id = 3 and property_1_id = ${mainProp.id}`);
-					whereListB.push(`v.id = r.property_2_id and r.type_id = 1 and property_1_id = ${mainProp.id}`);
-				}
-				if ( mainProp.type === 'out' && mainProp.class === 'to' ) {
-					whereListA.push(`v.id = r.property_1_id and r.type_id = 1 and property_2_id = ${mainProp.id}`);
-					whereListB.push(`v.id = r.property_2_id and r.type_id = 2 and property_1_id = ${mainProp.id}`);
-				}
+			if ( use_pp_rels ) {
+				if ( contextA === '' ) {  // Ir tikai properijas
+					const mainProp = await findMainProperty(schema, newPListFrom, newPListTo);
+					console.log("--------galvenā----------")
+					console.log(mainProp)
+					newPListFrom.in = newPListFrom.in.filter(item => item !== mainProp.id);
+					newPListFrom.out = newPListFrom.out.filter(item => item !== mainProp.id);
+					newPListTo.in = newPListTo.in.filter(item => item !== mainProp.id);
+					newPListTo.out = newPListTo.out.filter(item => item !== mainProp.id);
+					//console.log(newPListFrom)
 
-				if ( strOrderField == 'cnt' ) {
-					strAo = 'r.cnt';
-					strBo = 'r.cnt';
+					contextA = `, ${schema}.pp_rels r`;
+					contextB = `, ${schema}.pp_rels r`;
+					if ( mainProp.type === 'in' && mainProp.class === 'from' ) {
+						whereListA.push(`v.id = r.property_2_id and r.type_id = 1 and property_1_id = ${mainProp.id}`);
+						whereListB.push(`v.id = r.property_2_id and r.type_id = 3 and property_1_id = ${mainProp.id}`);
+					}
+					if ( mainProp.type === 'out' && mainProp.class === 'from' ) {
+						whereListA.push(`v.id = r.property_2_id and r.type_id = 2 and property_1_id = ${mainProp.id}`);
+						whereListB.push(`v.id = r.property_1_id and r.type_id = 1 and property_2_id = ${mainProp.id}`);
+					}
+					if ( mainProp.type === 'in' && mainProp.class === 'to' ) {
+						whereListA.push(`v.id = r.property_2_id and r.type_id = 3 and property_1_id = ${mainProp.id}`);
+						whereListB.push(`v.id = r.property_2_id and r.type_id = 1 and property_1_id = ${mainProp.id}`);
+					}
+					if ( mainProp.type === 'out' && mainProp.class === 'to' ) {
+						whereListA.push(`v.id = r.property_1_id and r.type_id = 1 and property_2_id = ${mainProp.id}`);
+						whereListB.push(`v.id = r.property_2_id and r.type_id = 2 and property_1_id = ${mainProp.id}`);
+					}
+
+					if ( strOrderField == 'cnt' ) {
+						strAo = 'r.cnt';
+						strBo = 'r.cnt';
+					}
+					if ( strOrderField == 'object_cnt' ) {
+						strAo = 'r.cnt / v.cnt * v.object_cnt';
+						strBo = 'r.cnt';
+					}
+					if ( strOrderField == 'data_cnt' ) {
+						strAo = 'r.cnt / v.cnt * v.data_cnt ';
+						strBo = 'r.cnt';
+					}
 				}
-				if ( strOrderField == 'object_cnt' ) {
-					strAo = 'r.cnt / v.cnt * v.object_cnt';
-					strBo = 'r.cnt';
-				}
-				if ( strOrderField == 'data_cnt' ) {
-					strAo = 'r.cnt / v.cnt * v.data_cnt ';
-					strBo = 'r.cnt';
+			
+				if (newPListFrom.in.length > 0 ) 
+					newPListFrom.in.forEach(element => {
+						whereListA.push(`v.id in (SELECT property_2_id FROM ${schema}.pp_rels r WHERE r.type_id = 1 and property_1_id = ${element} order by property_2_id)`);
+						whereListB.push(`v.id in (SELECT property_2_id FROM ${schema}.pp_rels r WHERE r.type_id = 3 and property_1_id = ${element} order by property_2_id)`);
+					});
+				if (newPListFrom.out.length > 0 )
+					newPListFrom.out.forEach(element => {
+						whereListA.push(`v.id in (SELECT property_2_id FROM ${schema}.pp_rels r WHERE r.type_id = 2 and property_1_id = ${element} order by property_2_id)`);
+						whereListB.push(`v.id in (SELECT property_1_id FROM ${schema}.pp_rels r WHERE r.type_id = 1 and property_2_id = ${element} order by property_1_id)`)
+					});	
+				if (newPListTo.in.length > 0 ) 
+					newPListTo.in.forEach(element => {
+						whereListA.push(`v.id in (SELECT property_2_id FROM ${schema}.pp_rels r WHERE r.type_id = 3 and property_1_id = ${element} order by property_2_id)`);
+						whereListB.push(`v.id in (SELECT property_2_id FROM ${schema}.pp_rels r WHERE r.type_id = 1 and property_1_id = ${element} order by property_2_id)`);
+					});
+				if (newPListTo.out.length > 0 )
+					newPListTo.out.forEach(element => {
+						whereListA.push(`v.id in (SELECT property_1_id FROM ${schema}.pp_rels r WHERE r.type_id = 1 and property_2_id = ${element} order by property_1_id)`);
+						whereListB.push(`v.id in (SELECT property_2_id FROM ${schema}.pp_rels r WHERE r.type_id = 2 and property_1_id = ${element} order by property_2_id)`)
+					});	
+			}
+			else {
+				if ( contextA === '' ) { // Tikai propertijas bez pp_rels
+					form_sql = false;
+					const mainProp = await findMainProperty(schema, newPListFrom, newPListTo);
+					console.log("--------galvenā propertija----------")
+					console.log(mainProp)
+					const mainPropObj = await db.any(`SELECT * FROM ${schema}.v_properties_ns WHERE id = ${mainProp.id}`);
+					let class_id_list = [];
+					
+					if ( mainProp.class === 'from') {
+						if ( mainProp.type === 'in' ) {
+							if ( mainPropObj[0].domain_class_id !== null) {
+								class_id_list.push(mainPropObj[0].domain_class_id);
+							}
+							else {
+								const classList = await db.any(`SELECT class_id FROM ${schema}.cp_rels where property_id = ${mainProp.id} and type_id = 1 order by class_id`);
+								if ( classList.length > 0) // TODO ko darīt, ja galvenajai propertijai nav klašu
+									class_id_list = classList.map(v => v.class_id);
+							}
+						}
+					
+						if ( mainProp.type === 'out' ) {
+							if ( mainPropObj[0].range_class_id !== null) {
+								class_id_list.push(mainPropObj[0].range_class_id);
+							}
+							else {
+								const classList = await db.any(`SELECT class_id FROM ${schema}.cp_rels where property_id = ${mainProp.id} and type_id = 2 order by class_id`);
+								if ( classList.length > 0) // TODO ko darīt, ja galvenajai propertijai nav klašu
+									class_id_list = classList.map(v => v.class_id);
+							}
+						}						
+					}
+					console.log("--------klašu saraksts----------")
+					console.log(class_id_list)
+					if ( class_id_list.length > 0) {
+						const propListA = await db.any(`SELECT distinct property_id FROM ${schema}.cp_rels where ${util.formWherePart('class_id', 'in', class_id_list, 0)} and type_id = 2 order by property_id`); 
+						whereListA.push(util.formWherePart('v.id', 'in', propListA.map(v => v.property_id), 0));
+						const propListB = await db.any(`SELECT distinct property_id FROM ${schema}.cp_rels where ${util.formWherePart('class_id', 'in', class_id_list, 0)} and type_id = 1 order by property_id`); 
+						whereListB.push(util.formWherePart('v.id', 'in', propListB.map(v => v.property_id), 0));
+						strAo = 'v.cnt';
+						strBo = 'v.cnt';
+					}
+		
 				}
 			}
-			
-			if (newPListFrom.in.length > 0 ) 
-				newPListFrom.in.forEach(element => {
-					whereListA.push(`v.id in (SELECT property_2_id FROM ${schema}.pp_rels r WHERE r.type_id = 1 and property_1_id = ${element} order by property_2_id)`);
-					whereListB.push(`v.id in (SELECT property_2_id FROM ${schema}.pp_rels r WHERE r.type_id = 3 and property_1_id = ${element} order by property_2_id)`);
-				});
-			if (newPListFrom.out.length > 0 )
-				newPListFrom.out.forEach(element => {
-					whereListA.push(`v.id in (SELECT property_2_id FROM ${schema}.pp_rels r WHERE r.type_id = 2 and property_1_id = ${element} order by property_2_id)`);
-					whereListB.push(`v.id in (SELECT property_1_id FROM ${schema}.pp_rels r WHERE r.type_id = 1 and property_2_id = ${element} order by property_1_id)`)
-				});	
-			if (newPListTo.in.length > 0 ) 
-				newPListTo.in.forEach(element => {
-					whereListA.push(`v.id in (SELECT property_2_id FROM ${schema}.pp_rels r WHERE r.type_id = 3 and property_1_id = ${element} order by property_2_id)`);
-					whereListB.push(`v.id in (SELECT property_2_id FROM ${schema}.pp_rels r WHERE r.type_id = 1 and property_1_id = ${element} order by property_2_id)`);
-				});
-			if (newPListTo.out.length > 0 )
-				newPListTo.out.forEach(element => {
-					whereListA.push(`v.id in (SELECT property_1_id FROM ${schema}.pp_rels r WHERE r.type_id = 1 and property_2_id = ${element} order by property_1_id)`);
-					whereListB.push(`v.id in (SELECT property_2_id FROM ${schema}.pp_rels r WHERE r.type_id = 2 and property_1_id = ${element} order by property_2_id)`)
-				});				
 		}
 		
 		if (strAo === '') {
@@ -313,7 +361,7 @@ order by ${orderByPref} o desc LIMIT $1`;
 			strAo = `${ot}${strOrderField}`;
 			strBo = `${ot}${strOrderField}`;
 		}
-	
+		
 		sql = formSql();
 	}
 	
@@ -324,6 +372,5 @@ order by ${orderByPref} o desc LIMIT $1`;
 
 module.exports = {
 getProperties,
-getNextProperties,
 checkProperty,
 }

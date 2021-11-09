@@ -211,8 +211,6 @@ router.post('/ontologies/:ont/:fn', async (req, res, next) => {
 			r = await getTreeClasses(schema, params);
 		if ( fn === 'getProperties')
 			r = await getProperties(schema, params);
-		if ( fn === 'getNextProperties')
-			r = await getNextProperties(schema, params);
 		if ( fn === 'getNamespaces')
 			r = await getNamespaces(schema);
 		if ( fn === 'getIndividuals') {

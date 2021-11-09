@@ -39,6 +39,7 @@ const getValue = val => {
 	return r;
 }
 
+const getUsePP = params => { return getValue(params.main.use_pp_rels);}
 const isEndpointUrl = params => { return isValue(params.main.endpointUrl);}
 const getEndpointUrl = params => { return getValue(params.main.endpointUrl);}
 const setEndpointUrl = (params, val) => {
@@ -419,4 +420,5 @@ module.exports = {
 	getIndividualsNS,
 	get_KNOWN_DATA,
 	getTypeStrings,
+	getUsePP,
 }
