@@ -345,9 +345,15 @@ order by ${orderByPref} o desc LIMIT $1`;
 					console.log(class_id_list)
 					if ( class_id_list.length > 0) {
 						const propListA = await db.any(`SELECT distinct property_id FROM ${schema}.cp_rels where ${util.formWherePart('class_id', 'in', class_id_list, 0)} and type_id = 2 order by property_id`); 
-						whereListA.push(util.formWherePart('v.id', 'in', propListA.map(v => v.property_id), 0));
+						if ( propListA.length > 0)
+							whereListA.push(util.formWherePart('v.id', 'in', propListA.map(v => v.property_id), 0));
+						else
+							whereListA.push('false');
 						const propListB = await db.any(`SELECT distinct property_id FROM ${schema}.cp_rels where ${util.formWherePart('class_id', 'in', class_id_list, 0)} and type_id = 1 order by property_id`); 
-						whereListB.push(util.formWherePart('v.id', 'in', propListB.map(v => v.property_id), 0));
+						if ( propListB.length > 0)
+							whereListB.push(util.formWherePart('v.id', 'in', propListB.map(v => v.property_id), 0));
+						else
+							whereListB.push('false');
 						strAo = 'v.cnt';
 						strBo = 'v.cnt';
 					}
