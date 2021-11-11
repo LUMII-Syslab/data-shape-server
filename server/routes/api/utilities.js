@@ -39,6 +39,9 @@ const getValue = val => {
 	return r;
 }
 
+const getMakeLog = params => { return getValue(params.main.makeLog);}
+const getDeferredProperties = params => { return getValue(params.main.deferred_properties);}
+const getIsBasicOrder = params => { return getValue(params.main.basicOrder);}
 const getUsePP = params => { return getValue(params.main.use_pp_rels);}
 const isEndpointUrl = params => { return isValue(params.main.endpointUrl);}
 const getEndpointUrl = params => { return getValue(params.main.endpointUrl);}
@@ -247,8 +250,12 @@ const getSchemaData = async (sql, params) => {
 		complete = false;
 		r.pop();
 	}
-	console.log(r.length)	
-	return {data: r, complete: complete, params: params};
+	console.log(r.length)
+	let rr = {data: r, complete: complete, params: params};
+	if ( getMakeLog(params))
+		rr.sql = sql.replace(/(\r\n|\n|\r|\t)/gm,' ');
+		
+	return rr;
 }
 
 const getSchemaDataPlus = async (sql, sql2, params) => {
@@ -284,7 +291,13 @@ const getSchemaDataPlus = async (sql, sql2, params) => {
 			console.log(r2.length)			
 		}
 	}
-	return {data: r, complete: complete, params: params};
+	let rr = {data: r, complete: complete, params: params};
+	if ( getMakeLog(params)) {
+		rr.sql = sql.replace(/(\r\n|\n|\r|\t)/gm,' ');
+		rr.sql2 = sql2.replace(/(\r\n|\n|\r|\t)/gm,' ');
+	}
+	
+	return rr;
 }
 
 const formWherePart = (col, inT, list, listType) => {
@@ -421,4 +434,7 @@ module.exports = {
 	get_KNOWN_DATA,
 	getTypeStrings,
 	getUsePP,
+	getIsBasicOrder,
+	getDeferredProperties,
+	getMakeLog,
 }

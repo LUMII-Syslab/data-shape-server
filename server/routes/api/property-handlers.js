@@ -9,22 +9,6 @@ const {
 	sparqlGetPropertiesFromClass,
 } = require('../../util/sparql/endpoint-queries')
 
-const getNextProperties = async (schema, params) => {
-	let r = { data: [], complete: false };
-	const propertyName = util.getName(params);
-	const propObj = await util.getPropertyByName(propertyName, schema); 
-	
-	if ( propObj.length > 0 ) {
-	
-		const sql = `select * from ${schema}.v_properties_ns vpn where id in
-	(select distinct property_id from ${schema}.cp_rels where type_id = 2 and class_id in (select class_id from ${schema}.cp_rels where property_id = ${propObj[0].id} and type_id = 1))
-	order by cnt desc limit $1`;
-
-		r = await util.getSchemaData(sql, params);
-	}
-	return r;
-}
-
 const checkProperty = async (schema, params) => {
 	let r = { data: [], complete: false };
 	const className = util.getName(params);
@@ -129,7 +113,10 @@ const getProperties = async (schema, params) => {
 			//whereListA.push(`v.${strOrderField} > 0`);  // Bija kaut kāds iemesls, kāpec tika mainīts
 			//whereListB.push(`v.${strOrderField} > 0`);	
 		}
-		const orderByPref = ( util.isOrderByPrefix(params) ? util.getOrderByPrefix(params) : '')
+		const orderByPref = ( util.isOrderByPrefix(params) ? util.getOrderByPrefix(params) : '');
+		const orderByPrefN = ( util.getIsBasicOrder(params) ? `case when ${ util.getDeferredProperties(params)} then 0.5 else basic_order_level end, ` : '');
+		console.log(orderByPrefN)
+
 		let sql = `SELECT aa.* FROM ( SELECT 'out' as mark, v.*, ${strAo} as o 				
 FROM ${schema}.${viewname_out} v ${contextA}
 WHERE ${whereListA.join(' and ')} 
