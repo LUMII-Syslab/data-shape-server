@@ -102,10 +102,14 @@ const getProperties = async (schema, params) => {
 		const idListA = await db.any(`SELECT id FROM ${schema}.properties where ${util.formWherePart('iri', 'in', propListAB.A, 1)} order by id`);
 		if ( idListA.length > 0) 
 			whereListA.push(util.formWherePart('v.id', 'in', idListA.map(v => v.id), 0));
+		else
+			whereListA.push('false');
 		//console.log(`SELECT id FROM ${schema}.properties where ${util.formWherePart('iri', 'in', propListAB.B, 1)}`)	
 		const idListB = await db.any(`SELECT id FROM ${schema}.properties where ${util.formWherePart('iri', 'in', propListAB.B, 1)} order by id`);
 		if ( idListB.length > 0) 
 			whereListB.push(util.formWherePart('v.id', 'in', idListB.map(v => v.id), 0));
+		else
+			whereListB.push('false');
 	}
 	function formSql()  {
 		if ( strOrderField !== 'cnt' ) {
@@ -116,7 +120,6 @@ const getProperties = async (schema, params) => {
 		}
 		const orderByPref = ( util.isOrderByPrefix(params) ? util.getOrderByPrefix(params) : '');
 		const orderByPrefN = ( util.getIsBasicOrder(params) ? `case when ${ util.getDeferredProperties(params)} then 0.5 else basic_order_level end, ` : '');
-		console.log(orderByPrefN)
 
 		let sql = `SELECT aa.* FROM ( SELECT 'out' as mark, v.*, ${strAo} as o 				
 FROM ${schema}.${viewname_out} v ${contextA}

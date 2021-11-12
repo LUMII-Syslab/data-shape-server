@@ -10,7 +10,7 @@ const KNOWN_DATA = [
 	{name: 'Covid_On_The_Web', schema:'covid_on_the_web', endpoint: 'https://covidontheweb.inria.fr/sparql', tree_profile: 'DBpediaL', use_pp_rels: false, simple_prompt: false, hide_individuals: false, direct_role:'rdf:type', indirect_role:'' },
 	{name: 'Mini_university', schema:'mini_university', endpoint: 'http://85.254.199.72:8890/sparql', tree_profile: 'BasicL', use_pp_rels: true, simple_prompt: false, hide_individuals: true, direct_role:'rdf:type', indirect_role:'' },
 	{name: 'Mini_hospital', schema:'mini_hospital', endpoint: 'http://185.23.162.167:8833/sparql', tree_profile: 'BasicL', use_pp_rels: true, simple_prompt: false, hide_individuals: true, direct_role:'rdf:type', indirect_role:'' },
-	{name: 'Wikidata', schema:'wikidata', endpoint: 'https://query.wikidata.org', tree_profile: 'BasicL', use_pp_rels: false, simple_prompt: false, hide_individuals: true, direct_role:'wdt:P31', indirect_role:'wdt:P279' },
+	{name: 'Wikidata', schema:'wikidata', endpoint: 'https://query.wikidata.org/sparql', tree_profile: 'BasicL', use_pp_rels: false, simple_prompt: false, hide_individuals: true, direct_role:'wdt:P31', indirect_role:'wdt:P279' },
 ]
 
 const get_KNOWN_DATA = () => {
