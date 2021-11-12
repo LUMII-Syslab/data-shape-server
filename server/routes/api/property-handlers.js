@@ -76,6 +76,7 @@ const getProperties = async (schema, params) => {
 	let viewname_out;
 	let viewname_in;
 	const use_pp_rels = util.getUsePP(params);
+	const simplePrompt = util.getSimplePrompt(params);
 	//let viewname = 'v_properties_ns';  
 	if ( util.isLinksWithTargets(params)) {
 		viewname_out = 'v_properties_targets_single';
@@ -274,27 +275,29 @@ order by ${orderByPref} o desc LIMIT $1`;
 						strBo = 'r.cnt';
 					}
 				}
-				// ****
-				if (newPListFrom.in.length > 0 ) 
-					newPListFrom.in.forEach(element => {
-						whereListA.push(`v.id in (SELECT property_2_id FROM ${schema}.pp_rels r WHERE r.type_id = 1 and property_1_id = ${element} order by property_2_id)`);
-						whereListB.push(`v.id in (SELECT property_2_id FROM ${schema}.pp_rels r WHERE r.type_id = 3 and property_1_id = ${element} order by property_2_id)`);
-					});
-				if (newPListFrom.out.length > 0 )
-					newPListFrom.out.forEach(element => {
-						whereListA.push(`v.id in (SELECT property_2_id FROM ${schema}.pp_rels r WHERE r.type_id = 2 and property_1_id = ${element} order by property_2_id)`);
-						whereListB.push(`v.id in (SELECT property_1_id FROM ${schema}.pp_rels r WHERE r.type_id = 1 and property_2_id = ${element} order by property_1_id)`)
-					});	
-				if (newPListTo.in.length > 0 ) 
-					newPListTo.in.forEach(element => {
-						whereListA.push(`v.id in (SELECT property_2_id FROM ${schema}.pp_rels r WHERE r.type_id = 3 and property_1_id = ${element} order by property_2_id)`);
-						whereListB.push(`v.id in (SELECT property_2_id FROM ${schema}.pp_rels r WHERE r.type_id = 1 and property_1_id = ${element} order by property_2_id)`);
-					});
-				if (newPListTo.out.length > 0 )
-					newPListTo.out.forEach(element => {
-						whereListA.push(`v.id in (SELECT property_1_id FROM ${schema}.pp_rels r WHERE r.type_id = 1 and property_2_id = ${element} order by property_1_id)`);
-						whereListB.push(`v.id in (SELECT property_2_id FROM ${schema}.pp_rels r WHERE r.type_id = 2 and property_1_id = ${element} order by property_2_id)`)
-					});	
+				
+				if ( !simplePrompt ) {
+					if (newPListFrom.in.length > 0 ) 
+						newPListFrom.in.forEach(element => {
+							whereListA.push(`v.id in (SELECT property_2_id FROM ${schema}.pp_rels r WHERE r.type_id = 1 and property_1_id = ${element} order by property_2_id)`);
+							whereListB.push(`v.id in (SELECT property_2_id FROM ${schema}.pp_rels r WHERE r.type_id = 3 and property_1_id = ${element} order by property_2_id)`);
+						});
+					if (newPListFrom.out.length > 0 )
+						newPListFrom.out.forEach(element => {
+							whereListA.push(`v.id in (SELECT property_2_id FROM ${schema}.pp_rels r WHERE r.type_id = 2 and property_1_id = ${element} order by property_2_id)`);
+							whereListB.push(`v.id in (SELECT property_1_id FROM ${schema}.pp_rels r WHERE r.type_id = 1 and property_2_id = ${element} order by property_1_id)`)
+						});	
+					if (newPListTo.in.length > 0 ) 
+						newPListTo.in.forEach(element => {
+							whereListA.push(`v.id in (SELECT property_2_id FROM ${schema}.pp_rels r WHERE r.type_id = 3 and property_1_id = ${element} order by property_2_id)`);
+							whereListB.push(`v.id in (SELECT property_2_id FROM ${schema}.pp_rels r WHERE r.type_id = 1 and property_1_id = ${element} order by property_2_id)`);
+						});
+					if (newPListTo.out.length > 0 )
+						newPListTo.out.forEach(element => {
+							whereListA.push(`v.id in (SELECT property_1_id FROM ${schema}.pp_rels r WHERE r.type_id = 1 and property_2_id = ${element} order by property_1_id)`);
+							whereListB.push(`v.id in (SELECT property_2_id FROM ${schema}.pp_rels r WHERE r.type_id = 2 and property_1_id = ${element} order by property_2_id)`)
+						});	
+				}
 			}
 			else {
 				if ( contextA === '' ) { // Tikai propertijas bez pp_rels

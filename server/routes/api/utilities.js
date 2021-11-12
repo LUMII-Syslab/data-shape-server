@@ -3,13 +3,14 @@ const db = require('./db')
 
 // TODO: get this info from the db
 const KNOWN_DATA = [ 
-	{name: 'DBpedia', schema:'dbpedia', endpoint: 'https://dbpedia.org/sparql', tree_profile: 'DBpedia', use_pp_rels: true, hide_individuals: false, direct_role:'rdf:type', indirect_role:'' },
-	{name: 'Tweets_cov', schema:'tweets_cov', endpoint: 'https://data.gesis.org/tweetscov19/sparql', tree_profile: 'DBpediaL', use_pp_rels: true , hide_individuals: false, direct_role:'rdf:type', indirect_role:'' },
-	{name: 'Europeana', schema:'europeana', endpoint: 'http://sparql.europeana.eu/', tree_profile: 'Basic', use_pp_rels: false, hide_individuals: false, direct_role:'rdf:type', indirect_role:'' },
-	{name: 'Covid_On_The_Web', schema:'covid_on_the_web', endpoint: 'https://covidontheweb.inria.fr/sparql', tree_profile: 'DBpediaL', use_pp_rels: false, hide_individuals: false, direct_role:'rdf:type', indirect_role:'' },
-	{name: 'Mini_university', schema:'mini_university', endpoint: 'http://85.254.199.72:8890/sparql', tree_profile: 'BasicL', use_pp_rels: true, hide_individuals: true, direct_role:'rdf:type', indirect_role:'' },
-	{name: 'Mini_hospital', schema:'mini_hospital', endpoint: 'http://185.23.162.167:8833/sparql', tree_profile: 'BasicL', use_pp_rels: true, hide_individuals: true, direct_role:'rdf:type', indirect_role:'' },
-	{name: 'Wikidata', schema:'wikidata', endpoint: 'https://query.wikidata.org', tree_profile: 'BasicL', use_pp_rels: false, hide_individuals: true, direct_role:'wdt:P31', indirect_role:'wdt:P279' },
+	{name: 'DBpedia', schema:'dbpedia', endpoint: 'https://dbpedia.org/sparql', tree_profile: 'DBpedia', use_pp_rels: true, simple_prompt: false, hide_individuals: false, direct_role:'rdf:type', indirect_role:'' },
+	{name: 'DBpedia_simple_prompt', schema:'dbpedia', endpoint: 'https://dbpedia.org/sparql', tree_profile: 'DBpedia', use_pp_rels: true, simple_prompt: true, hide_individuals: false, direct_role:'rdf:type', indirect_role:'' },
+	{name: 'Tweets_cov', schema:'tweets_cov', endpoint: 'https://data.gesis.org/tweetscov19/sparql', tree_profile: 'DBpediaL', use_pp_rels: true, simple_prompt: false, hide_individuals: false, direct_role:'rdf:type', indirect_role:'' },
+	{name: 'Europeana', schema:'europeana', endpoint: 'http://sparql.europeana.eu/', tree_profile: 'Basic', use_pp_rels: false, simple_prompt: false, hide_individuals: false, direct_role:'rdf:type', indirect_role:'' },
+	{name: 'Covid_On_The_Web', schema:'covid_on_the_web', endpoint: 'https://covidontheweb.inria.fr/sparql', tree_profile: 'DBpediaL', use_pp_rels: false, simple_prompt: false, hide_individuals: false, direct_role:'rdf:type', indirect_role:'' },
+	{name: 'Mini_university', schema:'mini_university', endpoint: 'http://85.254.199.72:8890/sparql', tree_profile: 'BasicL', use_pp_rels: true, simple_prompt: false, hide_individuals: true, direct_role:'rdf:type', indirect_role:'' },
+	{name: 'Mini_hospital', schema:'mini_hospital', endpoint: 'http://185.23.162.167:8833/sparql', tree_profile: 'BasicL', use_pp_rels: true, simple_prompt: false, hide_individuals: true, direct_role:'rdf:type', indirect_role:'' },
+	{name: 'Wikidata', schema:'wikidata', endpoint: 'https://query.wikidata.org', tree_profile: 'BasicL', use_pp_rels: false, simple_prompt: false, hide_individuals: true, direct_role:'wdt:P31', indirect_role:'wdt:P279' },
 ]
 
 const get_KNOWN_DATA = () => {
@@ -42,6 +43,7 @@ const getValue = val => {
 const getMakeLog = params => { return getValue(params.main.makeLog);}
 const getDeferredProperties = params => { return getValue(params.main.deferred_properties);}
 const getIsBasicOrder = params => { return getValue(params.main.basicOrder);}
+const getSimplePrompt = params => { return getValue(params.main.simple_prompt);}
 const getUsePP = params => { return getValue(params.main.use_pp_rels);}
 const isEndpointUrl = params => { return isValue(params.main.endpointUrl);}
 const getEndpointUrl = params => { return getValue(params.main.endpointUrl);}
@@ -434,6 +436,7 @@ module.exports = {
 	get_KNOWN_DATA,
 	getTypeStrings,
 	getUsePP,
+	getSimplePrompt,
 	getIsBasicOrder,
 	getDeferredProperties,
 	getMakeLog,

@@ -29,6 +29,7 @@ const findMainProperty = async (schema, pList) => {
 const getClasses = async (schema, params) => {
 
 	const viewname = ( util.isFilter(params) || ( util.isNamespaces(params) && util.isInNamespaces(params)) ? `${schema}.v_classes_ns v` :`${schema}.v_classes_ns_main v` ) ;
+	const simplePrompt = util.getSimplePrompt(params);
 	let whereList = [ true ];
 	let r = { data: [], complete: false };
 	
@@ -75,11 +76,13 @@ const getClasses = async (schema, params) => {
 		
 	}
 	else {
-		if ( newPList.in.length > 0 || newPList.out.length > 0) {
-			if (newPList.in.length > 0 )
-				newPList.in.forEach(element => whereList.push(`v.id in (SELECT class_id FROM ${schema}.cp_rels WHERE property_id = ${element} and type_id = 1)`));
-			if (newPList.out.length > 0 )
-				newPList.out.forEach(element => whereList.push(`v.id in (SELECT class_id FROM ${schema}.cp_rels WHERE property_id = ${element} and type_id = 2)`));
+		if ( !simplePrompt ) {
+			if ( newPList.in.length > 0 || newPList.out.length > 0) {
+				if (newPList.in.length > 0 )
+					newPList.in.forEach(element => whereList.push(`v.id in (SELECT class_id FROM ${schema}.cp_rels WHERE property_id = ${element} and type_id = 1)`));
+				if (newPList.out.length > 0 )
+					newPList.out.forEach(element => whereList.push(`v.id in (SELECT class_id FROM ${schema}.cp_rels WHERE property_id = ${element} and type_id = 2)`));
+			}
 		}
 			
 		const whereStr = whereList.join(' and ')
