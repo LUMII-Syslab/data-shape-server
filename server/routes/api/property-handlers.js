@@ -274,7 +274,7 @@ order by ${orderByPref} o desc LIMIT $1`;
 						strBo = 'r.cnt';
 					}
 				}
-			
+				// ****
 				if (newPListFrom.in.length > 0 ) 
 					newPListFrom.in.forEach(element => {
 						whereListA.push(`v.id in (SELECT property_2_id FROM ${schema}.pp_rels r WHERE r.type_id = 1 and property_1_id = ${element} order by property_2_id)`);
@@ -305,42 +305,56 @@ order by ${orderByPref} o desc LIMIT $1`;
 					const mainPropObj = await db.any(`SELECT * FROM ${schema}.v_properties_ns WHERE id = ${mainProp.id}`);
 					let class_id_list = [];
 					
-					if ( mainProp.class === 'from') {
-						if ( mainProp.type === 'in' ) {
-							if ( mainPropObj[0].domain_class_id !== null) {
-								class_id_list.push(mainPropObj[0].domain_class_id);
-							}
-							else {
-								const classList = await db.any(`SELECT class_id FROM ${schema}.cp_rels where property_id = ${mainProp.id} and type_id = 1 order by class_id`);
-								if ( classList.length > 0) // TODO ko darīt, ja galvenajai propertijai nav klašu
-									class_id_list = classList.map(v => v.class_id);
-							}
+					//if ( mainProp.class === 'from') {
+					if ( mainProp.type === 'in' ) {
+						if ( mainPropObj[0].domain_class_id !== null) {
+							class_id_list.push(mainPropObj[0].domain_class_id);
 						}
-					
-						if ( mainProp.type === 'out' ) {
-							if ( mainPropObj[0].range_class_id !== null) {
-								class_id_list.push(mainPropObj[0].range_class_id);
-							}
-							else {
-								const classList = await db.any(`SELECT class_id FROM ${schema}.cp_rels where property_id = ${mainProp.id} and type_id = 2 order by class_id`);
-								if ( classList.length > 0) // TODO ko darīt, ja galvenajai propertijai nav klašu
-									class_id_list = classList.map(v => v.class_id);
-							}
-						}						
+						else {
+							const classList = await db.any(`SELECT class_id FROM ${schema}.cp_rels where property_id = ${mainProp.id} and type_id = 1 order by class_id`);
+							if ( classList.length > 0) // TODO ko darīt, ja galvenajai propertijai nav klašu
+								class_id_list = classList.map(v => v.class_id);
+						}
 					}
+				
+					if ( mainProp.type === 'out' ) {
+						if ( mainPropObj[0].range_class_id !== null) {
+							class_id_list.push(mainPropObj[0].range_class_id);
+						}
+						else {
+							const classList = await db.any(`SELECT class_id FROM ${schema}.cp_rels where property_id = ${mainProp.id} and type_id = 2 order by class_id`);
+							if ( classList.length > 0) // TODO ko darīt, ja galvenajai propertijai nav klašu
+								class_id_list = classList.map(v => v.class_id);
+						}
+					}						
+					//}
+
 					console.log("--------klašu saraksts----------")
 					console.log(class_id_list)
+					
 					if ( class_id_list.length > 0) {
-						const propListA = await db.any(`SELECT distinct property_id FROM ${schema}.cp_rels where ${util.formWherePart('class_id', 'in', class_id_list, 0)} and type_id = 2 order by property_id`); 
+						let typeIdA;
+						let typeIdB;
+						if ( mainProp.class === 'from') {
+							typeIdA = 2;
+							typeIdB = 1;
+						}
+						if ( mainProp.class === 'to') {
+							typeIdA = 1;
+							typeIdB = 2;
+						}
+						const propListA = await db.any(`SELECT distinct property_id FROM ${schema}.cp_rels where ${util.formWherePart('class_id', 'in', class_id_list, 0)} and type_id = ${typeIdA} order by property_id`); 
 						if ( propListA.length > 0)
 							whereListA.push(util.formWherePart('v.id', 'in', propListA.map(v => v.property_id), 0));
 						else
 							whereListA.push('false');
-						const propListB = await db.any(`SELECT distinct property_id FROM ${schema}.cp_rels where ${util.formWherePart('class_id', 'in', class_id_list, 0)} and type_id = 1 order by property_id`); 
+						
+						const propListB = await db.any(`SELECT distinct property_id FROM ${schema}.cp_rels where ${util.formWherePart('class_id', 'in', class_id_list, 0)} and type_id = ${typeIdB} order by property_id`); 
 						if ( propListB.length > 0)
 							whereListB.push(util.formWherePart('v.id', 'in', propListB.map(v => v.property_id), 0));
 						else
 							whereListB.push('false');
+		
 						strAo = 'v.cnt';
 						strBo = 'v.cnt';
 					}
