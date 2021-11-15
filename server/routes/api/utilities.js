@@ -3,14 +3,14 @@ const db = require('./db')
 
 // TODO: get this info from the db
 const KNOWN_DATA = [ 
-	{name: 'DBpedia', schema:'dbpedia', endpoint: 'https://dbpedia.org/sparql', tree_profile: 'DBpedia', use_pp_rels: true, simple_prompt: false, hide_individuals: false, direct_role:'rdf:type', indirect_role:'' },
-	{name: 'DBpedia_simple_prompt', schema:'dbpedia', endpoint: 'https://dbpedia.org/sparql', tree_profile: 'DBpedia', use_pp_rels: true, simple_prompt: true, hide_individuals: false, direct_role:'rdf:type', indirect_role:'' },
-	{name: 'Tweets_cov', schema:'tweets_cov', endpoint: 'https://data.gesis.org/tweetscov19/sparql', tree_profile: 'DBpediaL', use_pp_rels: true, simple_prompt: false, hide_individuals: false, direct_role:'rdf:type', indirect_role:'' },
-	{name: 'Europeana', schema:'europeana', endpoint: 'http://sparql.europeana.eu/', tree_profile: 'Basic', use_pp_rels: false, simple_prompt: false, hide_individuals: false, direct_role:'rdf:type', indirect_role:'' },
-	{name: 'Covid_On_The_Web', schema:'covid_on_the_web', endpoint: 'https://covidontheweb.inria.fr/sparql', tree_profile: 'DBpediaL', use_pp_rels: false, simple_prompt: false, hide_individuals: false, direct_role:'rdf:type', indirect_role:'' },
-	{name: 'Mini_university', schema:'mini_university', endpoint: 'http://85.254.199.72:8890/sparql', tree_profile: 'BasicL', use_pp_rels: true, simple_prompt: false, hide_individuals: true, direct_role:'rdf:type', indirect_role:'' },
-	{name: 'Mini_hospital', schema:'mini_hospital', endpoint: 'http://185.23.162.167:8833/sparql', tree_profile: 'BasicL', use_pp_rels: true, simple_prompt: false, hide_individuals: true, direct_role:'rdf:type', indirect_role:'' },
-	{name: 'Wikidata', schema:'wikidata', endpoint: 'https://query.wikidata.org/sparql', tree_profile: 'BasicL', use_pp_rels: false, simple_prompt: false, hide_individuals: true, direct_role:'wdt:P31', indirect_role:'wdt:P279' },
+	{name: 'DBpedia', schema:'dbpedia', sparql_url: 'https://dbpedia.org/sparql', tree_profile: 'DBpedia', use_pp_rels: true, simple_prompt: false, hide_individuals: false, direct_role:'rdf:type', indirect_role:'' },
+	{name: 'DBpedia_simple_prompt', schema:'dbpedia', sparql_url: 'https://dbpedia.org/sparql', tree_profile: 'DBpedia', use_pp_rels: true, simple_prompt: true, hide_individuals: false, direct_role:'rdf:type', indirect_role:'' },
+	{name: 'Tweets_cov', schema:'tweets_cov', sparql_url: 'https://data.gesis.org/tweetscov19/sparql', tree_profile: 'DBpediaL', use_pp_rels: true, simple_prompt: false, hide_individuals: false, direct_role:'rdf:type', indirect_role:'' },
+	{name: 'Europeana', schema:'europeana', sparql_url: 'http://sparql.europeana.eu/', tree_profile: 'Basic', use_pp_rels: false, simple_prompt: false, hide_individuals: false, direct_role:'rdf:type', indirect_role:'' },
+	{name: 'Covid_On_The_Web', schema:'covid_on_the_web', sparql_url: 'https://covidontheweb.inria.fr/sparql', tree_profile: 'DBpediaL', use_pp_rels: false, simple_prompt: false, hide_individuals: false, direct_role:'rdf:type', indirect_role:'' },
+	{name: 'Mini_university', schema:'mini_university', sparql_url: 'http://85.254.199.72:8890/sparql', named_graph: 'MiniUniv', tree_profile: 'BasicL', use_pp_rels: true, simple_prompt: false, hide_individuals: true, direct_role:'rdf:type', indirect_role:'' },
+	{name: 'Mini_hospital', schema:'mini_hospital', sparql_url: 'http://185.23.162.167:8833/sparql', named_graph: 'MiniBkusEN_1', tree_profile: 'BasicL', use_pp_rels: true, simple_prompt: false, hide_individuals: true, direct_role:'rdf:type', indirect_role:'' },
+	{name: 'Wikidata', schema:'wikidata', sparql_url: 'https://query.wikidata.org/sparql', tree_profile: 'BasicL', use_pp_rels: false, simple_prompt: false, hide_individuals: true, direct_role:'wdt:P31', indirect_role:'wdt:P279' },
 ]
 
 const get_KNOWN_DATA = () => {
@@ -40,6 +40,8 @@ const getValue = val => {
 	return r;
 }
 
+const getIndividualMode = params => { return getValue(params.main.individualMode);}
+const getSchemaName = params => { return getValue(params.main.schemaName);}
 const getMakeLog = params => { return getValue(params.main.makeLog);}
 const getDeferredProperties = params => { return getValue(params.main.deferred_properties);}
 const getIsBasicOrder = params => { return getValue(params.main.basicOrder);}
@@ -47,8 +49,11 @@ const getSimplePrompt = params => { return getValue(params.main.simple_prompt);}
 const getUsePP = params => { return getValue(params.main.use_pp_rels);}
 const isEndpointUrl = params => { return isValue(params.main.endpointUrl);}
 const getEndpointUrl = params => { return getValue(params.main.endpointUrl);}
-const setEndpointUrl = (params, val) => {
-	params.main.endpointUrl = val;
+const setEndpointUrl = (params, s) => {
+	if ( s.named_graph != undefined && s.named_graph !== null && s.named_graph !== '' )
+		params.main.endpointUrl = `${s.sparql_url}?default-graph-uri=${s.named_graph}`;
+	else
+		params.main.endpointUrl = s.sparql_url;
 	return params;
 }
 const getTypeStrings = (params) => { return [ getValue(params.main.direct_role), getValue(params.main.indirect_role)];}
@@ -59,6 +64,10 @@ const setTypeStrings = (params, direct_role, indirect_role) => {
 }
 const isFilter = params => { return isValue(params.main.filter); }
 const getFilter = params => { return getValue(params.main.filter); }
+const setFilter = (params, filter) => { 
+	params.main.filter = filter;
+	return params;
+}
 const getFilterColumn = params => { 
 	r = 'namestring';
 	if (isValue(params.main.filterColumn))
@@ -159,16 +168,16 @@ const getOrderByPrefix = params => { return getValue(params.main.orderByPrefix);
 
 const checkEndpoint = async (params, schema, KNOWN_DATA) => {
    // TODO find value in DB
-    const s = KNOWN_DATA.find(x => x.schema == schema);
+    const s = KNOWN_DATA.find(x => x.name == getSchemaName(params));
 	if ( !isEndpointUrl(params)) {
 		if (s !== undefined) 
-			params = setEndpointUrl(params, s.endpoint);
+			params = setEndpointUrl(params, s);
 	}
 	if (s !== undefined)
 		params = setTypeStrings(params, s.direct_role, s.indirect_role);
 	else 
 		params = setTypeStrings(params, 'rdf:type', '');
-	//params = setEndpointUrl(params, 'https://dbpedia.org/sparql');
+
 	return params;
 }
 
@@ -409,6 +418,7 @@ module.exports = {
 	getUrifromPList,
 	isFilter,
 	getFilter,
+	setFilter,
 	getLimit,
 	getName,
 	getPropertyName,
@@ -440,4 +450,5 @@ module.exports = {
 	getIsBasicOrder,
 	getDeferredProperties,
 	getMakeLog,
+	getIndividualMode,
 }

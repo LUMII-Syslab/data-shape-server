@@ -20,15 +20,12 @@ const {
 const { 
     executeSPARQL,
 	sparqlGetIndividuals,
+	sparqlGetTreeIndividuals,
 } = require('../../util/sparql/endpoint-queries')
 
 const validateOntologyName = name => /^[a-zA-Z0-9_-]+$/.test(name)
 
-const getSchemaName = name => {
-	//if ( name === 'V1_dbpedia' ) name = 'DBpedia'; // TODO: remove
-	//const s = KNOWN_DATA.find(x => x.name == name);
-	//if (s !== undefined) return s.schema;
-	//else return "";
+const checkSchemaName = name => {
 	const s = util.get_KNOWN_DATA().find(x => x.schema == name);
 	if (s !== undefined) return s.schema;
 	else return '';
@@ -45,7 +42,7 @@ const checkOntology = ont => {
 		err.status = 400;
 		err.err_msg = 'bad ontology name';
 	}
-	const schema = getSchemaName(ont);
+	const schema = checkSchemaName(ont);
 	if (schema === '' ) {
 		err.status = 404;
 		err.err_msg = 'unknown ontology';
@@ -216,11 +213,11 @@ router.post('/ontologies/:ont/:fn', async (req, res, next) => {
 		if ( fn === 'getIndividuals') {
 			r = [];	
 			const find = await util.checkIndividualsParams(schema, params);
-			if ( find )
+			if ( find ) // Lielajām klasēm nedod instances, ja nav precizējumu
 				r = await sparqlGetIndividuals(schema, params);
 		}
 		if ( fn === 'getTreeIndividuals') {
-			r = await sparqlGetIndividuals(schema, params);
+			r = await sparqlGetTreeIndividuals(schema, params);
 		}
 		if ( fn === 'resolveClassByName') {
 			const classObj = await util.getClassByName(util.getName(params), schema);
