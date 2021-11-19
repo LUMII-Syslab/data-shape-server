@@ -148,7 +148,7 @@ const sparqlGetTreeIndividuals =  async (schema, params) => {
 				//reply.data.forEach(v => { rr.push(`${v.name}:${v.local_name}`);});
 			}
 		}
-		else {
+		else {  // Nekad neiestāsies, jo viemēr tiks padots filtrs
 			sql = `SELECT local_name, name, AA.id FROM (SELECT local_name, ns_id, id FROM ${schema}.instances where local_name is not null limit $1) AA , ${schema}.ns where ns_id = ns.id order by length(local_name)`;
 			reply = await util.getSchemaData(sql, params);
 			reply.data.forEach(v => { rr.push(`${v.name}:${v.local_name}`);});
@@ -230,6 +230,7 @@ const sparqlGetIndividuals =  async (schema, params) => {
 	let sparql;
 	let reply;
 	let rr = [];
+	let rrT = {};
 	let newPList = {in:[], out:[]};
 	let whereList = [];
 	newPList = await util.getUrifromPList(schema, util.getPList(params, 0));
@@ -253,7 +254,8 @@ const sparqlGetIndividuals =  async (schema, params) => {
 		list.forEach(e => { ii.push(`?x =<${e.value}${util.getFilter(params)}>`);});
 		const sparql0 = `select distinct ?x where { ${whereList.join('. ')} FILTER ( ${ii.join(' or ')}) } LIMIT ${list.length}`;
 		reply = await executeSPARQL(endpointUrl, sparql0);
-		reply.forEach(v => { rr.push(getShortName(list, v.x.value));});
+		reply.forEach(v => { rrT[getShortName(list, v.x.value)] = getShortName(list, v.x.value);});	
+		//reply.forEach(v => { rr.push(getShortName(list, v.x.value));});
 		// *******************************
 		//sparql = `select distinct ?x where { ${whereList.join('. ')} FILTER ( REGEX(lcase(str(?x)),'${util.getFilter(params).toLowerCase()}') ) } LIMIT ${util.getLimit(params)}`;
 		sparql = `select distinct ?x where { ${whereList.join('. ')} FILTER ( REGEX(?x,'${util.getFilter(params)}','i') ) } LIMIT ${util.getLimit(params)}`;
@@ -262,9 +264,12 @@ const sparqlGetIndividuals =  async (schema, params) => {
 		sparql = `select distinct ?x where { ${whereList.join('. ')} } LIMIT ${util.getLimit(params)}`;
 	
 	reply = await executeSPARQL(endpointUrl, sparql);
-	reply.forEach(v => { rr.push(getShortName(list, v.x.value));});
-	if ( rr.length === 2 && rr[0] === rr[1])
-		rr.pop();
+	reply.forEach(v => { rrT[getShortName(list, v.x.value)] = getShortName(list, v.x.value);});
+	for (var key in rrT) 
+		rr.push(key);
+	//reply.forEach(v => { rr.push(getShortName(list, v.x.value));});
+	//if ( rr.length === 2 && rr[0] === rr[1])
+	//	rr.pop();
 	
 	return rr;
     //return reply.map(v => getShortName(list, v.x.value));

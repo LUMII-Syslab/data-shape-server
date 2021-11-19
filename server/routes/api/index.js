@@ -211,10 +211,10 @@ router.post('/ontologies/:ont/:fn', async (req, res, next) => {
 		if ( fn === 'getNamespaces')
 			r = await getNamespaces(schema);
 		if ( fn === 'getIndividuals') {
-			r = [];	
-			const find = await util.checkIndividualsParams(schema, params);
-			if ( find ) // Lielajām klasēm nedod instances, ja nav precizējumu
-				r = await sparqlGetIndividuals(schema, params);
+			// r = [];	
+			// const find = await util.checkIndividualsParams(schema, params);
+			// if ( find ) // Lielajām klasēm nedod instances, ja nav precizējumu
+			r = await sparqlGetIndividuals(schema, params);
 		}
 		if ( fn === 'getTreeIndividuals') {
 			r = await sparqlGetTreeIndividuals(schema, params);
