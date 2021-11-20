@@ -118,8 +118,8 @@ const getProperties = async (schema, params) => {
 			//whereListA.push(`v.${strOrderField} > 0`);  // Bija kaut kāds iemesls, kāpec tika mainīts
 			//whereListB.push(`v.${strOrderField} > 0`);	
 		}
-		const orderByPref = ( util.isOrderByPrefix(params) ? util.getOrderByPrefix(params) : '');
-		const orderByPrefN = ( util.getIsBasicOrder(params) ? `case when ${ util.getDeferredProperties(params)} then 0.5 else basic_order_level end, ` : '');
+		//const orderByPref = ( util.isOrderByPrefix(params) ? util.getOrderByPrefix(params) : '');
+		const orderByPref = ( util.getIsBasicOrder(params) ? `case when ${ util.getDeferredProperties(params)} then 0.5 else basic_order_level end, ` : '');
 
 		let sql = `SELECT aa.* FROM ( SELECT 'out' as mark, v.*, ${strAo} as o 				
 FROM ${schema}.${viewname_out} v ${contextA}
