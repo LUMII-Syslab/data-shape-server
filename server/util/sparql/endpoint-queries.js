@@ -31,27 +31,65 @@ const sparqlGetIndividualClasses = async (params, uriIndividual) => {
     return reply.map(v => v.c.value);
 }
 
-const sparqlGetPropertiesFromIndividuals = async (params, pos, uriIndividual) => {
+const sparqlGetPropertiesFromRemoteIndividual = async (params, schema) => {
 	let r = {};
 	let sparql;
 	let reply;
 	const endpointUrl = util.getEndpointUrl(params); 
-	
+	const pListI = util.getPListI(params);
+	const prop = await util.getPropertyByName(pListI.name, schema);
+	const ind = await util.getUriIndividual(schema, params, 2);
+	if ( prop.length > 0) {
+		const prop_iri = prop[0].iri;
+		if ( pListI.type === 'in') {
+			sparql = `select distinct ?p where {${ind} <${prop_iri}> ?x1. ?x1 ?p [].} order by ?p`;
+			reply = await executeSPARQL(endpointUrl, sparql);
+			r.A = reply.map(v => v.p.value);
+			sparql = `select distinct ?p where {${ind} <${prop_iri}> ?x1. [] ?p ?x1.} order by ?p`;
+			reply = await executeSPARQL(endpointUrl, sparql);
+			r.B = reply.map(v => v.p.value);
+		}
+		else {
+			sparql = `select distinct ?p where {?x1 <${prop_iri}> ${ind}. ?x1 ?p [].} order by ?p`;
+			reply = await executeSPARQL(endpointUrl, sparql);
+			r.A = reply.map(v => v.p.value);
+			sparql = `select distinct ?p where {?x1 <${prop_iri}> ${ind}. [] ?p ?x1.} order by ?p`;
+			reply = await executeSPARQL(endpointUrl, sparql);
+			r.B = reply.map(v => v.p.value);		
+		}
+	}		
+	return r;
+}
+
+const sparqlGetPropertiesFromIndividuals = async (params, pos, uriIndividual, uriIndividualTo = '') => {
+	let r = {};
+	let sparql;
+	let reply;
+	const endpointUrl = util.getEndpointUrl(params); 
+
+	if ( pos === 'All') {
+		sparql = `select distinct ?p where {${uriIndividual} ?p ${uriIndividualTo} .} order by ?p`;
+		reply = await executeSPARQL(endpointUrl, sparql);
+		r.A = reply.map(v => v.p.value);
+		sparql = `select distinct ?p where {${uriIndividualTo} ?p ${uriIndividual} .} order by ?p`;
+		reply = await executeSPARQL(endpointUrl, sparql);
+		r.B = reply.map(v => v.p.value);
+	}	
 	if ( pos === 'To') {
 		sparql = `select distinct ?p where {[] ?p ${uriIndividual} .} order by ?p`;
 		reply = await executeSPARQL(endpointUrl, sparql);
-		r.A = reply.map(v => v.p.value)
+		r.A = reply.map(v => v.p.value);
 		sparql = `select distinct ?p where {${uriIndividual} ?p [] .} order by ?p`;
 		reply = await executeSPARQL(endpointUrl, sparql);
-		r.B = reply.map(v => v.p.value)
+		r.B = reply.map(v => v.p.value);
 	}
-	else {
+	if ( pos === 'From') {
 		sparql = `select distinct ?p where {${uriIndividual} ?p [] .} order by ?p`;
 		reply = await executeSPARQL(endpointUrl, sparql);
-		r.A = reply.map(v => v.p.value)
+		r.A = reply.map(v => v.p.value);
 		sparql = `select distinct ?p where {[] ?p ${uriIndividual} .} order by ?p`;
 		reply = await executeSPARQL(endpointUrl, sparql);
-		r.B = reply.map(v => v.p.value)
+		r.B = reply.map(v => v.p.value);
 	}
 	return r;
 }
@@ -233,43 +271,61 @@ const sparqlGetIndividuals =  async (schema, params) => {
 	let rrT = {};
 	let newPList = {in:[], out:[]};
 	let whereList = [];
-	newPList = await util.getUrifromPList(schema, util.getPList(params, 0));
-	//console.log(newPList)
 	
-	if (util.isClassName(params, 0) ) {
-		const clInfo = await util.getClassByName(util.getClassName(params, 0), schema);
-		if (clInfo.length > 0)
-			whereList.push(`?x ${typeString} <${clInfo[0].iri}>`);
+	if ( util.isPListI(params)) {
+		const pListI = util.getPListI(params);
+		const prop = await util.getPropertyByName(pListI.name, schema);
+		const ind = await util.getUriIndividual(schema, params, 2);
+		if ( prop.length > 0) {
+			const prop_iri = prop[0].iri;
+			if ( pListI.type === 'in')
+				sparql = `select distinct ?x where { ${ind} <${prop_iri}> ?x } LIMIT ${util.getLimit(params)}`;
+			if ( pListI.type === 'out') 
+				sparql = `select distinct ?x where { ?x  <${prop_iri}> ${ind}} LIMIT ${util.getLimit(params)}`;
+				
+			reply = await executeSPARQL(endpointUrl, sparql);
+			reply.forEach(v => { rr.push(getShortName(list, v.x.value));});
+		}
 	}
-	if (newPList.in.length > 0 )
-		newPList.in.forEach(element => whereList.push(`[] <${element}> ?x`));
-	if (newPList.out.length > 0 )
-		newPList.out.forEach(element => whereList.push(`?x <${element}> []`));
+	else {
+		newPList = await util.getUrifromPList(schema, util.getPList(params, 0));
+		//console.log(newPList)
+		
+		if (util.isClassName(params, 0) ) {
+			const clInfo = await util.getClassByName(util.getClassName(params, 0), schema);
+			if (clInfo.length > 0)
+				whereList.push(`?x ${typeString} <${clInfo[0].iri}>`);
+		}
+		if (newPList.in.length > 0 )
+			newPList.in.forEach(element => whereList.push(`[] <${element}> ?x`));
+		if (newPList.out.length > 0 )
+			newPList.out.forEach(element => whereList.push(`?x <${element}> []`));
 
-	//console.log(whereList)
+		//console.log(whereList)
 
-	if (util.isFilter(params)) {
-		// *******************************
-		let ii = [];
-		list.forEach(e => { ii.push(`?x =<${e.value}${util.getFilter(params)}>`);});
-		const sparql0 = `select distinct ?x where { ${whereList.join('. ')} FILTER ( ${ii.join(' or ')}) } LIMIT ${list.length}`;
-		reply = await executeSPARQL(endpointUrl, sparql0);
-		reply.forEach(v => { rrT[getShortName(list, v.x.value)] = getShortName(list, v.x.value);});	
+		if (util.isFilter(params)) {
+			// *******************************
+			let ii = [];
+			list.forEach(e => { ii.push(`?x =<${e.value}${util.getFilter(params)}>`);});
+			const sparql0 = `select distinct ?x where { ${whereList.join('. ')} FILTER ( ${ii.join(' or ')}) } LIMIT ${list.length}`;
+			reply = await executeSPARQL(endpointUrl, sparql0);
+			reply.forEach(v => { rrT[getShortName(list, v.x.value)] = getShortName(list, v.x.value);});	
+			//reply.forEach(v => { rr.push(getShortName(list, v.x.value));});
+			// *******************************
+			//sparql = `select distinct ?x where { ${whereList.join('. ')} FILTER ( REGEX(lcase(str(?x)),'${util.getFilter(params).toLowerCase()}') ) } LIMIT ${util.getLimit(params)}`;
+			sparql = `select distinct ?x where { ${whereList.join('. ')} FILTER ( REGEX(?x,'${util.getFilter(params)}','i') ) } LIMIT ${util.getLimit(params)}`;
+		}
+		else
+			sparql = `select distinct ?x where { ${whereList.join('. ')} } LIMIT ${util.getLimit(params)}`;
+		
+		reply = await executeSPARQL(endpointUrl, sparql);
+		reply.forEach(v => { rrT[getShortName(list, v.x.value)] = getShortName(list, v.x.value);});
+		for (var key in rrT) 
+			rr.push(key);
 		//reply.forEach(v => { rr.push(getShortName(list, v.x.value));});
-		// *******************************
-		//sparql = `select distinct ?x where { ${whereList.join('. ')} FILTER ( REGEX(lcase(str(?x)),'${util.getFilter(params).toLowerCase()}') ) } LIMIT ${util.getLimit(params)}`;
-		sparql = `select distinct ?x where { ${whereList.join('. ')} FILTER ( REGEX(?x,'${util.getFilter(params)}','i') ) } LIMIT ${util.getLimit(params)}`;
+		//if ( rr.length === 2 && rr[0] === rr[1])
+		//	rr.pop();	
 	}
-	else
-		sparql = `select distinct ?x where { ${whereList.join('. ')} } LIMIT ${util.getLimit(params)}`;
-	
-	reply = await executeSPARQL(endpointUrl, sparql);
-	reply.forEach(v => { rrT[getShortName(list, v.x.value)] = getShortName(list, v.x.value);});
-	for (var key in rrT) 
-		rr.push(key);
-	//reply.forEach(v => { rr.push(getShortName(list, v.x.value));});
-	//if ( rr.length === 2 && rr[0] === rr[1])
-	//	rr.pop();
 	
 	return rr;
     //return reply.map(v => getShortName(list, v.x.value));
@@ -282,4 +338,5 @@ module.exports = {
 	sparqlGetPropertiesFromClass,
 	sparqlGetIndividuals,
 	sparqlGetTreeIndividuals,
+	sparqlGetPropertiesFromRemoteIndividual,
 }

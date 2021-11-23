@@ -7,6 +7,7 @@ const {
     sparqlGetClassProperties,
 	sparqlGetPropertiesFromIndividuals,
 	sparqlGetPropertiesFromClass,
+	sparqlGetPropertiesFromRemoteIndividual,
 } = require('../../util/sparql/endpoint-queries')
 
 const checkProperty = async (schema, params) => {
@@ -181,29 +182,42 @@ order by ${orderByPref} o desc LIMIT $1`;
 		newPListTo = await util.getIdsfromPList(schema, util.getPList(params, 1));
 
 	//console.log(classFrom)
-	if ( classType(classFrom) === 's' || classType(classTo)=== 's' || util.isUriIndividual(params, 0) || util.isUriIndividual(params, 1)) {
-		
-		if ( util.isUriIndividual(params, 0) || util.isUriIndividual(params, 1)) {
-			if ( util.isUriIndividual(params, 0) ) {
-				const ind = await util.getUriIndividual(schema, params, 0);
-				const propListAB = await sparqlGetPropertiesFromIndividuals(params, 'From', ind);
+	if ( classType(classFrom) === 's' || classType(classTo)=== 's' || util.isUriIndividual(params, 0) || util.isUriIndividual(params, 1) || util.isPListI(params) ) {
+
+		if ( util.isUriIndividual(params, 0) && util.isUriIndividual(params, 1)) {
+				const indFrom = await util.getUriIndividual(schema, params, 0);
+				const indTo = await util.getUriIndividual(schema, params, 1);
+				const propListAB = await sparqlGetPropertiesFromIndividuals(params, 'All', indFrom, indTo);
 				await addToWhereList(propListAB);
-			}
-			if ( util.isUriIndividual(params, 1) ) {
-				const ind = await util.getUriIndividual(schema, params, 1);
-				const propListAB = await sparqlGetPropertiesFromIndividuals(params, 'To', ind);
-				await addToWhereList(propListAB);
-			}
-		}
+		}	
 		else {
-			if ( classType(classFrom) === 's') {
-				const propListAB = await sparqlGetPropertiesFromClass(params, 'From', classFrom[0].iri);
-				//console.log(propListAB)
-				await addToWhereList(propListAB);
+			if ( util.isUriIndividual(params, 0) || util.isUriIndividual(params, 1)) {
+				if ( util.isUriIndividual(params, 0) ) {
+					const ind = await util.getUriIndividual(schema, params, 0);
+					const propListAB = await sparqlGetPropertiesFromIndividuals(params, 'From', ind);
+					await addToWhereList(propListAB);
+				}
+				if ( util.isUriIndividual(params, 1) ) {
+					const ind = await util.getUriIndividual(schema, params, 1);
+					const propListAB = await sparqlGetPropertiesFromIndividuals(params, 'To', ind);
+					await addToWhereList(propListAB);
+				}
 			}
-			if ( classType(classTo)=== 's' ) {
-				const propListAB = await sparqlGetPropertiesFromClass(params, 'To', classTo[0].iri);
+			else if ( util.isPListI(params)) {
+				const propListAB = await sparqlGetPropertiesFromRemoteIndividual(params, schema);
 				await addToWhereList(propListAB);
+
+			}
+			else {
+				if ( classType(classFrom) === 's') {
+					const propListAB = await sparqlGetPropertiesFromClass(params, 'From', classFrom[0].iri);
+					//console.log(propListAB)
+					await addToWhereList(propListAB);
+				}
+				if ( classType(classTo)=== 's' ) {
+					const propListAB = await sparqlGetPropertiesFromClass(params, 'To', classTo[0].iri);
+					await addToWhereList(propListAB);
+				}
 			}
 		}
 		

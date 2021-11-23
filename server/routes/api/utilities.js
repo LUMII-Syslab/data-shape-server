@@ -40,6 +40,8 @@ const getValue = val => {
 	return r;
 }
 
+const isPListI = params => { return isValue(params.element.pListI);}
+const getPListI = params => { return params.element.pListI;}
 const getIndividualMode = params => { return getValue(params.main.individualMode);}
 const getSchemaName = params => { return getValue(params.main.schemaName);}
 const getMakeLog = params => { return getValue(params.main.makeLog);}
@@ -105,6 +107,8 @@ const getUriIndividual = async ( schema, params, poz = 0) => {
 		r = getValue(params.element.uriIndividual);
 	if ( poz === 1 && isValue(params.elementOE) ) 
 		r = getValue(params.elementOE.uriIndividual);
+	if ( poz === 2 ) 
+		r = getValue(params.element.pListI.uriIndividual);
 	
 	const list = await getIndividualsNS(schema);
 	list.forEach(e => { if ( r.indexOf(e.prefix) == 0)  r = r.replace(e.prefix, e.value) });	
@@ -451,4 +455,6 @@ module.exports = {
 	getDeferredProperties,
 	getMakeLog,
 	getIndividualMode,
+	isPListI,
+	getPListI,
 }
