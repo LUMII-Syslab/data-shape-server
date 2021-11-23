@@ -39,21 +39,27 @@ const sparqlGetPropertiesFromRemoteIndividual = async (params, schema) => {
 	const pListI = util.getPListI(params);
 	const prop = await util.getPropertyByName(pListI.name, schema);
 	const ind = await util.getUriIndividual(schema, params, 2);
+	const typeString = await getTypeString(params);
+	const classFrom = await util.getClassByName(util.getClassName(params, 0), schema);
+	let classInfo = '';
+	if ( classFrom.length > 0 )
+		classInfo = `?x1 ${typeString} <${classFrom[0].iri}>.`;
+	
 	if ( prop.length > 0) {
 		const prop_iri = prop[0].iri;
 		if ( pListI.type === 'in') {
-			sparql = `select distinct ?p where {${ind} <${prop_iri}> ?x1. ?x1 ?p [].} order by ?p`;
+			sparql = `select distinct ?p where {${classInfo} ${ind} <${prop_iri}> ?x1. ?x1 ?p [].} order by ?p`;
 			reply = await executeSPARQL(endpointUrl, sparql);
 			r.A = reply.map(v => v.p.value);
-			sparql = `select distinct ?p where {${ind} <${prop_iri}> ?x1. [] ?p ?x1.} order by ?p`;
+			sparql = `select distinct ?p where {${classInfo} ${ind} <${prop_iri}> ?x1. [] ?p ?x1.} order by ?p`;
 			reply = await executeSPARQL(endpointUrl, sparql);
 			r.B = reply.map(v => v.p.value);
 		}
 		else {
-			sparql = `select distinct ?p where {?x1 <${prop_iri}> ${ind}. ?x1 ?p [].} order by ?p`;
+			sparql = `select distinct ?p where {${classInfo} ?x1 <${prop_iri}> ${ind}. ?x1 ?p [].} order by ?p`;
 			reply = await executeSPARQL(endpointUrl, sparql);
 			r.A = reply.map(v => v.p.value);
-			sparql = `select distinct ?p where {?x1 <${prop_iri}> ${ind}. [] ?p ?x1.} order by ?p`;
+			sparql = `select distinct ?p where {${classInfo} ?x1 <${prop_iri}> ${ind}. [] ?p ?x1.} order by ?p`;
 			reply = await executeSPARQL(endpointUrl, sparql);
 			r.B = reply.map(v => v.p.value);		
 		}
@@ -276,12 +282,16 @@ const sparqlGetIndividuals =  async (schema, params) => {
 		const pListI = util.getPListI(params);
 		const prop = await util.getPropertyByName(pListI.name, schema);
 		const ind = await util.getUriIndividual(schema, params, 2);
+		const classFrom = await util.getClassByName(util.getClassName(params, 0), schema);
+		let classInfo = '';
 		if ( prop.length > 0) {
 			const prop_iri = prop[0].iri;
+			if ( classFrom.length > 0 )
+				classInfo = `?x ${typeString} <${classFrom[0].iri}>.`;
 			if ( pListI.type === 'in')
-				sparql = `select distinct ?x where { ${ind} <${prop_iri}> ?x } LIMIT ${util.getLimit(params)}`;
+				sparql = `select distinct ?x where { ${classInfo} ${ind} <${prop_iri}> ?x } LIMIT ${util.getLimit(params)}`;
 			if ( pListI.type === 'out') 
-				sparql = `select distinct ?x where { ?x  <${prop_iri}> ${ind}} LIMIT ${util.getLimit(params)}`;
+				sparql = `select distinct ?x where { ${classInfo} ?x  <${prop_iri}> ${ind}} LIMIT ${util.getLimit(params)}`;
 				
 			reply = await executeSPARQL(endpointUrl, sparql);
 			reply.forEach(v => { rr.push(getShortName(list, v.x.value));});
