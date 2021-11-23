@@ -40,7 +40,12 @@ const getValue = val => {
 	return r;
 }
 
-const isPListI = params => { return isValue(params.element.pListI);}
+const isPListI = params => { 
+	if (params.element !== undefined && params.element.pListI !== undefined)
+		return true;
+	else
+		return false;
+}
 const getPListI = params => { return params.element.pListI;}
 const getIndividualMode = params => { return getValue(params.main.individualMode);}
 const getSchemaName = params => { return getValue(params.main.schemaName);}
