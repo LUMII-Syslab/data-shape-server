@@ -225,21 +225,46 @@ const getClassByName = async (cName, schema) => {
 
 const getPropertyByName = async (pName, schema) => {
 	let r;
-	const col = 'v.*, dc.prefix as dc_prefix, dc.display_name as dc_display_name, dc.is_local as dc_is_local, rc.prefix as rc_prefix, rc.display_name as rc_display_name, rc.is_local as rc_is_local';
-	const join = `LEFT JOIN ${schema}.v_classes_ns dc ON v.domain_class_id = dc.id LEFT JOIN ${schema}.v_classes_ns rc ON v.range_class_id = rc.id`;
 
 	if ( pName.includes('://')){
-		r = await db.any(`SELECT * FROM ${schema}.v_properties_ns WHERE iri = $1 order by cnt desc limit 1`, [pName]);
+		r = await db.any(`SELECT id FROM ${schema}.v_properties_ns WHERE iri = $1 order by cnt desc limit 1`, [pName]);
 	}
 	else if ( pName.includes(':')){
 		const nList = pName.split(':');
-		r = await db.any(`SELECT ${col} FROM ${schema}.v_properties_ns v ${join} WHERE v.display_name = $2 and v.prefix = $1 order by v.cnt desc limit 1`, [nList[0], nList[1]]);
+		r = await db.any(`SELECT id FROM ${schema}.v_properties_ns v  WHERE v.display_name = $2 and v.prefix = $1 order by v.cnt desc limit 1`, [nList[0], nList[1]]);
 	}
 	else {
 		const ns = await getLocalNamespace(schema);
-		r = await db.any(`SELECT ${col} FROM ${schema}.v_properties_ns v ${join} WHERE v.display_name = $2 and v.prefix = $1 order by v.cnt desc limit 1`, [ns.name, pName]);
+		r = await db.any(`SELECT id FROM ${schema}.v_properties_ns v  WHERE v.display_name = $2 and v.prefix = $1 order by v.cnt desc limit 1`, [ns.name, pName]);
 		if ( r.length === 0)
-			r = await db.any(`SELECT ${col} FROM ${schema}.v_properties_ns v ${join} WHERE v.display_name = $1 order by v.cnt desc limit 1`, [pName]);
+			r = await db.any(`SELECT id FROM ${schema}.v_properties_ns v  WHERE v.display_name = $1 order by v.cnt desc limit 1`, [pName]);
+	}
+	
+	let data_types = [null];
+	let data_type;
+	if ( r.length > 0 ) {
+		const prop_id = r[0].id; 
+		const col = 'v.*, dc.prefix as dc_prefix, dc.display_name as dc_display_name, dc.is_local as dc_is_local, rc.prefix as rc_prefix, rc.display_name as rc_display_name, rc.is_local as rc_is_local';
+		const join = `LEFT JOIN ${schema}.v_classes_ns dc ON v.domain_class_id = dc.id LEFT JOIN ${schema}.v_classes_ns rc ON v.range_class_id = rc.id`;
+		r = await db.any(`SELECT ${col} FROM ${schema}.v_properties_ns v ${join} WHERE v.id = ${prop_id}`);
+		const dt = await db.any(`SELECT CONCAT(ns.name,':', dt.local_name) as type_name, cnt, (select sum(cnt) from ${schema}.pd_rels where property_id = ${prop_id}) as total_cnt from ${schema}.pd_rels pd, ${schema}.datatypes dt, ${schema}.ns ns where pd.property_id = ${prop_id} and dt.id = pd.datatype_id and ns.id = dt.ns_id order by type_name`,);
+		if (  dt.length > 0 ) {
+			data_types = dt.map(v => v.type_name);
+			if ( dt[0].total_cnt == r[0].data_cnt) {
+				if (dt.length === 1 )
+					data_type = dt[0].type_name;
+				if (dt.length === 2 && dt[0].type_name === 'xsd:decimal' && dt[1].type_name === 'xsd:integer')
+					data_type = 'xsd:decimal';
+				if (dt.length === 2 && dt[0].type_name === 'rdf:langString' && dt[1].type_name === 'xsd:string')
+					data_type = 'xsd:string';
+				if (dt.length === 2 && dt[0].type_name === 'xsd:date' && dt[1].type_name === 'xsd:dateTime')
+					data_type = 'xsd:date';
+			}
+			else
+				data_types.push(null);
+		}
+		r[0].data_type = data_type;
+		r[0].data_types = data_types;
 	}
 	
 	return r;
