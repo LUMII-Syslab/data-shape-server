@@ -284,11 +284,11 @@ order by ${orderByPref} o desc LIMIT $1`;
 						strBo = 'r.cnt';
 					}
 					if ( strOrderField == 'object_cnt' ) {
-						strAo = 'r.cnt / v.cnt * v.object_cnt';
+						strAo = '1.0 * r.cnt / v.cnt * v.object_cnt';
 						strBo = 'r.cnt';
 					}
 					if ( strOrderField == 'data_cnt' ) {
-						strAo = 'r.cnt / v.cnt * v.data_cnt ';
+						strAo = '1.0 * r.cnt / v.cnt * v.data_cnt ';
 						strBo = 'r.cnt';
 					}
 				}
