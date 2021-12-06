@@ -97,6 +97,8 @@ const getProperties = async (schema, params) => {
 	let strOrderField = 'cnt';
 	let strAo = '';
 	let strBo = '';
+	let cardA = 'v.max_cardinality';
+	let cardB = 'v.inverse_max_cardinality';
 	
 	async function addToWhereList(propListAB)  {
 		//console.log(`SELECT id FROM ${schema}.properties where ${util.formWherePart('iri', 'in', propListAB.A, 1)}`)
@@ -116,24 +118,24 @@ const getProperties = async (schema, params) => {
 		if ( strOrderField !== 'cnt' ) {
 			whereListA.push(`${strAo} > 0`);
 			whereListB.push(`${strBo} > 0`);	
-			//whereListA.push(`v.${strOrderField} > 0`);  // Bija kaut kāds iemesls, kāpec tika mainīts
+			//whereListA.push(`v.${strOrderField} > 0`);  
 			//whereListB.push(`v.${strOrderField} > 0`);	
 		}
 		//const orderByPref = ( util.isOrderByPrefix(params) ? util.getOrderByPrefix(params) : '');
 		const orderByPref = ( util.getIsBasicOrder(params) ? `case when ${ util.getDeferredProperties(params)} then 0.5 else basic_order_level end, ` : '');
 
-		let sql = `SELECT aa.* FROM ( SELECT 'out' as mark, v.*, ${strAo} as o 				
+		let sql = `SELECT aa.* FROM ( SELECT 'out' as mark, ${cardA} as x_max_cardinality, v.*, ${strAo} as o 				
 FROM ${schema}.${viewname_out} v ${contextA}
 WHERE ${whereListA.join(' and ')} 
 ) aa
 order by ${orderByPref} o desc LIMIT $1`;
 		if ( util.getPropertyKind(params) === 'ObjectExt' || util.getPropertyKind(params) === 'Connect') {
 			sql = `SELECT aa.* FROM (
-SELECT 'out' as mark, v.*, ${strAo} as o 
+SELECT 'out' as mark, ${cardA} as x_max_cardinality, v.*, ${strAo} as o 
 FROM ${schema}.${viewname_out} v ${contextA}
 WHERE ${whereListA.join(' and ')} 
 UNION ALL
-SELECT 'in' as mark, v.*, ${strBo} as o   
+SELECT 'in' as mark, ${cardB} as x_max_cardinality, v.*, ${strBo} as o   
 FROM ${schema}.${viewname_in} v ${contextB}
 WHERE ${whereListB.join(' and ')} 
 ) aa
@@ -141,6 +143,7 @@ order by ${orderByPref} o desc LIMIT $1`;
 		}
 		return sql;
 	}
+
 	function classType(classO) {
 		if ( classO.length == 0 )
 			return 'n';
@@ -227,25 +230,27 @@ order by ${orderByPref} o desc LIMIT $1`;
 			strBo = `${ot}${strOrderField}`;
 		}
 		
-		sql = formSql();
+		//sql = formSql();
 	}
 	else {
 		if ( classType(classFrom) === 'b') {
-			contextA = `, ${schema}.cp_rels r`;
-			contextB = `, ${schema}.cp_rels r`;
+			cardA = 'r.x_max_cardinality';
+			cardB = 'r.x_max_cardinality';
+			contextA = `, ${schema}.v_cp_rels_card r`;
+			contextB = `, ${schema}.v_cp_rels_card r`;
 			whereListA.push(`property_id = v.id and r.type_id = 2 and class_id = ${classFrom[0].id}`);
 			whereListB.push(`property_id = v.id and r.type_id = 1 and class_id = ${classFrom[0].id}`);
 		} 
 		if ( classType(classTo) === 'b' ){
 			if ( contextA === '' ) {
-				contextA = `, ${schema}.cp_rels r`;
-				contextB = `, ${schema}.cp_rels r`;
+				contextA = `, ${schema}.v_cp_rels_card r`;
+				contextB = `, ${schema}.v_cp_rels_card r`;
 				whereListA.push(`property_id = v.id and r.type_id = 1 and class_id = ${classTo[0].id}`);
 				whereListB.push(`property_id = v.id and r.type_id = 2 and class_id = ${classTo[0].id}`);
 			}
 			else {
-				whereListA.push(`v.id in (select property_id from ${schema}.cp_rels r where r.type_id = 1 and class_id = ${classTo[0].id})`);
-				whereListB.push(`v.id in (select property_id from ${schema}.cp_rels r where r.type_id = 2 and class_id = ${classTo[0].id})`);
+				whereListA.push(`v.id in (select property_id from ${schema}.v_cp_rels_card r where r.type_id = 1 and class_id = ${classTo[0].id})`);
+				whereListB.push(`v.id in (select property_id from ${schema}.v_cp_rels_card r where r.type_id = 2 and class_id = ${classTo[0].id})`);
 			}
 		}  
 		if ( newPListFrom.in.length > 0 || newPListFrom.out.length > 0 || newPListTo.in.length > 0 || newPListTo.out.length > 0) {
@@ -347,7 +352,7 @@ order by ${orderByPref} o desc LIMIT $1`;
 								class_id_list = classList.map(v => v.class_id);
 						}
 					}						
-					//}
+					// }
 
 					console.log("--------klašu saraksts----------")
 					console.log(class_id_list)
@@ -389,12 +394,14 @@ order by ${orderByPref} o desc LIMIT $1`;
 			strBo = `${ot}${strOrderField}`;
 		}
 		
-		sql = formSql();
+		//sql = formSql();
 	}
+	
+	sql = formSql();
 	
 	r = await util.getSchemaData(sql, params);
 	return r;
-
+//x_max_cardinality
 }
 
 module.exports = {
