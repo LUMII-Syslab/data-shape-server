@@ -131,7 +131,7 @@ const getTreeClasses = async (schema, params) => {
 	
 	r = await util.getSchemaData(sql, params);
 	
-	if ( r.complete && util.getTreeMode(params) === 'Top' && !util.isFilter(params)) {
+	if ( r.complete && r.data.length > 0 && util.getTreeMode(params) === 'Top' && !util.isFilter(params)) {
 		var owlThing = await util.getClassByName( 'owl:Thing', schema);
 		whereList = [];
 		whereList.push(util.formWherePart('v.id', 'in', r.data.map(v => v.id), 0))

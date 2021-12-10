@@ -1,20 +1,29 @@
 const debug = require('debug')('dss:classops')
 const db = require('./db')
 
+const ns_DBpedia = {schema:'dbpedia', ns:[{name:'dbo', caption:'Only from dbo:', type:'in', checked:true}, {name:'yago', caption:'Exclude yago:', type:'notIn', checked:false}]};
+const ns_DBpediaL = {schema:'any', ns:[{name:'dbo', caption:'Only from dbo:', type:'in', checked:false}, {name:'yago', caption:'Exclude yago:', type:'notIn', checked:false}]};
+const ns_BasicL = {schema:'any', ns:[{isLocal:true, caption:'Only local classes:', type:'in', checked:true}]};
+const ns_Basic = {'schema':'any', 'ns':[]};
+
 // TODO: get this info from the db
+// simple_prompt  -- vairs nav
 const KNOWN_DATA = [ 
-	{name: 'DBpedia', schema:'dbpedia', sparql_url: 'https://dbpedia.org/sparql', tree_profile: 'DBpedia', use_pp_rels: true, simple_prompt: false, hide_individuals: false, direct_role:'rdf:type', indirect_role:'' },
-	{name: 'DBpedia_simple_prompt', schema:'dbpedia', sparql_url: 'https://dbpedia.org/sparql', tree_profile: 'DBpedia', use_pp_rels: true, simple_prompt: true, hide_individuals: false, direct_role:'rdf:type', indirect_role:'' },
-	{name: 'Tweets_cov', schema:'tweets_cov', sparql_url: 'https://data.gesis.org/tweetscov19/sparql', tree_profile: 'DBpediaL', use_pp_rels: true, simple_prompt: false, hide_individuals: false, direct_role:'rdf:type', indirect_role:'' },
-	{name: 'Europeana', schema:'europeana', sparql_url: 'http://sparql.europeana.eu/', tree_profile: 'Basic', use_pp_rels: false, simple_prompt: false, hide_individuals: false, direct_role:'rdf:type', indirect_role:'' },
-	{name: 'Covid_On_The_Web', schema:'covid_on_the_web', sparql_url: 'https://covidontheweb.inria.fr/sparql', tree_profile: 'DBpediaL', use_pp_rels: false, simple_prompt: false, hide_individuals: false, direct_role:'rdf:type', indirect_role:'' },
-	{name: 'Mini_university', schema:'mini_university', sparql_url: 'http://85.254.199.72:8890/sparql', named_graph: 'MiniUniv', tree_profile: 'BasicL', use_pp_rels: true, simple_prompt: false, hide_individuals: true, direct_role:'rdf:type', indirect_role:'' },
-	{name: 'Mini_hospital', schema:'mini_hospital', sparql_url: 'http://185.23.162.167:8833/sparql', named_graph: 'MiniBkusEN_1', tree_profile: 'BasicL', use_pp_rels: true, simple_prompt: false, hide_individuals: true, direct_role:'rdf:type', indirect_role:'' },
-	{name: 'Wikidata', schema:'wikidata', sparql_url: 'https://query.wikidata.org/sparql', tree_profile: 'BasicL', use_pp_rels: false, simple_prompt: false, hide_individuals: true, direct_role:'wdt:P31', indirect_role:'wdt:P279' },
+	{display_name: 'DBpedia', db_schema_name:'dbpedia', sparql_url: 'https://dbpedia.org/sparql', named_graph: '', profile_data:ns_DBpedia, use_pp_rels: true, simple_prompt: false, hide_individuals: false, direct_class_role:'rdf:type', indirect_class_role:'', endpoint_type: 'virtuoso' },
+	{display_name: 'Tweets_cov', db_schema_name:'tweets_cov', sparql_url: 'https://data.gesis.org/tweetscov19/sparql', named_graph: '',  profile_data:ns_DBpediaL, use_pp_rels: true, simple_prompt: false, hide_individuals: false, direct_class_role:'rdf:type', indirect_class_role:'', endpoint_type: 'virtuoso' },
+	{display_name: 'Europeana', db_schema_name:'europeana', sparql_url: 'http://sparql.europeana.eu/', named_graph: '',  profile_data:ns_Basic, use_pp_rels: false, simple_prompt: false, hide_individuals: false, direct_class_role:'rdf:type', indirect_class_role:'' ,endpoint_type: 'virtuoso' },
+	{display_name: 'Covid_On_The_Web', db_schema_name:'covid_on_the_web', sparql_url: 'https://covidontheweb.inria.fr/sparql', named_graph: '',  profile_data:ns_DBpediaL, use_pp_rels: false, simple_prompt: false, hide_individuals: false, direct_class_role:'rdf:type', indirect_class_role:'', endpoint_type: 'virtuoso' },
+	{display_name: 'Mini_university', db_schema_name:'mini_university', sparql_url: 'http://85.254.199.72:8890/sparql', named_graph: 'MiniUniv', profile_data:ns_BasicL, use_pp_rels: true, simple_prompt: false, hide_individuals: true, direct_class_role:'rdf:type', indirect_class_role:'', endpoint_type: 'virtuoso' },
+	{display_name: 'Mini_hospital', db_schema_name:'mini_hospital', sparql_url: 'http://185.23.162.167:8833/sparql', named_graph: 'MiniBkusEN_1',  profile_data:ns_BasicL, use_pp_rels: true, simple_prompt: false, hide_individuals: true, direct_class_role:'rdf:type', indirect_class_role:'', endpoint_type: 'virtuoso' },
+	{display_name: 'Wikidata', db_schema_name:'wikidata', sparql_url: 'https://query.wikidata.org/sparql', named_graph: '', profile_data:ns_BasicL, use_pp_rels: false, simple_prompt: false, hide_individuals: true, direct_class_role:'wdt:P31', indirect_class_role:'wdt:P279', endpoint_type: 'generic' },
 ]
 
-const get_KNOWN_DATA = () => {
-	return KNOWN_DATA;
+const get_KNOWN_DATA = async () => {
+	const sql = `SELECT * from public.v_configurations`; 
+	const r = await db.any(sql);
+	return r;
+	//const kd = KNOWN_DATA;
+	//return kd;
 }
 
 const parameterExists = (parTree, par) => {
@@ -63,10 +72,10 @@ const setEndpointUrl = (params, s) => {
 		params.main.endpointUrl = s.sparql_url;
 	return params;
 }
-const getTypeStrings = (params) => { return [ getValue(params.main.direct_role), getValue(params.main.indirect_role)];}
-const setTypeStrings = (params, direct_role, indirect_role) => {
-	params.main.direct_role = direct_role;
-	params.main.indirect_role = indirect_role;
+const getTypeStrings = (params) => { return [ getValue(params.main.direct_class_role), getValue(params.main.indirect_class_role)];}
+const setTypeStrings = (params, direct_class_role, indirect_class_role) => {
+	params.main.direct_class_role = direct_class_role;
+	params.main.indirect_class_role = indirect_class_role;
 	return params;
 }
 const isFilter = params => { return isValue(params.main.filter); }
@@ -176,14 +185,13 @@ const isOrderByPrefix = params => { return isValue(params.main.orderByPrefix);}
 const getOrderByPrefix = params => { return getValue(params.main.orderByPrefix);}
 
 const checkEndpoint = async (params, schema, KNOWN_DATA) => {
-   // TODO find value in DB
     const s = KNOWN_DATA.find(x => x.name == getSchemaName(params));
 	if ( !isEndpointUrl(params)) {
 		if (s !== undefined) 
 			params = setEndpointUrl(params, s);
 	}
 	if (s !== undefined)
-		params = setTypeStrings(params, s.direct_role, s.indirect_role);
+		params = setTypeStrings(params, s.direct_class_role, s.indirect_class_role);
 	else 
 		params = setTypeStrings(params, 'rdf:type', '');
 

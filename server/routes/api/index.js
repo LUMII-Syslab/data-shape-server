@@ -25,9 +25,10 @@ const {
 
 const validateOntologyName = name => /^[a-zA-Z0-9_-]+$/.test(name)
 
-const checkSchemaName = name => {
-	const s = util.get_KNOWN_DATA().find(x => x.schema == name);
-	if (s !== undefined) return s.schema;
+const checkSchemaName = async (name) => {
+	const kd = await util.get_KNOWN_DATA();
+	const s = kd.find(x => x.db_schema_name == name);
+	if (s !== undefined) return s.db_schema_name;
 	else return '';
 }
 
@@ -35,20 +36,21 @@ const makeOutput = data => {
 	return {prefix:data.prefix, name:data.display_name, cnt:data.cnt_x, iri:data.iri};
 }
 
-const checkOntology = ont => {
-
+const checkOntology = async (ont) => {
 	let err = {err_msg: ''};
 	if (!validateOntologyName(ont)) {
 		err.status = 400;
 		err.err_msg = 'bad ontology name';
 	}
-	const schema = checkSchemaName(ont);
+	const schema = await checkSchemaName(ont);
+
 	if (schema === '' ) {
 		err.status = 404;
 		err.err_msg = 'unknown ontology';
 	}
 	else 
 		err.schema = schema;
+		
 	return err;
 }
 
@@ -60,8 +62,9 @@ router.get('/', (req, res, next) => {
 /**
  * List of known ontologies
  */
-router.get('/info', (req, res, next) => {
-  res.json(util.get_KNOWN_DATA());
+router.get('/info', async (req, res, next) => {
+  const kd = await util.get_KNOWN_DATA();
+  res.json(kd);
 });
 
 /**
@@ -70,8 +73,7 @@ router.get('/info', (req, res, next) => {
 router.get('/ontologies/:ont/ns', async (req, res, next) => {
     try {
         const ont = req.params['ont'];
-		
-		const err = checkOntology(ont);
+		const err = await checkOntology(ont);
 		if ( err.err_msg !== '') {
 			res.status(err.status).send(err.err_msg);
 			return;
@@ -93,7 +95,7 @@ router.get('/ontologies/:ont/classes/:limit', async (req, res, next) => {
     try {
         const ont = req.params['ont'];
 		const limit = Number(req.params['limit']);
-		const err = checkOntology(ont);
+		const err = await checkOntology(ont);
 		if ( err.err_msg !== '') {
 			res.status(err.status).send(err.err_msg);
 			return;
@@ -118,7 +120,7 @@ router.get('/ontologies/:ont/classes-filtered/:filter/:limit', async (req, res, 
         const ont = req.params['ont'];
 		const filter = req.params['filter'];
 		const limit = Number(req.params['limit']);
-		const err = checkOntology(ont);
+		const err = await checkOntology(ont);
 		if ( err.err_msg !== '') {
 			res.status(err.status).send(err.err_msg);
 			return;
@@ -141,7 +143,7 @@ router.get('/ontologies/:ont/properties/:limit', async (req, res, next) => {
     try {
         const ont = req.params['ont'];
 		const limit = Number(req.params['limit']);
-		const err = checkOntology(ont);
+		const err = await checkOntology(ont);
 		if ( err.err_msg !== '') {
 			res.status(err.status).send(err.err_msg);
 			return;
@@ -166,7 +168,7 @@ router.get('/ontologies/:ont/properties-filtered/:filter/:limit', async (req, re
         const ont = req.params['ont'];
 		const filter = req.params['filter'];
 		const limit = Number(req.params['limit']);
-		const err = checkOntology(ont);
+		const err = await checkOntology(ont);
 		if ( err.err_msg !== '') {
 			res.status(err.status).send(err.err_msg);
 			return;
@@ -190,15 +192,15 @@ router.post('/ontologies/:ont/:fn', async (req, res, next) => {
         const ont = req.params['ont'];
 		const fn = req.params['fn'];
 		
-		const err = checkOntology(ont);
+		const err = await checkOntology(ont);
 		if ( err.err_msg !== '') {
 			res.status(err.status).send(err.err_msg);
 			return;
 		}
 		const schema = err.schema;
-
 		let params = req.body;
-		params = await util.checkEndpoint(params, schema, util.get_KNOWN_DATA())
+		const kd = await util.get_KNOWN_DATA();
+		params = await util.checkEndpoint(params, schema, kd);
 	    console.log(params);
 		
 		let r = { complete: false };
