@@ -185,7 +185,7 @@ const isOrderByPrefix = params => { return isValue(params.main.orderByPrefix);}
 const getOrderByPrefix = params => { return getValue(params.main.orderByPrefix);}
 
 const checkEndpoint = async (params, schema, KNOWN_DATA) => {
-    const s = KNOWN_DATA.find(x => x.name == getSchemaName(params));
+    const s = KNOWN_DATA.find(x => x.display_name == getSchemaName(params));
 	if ( !isEndpointUrl(params)) {
 		if (s !== undefined) 
 			params = setEndpointUrl(params, s);
@@ -239,13 +239,13 @@ const getPropertyByName = async (pName, schema) => {
 	}
 	else if ( pName.includes(':')){
 		const nList = pName.split(':');
-		r = await db.any(`SELECT id FROM ${schema}.v_properties_ns v  WHERE v.display_name = $2 and v.prefix = $1 order by v.cnt desc limit 1`, [nList[0], nList[1]]);
+		r = await db.any(`SELECT id FROM ${schema}.v_properties_ns v  WHERE ( v.display_name = $2 or v.local_name = $2) and v.prefix = $1 order by v.cnt desc limit 1`, [nList[0], nList[1]]);
 	}
 	else {
 		const ns = await getLocalNamespace(schema);
-		r = await db.any(`SELECT id FROM ${schema}.v_properties_ns v  WHERE v.display_name = $2 and v.prefix = $1 order by v.cnt desc limit 1`, [ns.name, pName]);
+		r = await db.any(`SELECT id FROM ${schema}.v_properties_ns v  WHERE ( v.display_name = $2 or v.local_name = $2) and v.prefix = $1 order by v.cnt desc limit 1`, [ns.name, pName]);
 		if ( r.length === 0)
-			r = await db.any(`SELECT id FROM ${schema}.v_properties_ns v  WHERE v.display_name = $1 order by v.cnt desc limit 1`, [pName]);
+			r = await db.any(`SELECT id FROM ${schema}.v_properties_ns v  WHERE ( v.display_name = $1 or v.local_name = $1) order by v.cnt desc limit 1`, [pName]);
 	}
 	
 	let data_types = [null];
