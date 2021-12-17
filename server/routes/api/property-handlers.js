@@ -115,19 +115,19 @@ const getProperties = async (schema, params) => {
 			whereListB.push('false');
 	}
 	function formSql()  {
-		if ( strOrderField !== 'cnt' ) {
-			whereListA.push(`${strAo} > 0`);
-			whereListB.push(`${strBo} > 0`);	
+		//if ( strOrderField !== 'cnt' ) {
+		//	whereListA.push(`${strAo} > 0`);
+		//	whereListB.push(`${strBo} > 0`);	
 			//whereListA.push(`v.${strOrderField} > 0`);  
 			//whereListB.push(`v.${strOrderField} > 0`);	
-		}
+		// }
 		//const orderByPref = ( util.isOrderByPrefix(params) ? util.getOrderByPrefix(params) : '');
 		const orderByPref = ( util.getIsBasicOrder(params) ? `case when ${ util.getDeferredProperties(params)} then 0.5 else basic_order_level end, ` : '');
 
 		let sql = `SELECT aa.* FROM ( SELECT 'out' as mark, ${cardA} as x_max_cardinality, v.*, ${strAo} as o 				
 FROM ${schema}.${viewname_out} v ${contextA}
 WHERE ${whereListA.join(' and ')} 
-) aa
+) aa where o > 0
 order by ${orderByPref} o desc LIMIT $1`;
 		if ( util.getPropertyKind(params) === 'ObjectExt' || util.getPropertyKind(params) === 'Connect') {
 			sql = `SELECT aa.* FROM (
@@ -138,7 +138,7 @@ UNION ALL
 SELECT 'in' as mark, ${cardB} as x_max_cardinality, v.*, ${strBo} as o   
 FROM ${schema}.${viewname_in} v ${contextB}
 WHERE ${whereListB.join(' and ')} 
-) aa
+) aa where o > 0
 order by ${orderByPref} o desc LIMIT $1`;
 		}
 		return sql;
@@ -185,40 +185,40 @@ order by ${orderByPref} o desc LIMIT $1`;
 		newPListTo = await util.getIdsfromPList(schema, util.getPList(params, 1));
 
 	//console.log(classFrom)
+	const only_out = !(util.getPropertyKind(params) === 'ObjectExt' || util.getPropertyKind(params) === 'Connect');
 	if ( classType(classFrom) === 's' || classType(classTo)=== 's' || util.isUriIndividual(params, 0) || util.isUriIndividual(params, 1) || util.isPListI(params) ) {
-
 		if ( util.isUriIndividual(params, 0) && util.isUriIndividual(params, 1)) {
 				const indFrom = await util.getUriIndividual(schema, params, 0);
 				const indTo = await util.getUriIndividual(schema, params, 1);
-				const propListAB = await sparqlGetPropertiesFromIndividuals(params, 'All', indFrom, indTo);
+				const propListAB = await sparqlGetPropertiesFromIndividuals(params, 'All', only_out, indFrom, indTo); 
 				await addToWhereList(propListAB);
 		}	
 		else {
 			if ( util.isUriIndividual(params, 0) || util.isUriIndividual(params, 1)) {
 				if ( util.isUriIndividual(params, 0) ) {
 					const ind = await util.getUriIndividual(schema, params, 0);
-					const propListAB = await sparqlGetPropertiesFromIndividuals(params, 'From', ind);
+					const propListAB = await sparqlGetPropertiesFromIndividuals(params, 'From', only_out, ind);
 					await addToWhereList(propListAB);
 				}
 				if ( util.isUriIndividual(params, 1) ) {
 					const ind = await util.getUriIndividual(schema, params, 1);
-					const propListAB = await sparqlGetPropertiesFromIndividuals(params, 'To', ind);
+					const propListAB = await sparqlGetPropertiesFromIndividuals(params, 'To', only_out, ind);
 					await addToWhereList(propListAB);
 				}
 			}
 			else if ( util.isPListI(params)) {
-				const propListAB = await sparqlGetPropertiesFromRemoteIndividual(params, schema);
+				const propListAB = await sparqlGetPropertiesFromRemoteIndividual(params, schema, only_out);
 				await addToWhereList(propListAB);
 
 			}
 			else {
 				if ( classType(classFrom) === 's') {
-					const propListAB = await sparqlGetPropertiesFromClass(params, 'From', classFrom[0].iri);
+					const propListAB = await sparqlGetPropertiesFromClass(params, 'From', classFrom[0].iri, only_out);
 					//console.log(propListAB)
 					await addToWhereList(propListAB);
 				}
 				if ( classType(classTo)=== 's' ) {
-					const propListAB = await sparqlGetPropertiesFromClass(params, 'To', classTo[0].iri);
+					const propListAB = await sparqlGetPropertiesFromClass(params, 'To', classTo[0].iri, only_out);
 					await addToWhereList(propListAB);
 				}
 			}
@@ -297,7 +297,7 @@ order by ${orderByPref} o desc LIMIT $1`;
 						strBo = 'r.cnt';
 					}
 				}
-				
+
 				if ( !simplePrompt ) {
 					if (newPListFrom.in.length > 0 ) 
 						newPListFrom.in.forEach(element => {

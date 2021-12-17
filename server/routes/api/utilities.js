@@ -220,13 +220,13 @@ const getClassByName = async (cName, schema) => {
 	}
 	else if ( cName.includes(':')){
 		const nList = cName.split(':');
-		r = await db.any(`SELECT * FROM ${schema}.v_classes_ns WHERE display_name = $2 and prefix = $1 order by cnt desc limit 1`, [nList[0], nList[1]]);
+		r = await db.any(`SELECT * FROM ${schema}.v_classes_ns WHERE ( display_name = $2 or local_name = $2) and prefix = $1 order by cnt desc limit 1`, [nList[0], nList[1]]);
 	}
 	else {
 		const ns = await getLocalNamespace(schema);
-		r = await db.any(`SELECT * FROM ${schema}.v_classes_ns WHERE display_name = $2 and prefix = $1 order by cnt desc limit 1`, [ns.name, cName]);
+		r = await db.any(`SELECT * FROM ${schema}.v_classes_ns WHERE ( display_name = $2 or local_name = $2) and prefix = $1 order by cnt desc limit 1`, [ns.name, cName]);
 		if ( r.length === 0)
-			r = await db.any(`SELECT * FROM ${schema}.v_classes_ns WHERE display_name = $1 order by cnt desc limit 1`, [cName]);
+			r = await db.any(`SELECT * FROM ${schema}.v_classes_ns WHERE ( display_name = $1 or local_name = $1) order by cnt desc limit 1`, [cName]);
 	}
 	return r;
 }
