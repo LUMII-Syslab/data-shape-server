@@ -76,6 +76,7 @@ const getProperties = async (schema, params) => {
 	let sql;
 	let viewname_out;
 	let viewname_in;
+	let two_steps = false;
 	const use_pp_rels = util.getUsePP(params);
 	const simplePrompt = util.getSimplePrompt(params);
 	//let viewname = 'v_properties_ns';  
@@ -92,6 +93,8 @@ const getProperties = async (schema, params) => {
 	let classTo = [];
 	let whereListA = [ true ];
 	let whereListB = [ true ];
+	let whereListA_2 = [ true ];
+	let whereListB_2 = [ true ];
 	let contextA = '';
 	let contextB = '';
 	let strOrderField = 'cnt';
@@ -114,13 +117,13 @@ const getProperties = async (schema, params) => {
 		else
 			whereListB.push('false');
 	}
-	function formSql()  {
+	async function formSql()  {
 		//if ( strOrderField !== 'cnt' ) {
 		//	whereListA.push(`${strAo} > 0`);
 		//	whereListB.push(`${strBo} > 0`);	
 			//whereListA.push(`v.${strOrderField} > 0`);  
 			//whereListB.push(`v.${strOrderField} > 0`);	
-		// }
+		// }  
 		//const orderByPref = ( util.isOrderByPrefix(params) ? util.getOrderByPrefix(params) : '');
 		const orderByPref = ( util.getIsBasicOrder(params) ? `case when ${ util.getDeferredProperties(params)} then 0.5 else basic_order_level end, ` : '');
 
@@ -129,7 +132,58 @@ FROM ${schema}.${viewname_out} v ${contextA}
 WHERE ${whereListA.join(' and ')} 
 ) aa where o > 0
 order by ${orderByPref} o desc LIMIT $1`;
-		if ( util.getPropertyKind(params) === 'ObjectExt' || util.getPropertyKind(params) === 'Connect') {
+
+	if ( two_steps && ( util.getPropertyKind(params) === 'ObjectExt' || util.getPropertyKind(params) === 'Connect')) {
+		let out_prop_ids = [];
+		let in_prop_ids = [];
+		whereListA.push(`${strAo} > 0`);
+		whereListB.push(`${strBo} > 0`);
+		const sql_out = `SELECT v.id FROM ${schema}.v_properties_ns v ${contextA} WHERE ${whereListA.join(' and ')} order by ${orderByPref.replace("id in","v.id in")} ${strAo} desc LIMIT $1`;
+		const out_props = await util.getSchemaData(sql_out,params);
+		if ( out_props.data.length > 0) 
+			out_prop_ids = out_props.data.map(v => v.id);
+		const sql_in = `SELECT v.id FROM ${schema}.v_properties_ns v ${contextB} WHERE ${whereListB.join(' and ')} order by ${orderByPref.replace("id in","v.id in")} ${strBo} desc LIMIT $1`;
+		const in_props = await util.getSchemaData(sql_in,params);
+		if ( in_props.data.length > 0) 
+			in_prop_ids = in_props.data.map(v => v.id);
+
+		if ( out_prop_ids.length > 0 && in_prop_ids.length > 0 ) {
+			whereListA_2.push(util.formWherePart('v.id', 'in', out_prop_ids, 0));
+			whereListB_2.push(util.formWherePart('v.id', 'in', in_prop_ids, 0));
+			sql = `SELECT aa.* FROM (
+SELECT 'out' as mark, ${cardA} as x_max_cardinality, v.*, ${strAo} as o 
+FROM ${schema}.${viewname_out} v ${contextA}
+WHERE ${whereListA_2.join(' and ')} 
+UNION ALL
+SELECT 'in' as mark, ${cardB} as x_max_cardinality, v.*, ${strBo} as o   
+FROM ${schema}.${viewname_in} v ${contextB}
+WHERE ${whereListB_2.join(' and ')} 
+) aa where o > 0
+order by ${orderByPref} o desc LIMIT $1`;			
+		}
+		else {
+			if ( out_prop_ids.length > 0 ) {
+				whereListA_2.push(util.formWherePart('v.id', 'in', out_prop_ids, 0));
+				sql = `SELECT aa.* FROM (
+SELECT 'out' as mark, ${cardA} as x_max_cardinality, v.*, ${strAo} as o 
+FROM ${schema}.${viewname_out} v ${contextA}
+WHERE ${whereListA_2.join(' and ')} 
+) aa where o > 0
+order by ${orderByPref} o desc LIMIT $1`;				
+			}
+			if (  in_prop_ids.length > 0 ) {
+				whereListB_2.push(util.formWherePart('v.id', 'in', in_prop_ids, 0));
+				sql = `SELECT aa.* FROM (
+SELECT 'in' as mark, ${cardB} as x_max_cardinality, v.*, ${strBo} as o   
+FROM ${schema}.${viewname_in} v ${contextB}
+WHERE ${whereListB_2.join(' and ')} 
+) aa where o > 0
+order by ${orderByPref} o desc LIMIT $1`;
+			}
+		}
+	}
+
+		if (!two_steps && ( util.getPropertyKind(params) === 'ObjectExt' || util.getPropertyKind(params) === 'Connect')) {
 			sql = `SELECT aa.* FROM (
 SELECT 'out' as mark, ${cardA} as x_max_cardinality, v.*, ${strAo} as o 
 FROM ${schema}.${viewname_out} v ${contextA}
@@ -143,7 +197,6 @@ order by ${orderByPref} o desc LIMIT $1`;
 		}
 		return sql;
 	}
-
 	function classType(classO) {
 		if ( classO.length == 0 )
 			return 'n';
@@ -165,6 +218,8 @@ order by ${orderByPref} o desc LIMIT $1`;
 	if ( util.isFilter(params)) {
 		whereListA.push(`v.${util.getFilterColumn(params)} ~ $2`); 
 		whereListB.push(`v.${util.getFilterColumn(params)} ~ $2`);
+		whereListA_2.push(`v.${util.getFilterColumn(params)} ~ $2`); 
+		whereListB_2.push(`v.${util.getFilterColumn(params)} ~ $2`);
 	}
 	
 	if ( util.isNamespaces(params)) {
@@ -229,8 +284,6 @@ order by ${orderByPref} o desc LIMIT $1`;
 			strAo = `${ot}${strOrderField}`;
 			strBo = `${ot}${strOrderField}`;
 		}
-		
-		//sql = formSql();
 	}
 	else {
 		if ( classType(classFrom) === 'b') {
@@ -240,6 +293,9 @@ order by ${orderByPref} o desc LIMIT $1`;
 			contextB = `, ${schema}.v_cp_rels_card r`;
 			whereListA.push(`property_id = v.id and r.type_id = 2 and class_id = ${classFrom[0].id}`);
 			whereListB.push(`property_id = v.id and r.type_id = 1 and class_id = ${classFrom[0].id}`);
+			two_steps = true;
+			whereListA_2.push(`property_id = v.id and r.type_id = 2 and class_id = ${classFrom[0].id}`);
+			whereListB_2.push(`property_id = v.id and r.type_id = 1 and class_id = ${classFrom[0].id}`);
 		} 
 		if ( classType(classTo) === 'b' ){
 			if ( contextA === '' ) {
@@ -247,6 +303,9 @@ order by ${orderByPref} o desc LIMIT $1`;
 				contextB = `, ${schema}.v_cp_rels_card r`;
 				whereListA.push(`property_id = v.id and r.type_id = 1 and class_id = ${classTo[0].id}`);
 				whereListB.push(`property_id = v.id and r.type_id = 2 and class_id = ${classTo[0].id}`);
+				two_steps = true;
+				whereListA_2.push(`property_id = v.id and r.type_id = 1 and class_id = ${classTo[0].id}`);
+				whereListB_2.push(`property_id = v.id and r.type_id = 2 and class_id = ${classTo[0].id}`);
 			}
 			else {
 				whereListA.push(`v.id in (select property_id from ${schema}.v_cp_rels_card r where r.type_id = 1 and class_id = ${classTo[0].id})`);
@@ -270,18 +329,30 @@ order by ${orderByPref} o desc LIMIT $1`;
 					if ( mainProp.type === 'in' && mainProp.class === 'from' ) {
 						whereListA.push(`v.id = r.property_2_id and r.type_id = 1 and property_1_id = ${mainProp.id}`);
 						whereListB.push(`v.id = r.property_2_id and r.type_id = 3 and property_1_id = ${mainProp.id}`);
+						two_steps = true;
+						whereListA_2.push(`v.id = r.property_2_id and r.type_id = 1 and property_1_id = ${mainProp.id}`);
+						whereListB_2.push(`v.id = r.property_2_id and r.type_id = 3 and property_1_id = ${mainProp.id}`);
 					}
 					if ( mainProp.type === 'out' && mainProp.class === 'from' ) {
 						whereListA.push(`v.id = r.property_2_id and r.type_id = 2 and property_1_id = ${mainProp.id}`);
 						whereListB.push(`v.id = r.property_1_id and r.type_id = 1 and property_2_id = ${mainProp.id}`);
+						two_steps = true;
+						whereListA_2.push(`v.id = r.property_2_id and r.type_id = 2 and property_1_id = ${mainProp.id}`);
+						whereListB_2.push(`v.id = r.property_1_id and r.type_id = 1 and property_2_id = ${mainProp.id}`);
 					}
 					if ( mainProp.type === 'in' && mainProp.class === 'to' ) {
 						whereListA.push(`v.id = r.property_2_id and r.type_id = 3 and property_1_id = ${mainProp.id}`);
 						whereListB.push(`v.id = r.property_2_id and r.type_id = 1 and property_1_id = ${mainProp.id}`);
+						two_steps = true;
+						whereListA_2.push(`v.id = r.property_2_id and r.type_id = 3 and property_1_id = ${mainProp.id}`);
+						whereListB_2.push(`v.id = r.property_2_id and r.type_id = 1 and property_1_id = ${mainProp.id}`);
 					}
 					if ( mainProp.type === 'out' && mainProp.class === 'to' ) {
 						whereListA.push(`v.id = r.property_1_id and r.type_id = 1 and property_2_id = ${mainProp.id}`);
 						whereListB.push(`v.id = r.property_2_id and r.type_id = 2 and property_1_id = ${mainProp.id}`);
+						two_steps = true;
+						whereListA_2.push(`v.id = r.property_1_id and r.type_id = 1 and property_2_id = ${mainProp.id}`);
+						whereListB_2.push(`v.id = r.property_2_id and r.type_id = 2 and property_1_id = ${mainProp.id}`);
 					}
 
 					if ( strOrderField == 'cnt' ) {
@@ -393,11 +464,9 @@ order by ${orderByPref} o desc LIMIT $1`;
 			strAo = `${ot}${strOrderField}`;
 			strBo = `${ot}${strOrderField}`;
 		}
-		
-		//sql = formSql();
 	}
 	
-	sql = formSql();
+	sql = await formSql();
 	
 	r = await util.getSchemaData(sql, params);
 	return r;
