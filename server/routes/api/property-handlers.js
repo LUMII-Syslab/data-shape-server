@@ -79,6 +79,8 @@ const getProperties = async (schema, params) => {
 	let two_steps = false;
 	const use_pp_rels = util.getUsePP(params);
 	const simplePrompt = util.getSimplePrompt(params);
+	if (simplePrompt)
+		two_steps = true;
 	//let viewname = 'v_properties_ns';  
 	if ( util.isLinksWithTargets(params)) {
 		viewname_out = 'v_properties_targets_single';
@@ -393,7 +395,7 @@ order by ${orderByPref} o desc LIMIT $1`;
 				}
 			}
 			else {
-				if ( contextA === '' ) { // Tikai propertijas bez pp_rels
+				if ( contextA === '' && !simplePrompt ) { // Tikai propertijas bez pp_rels
 					form_sql = false;
 					const mainProp = await findMainProperty(schema, newPListFrom, newPListTo);
 					console.log("--------galvenā propertija----------")
@@ -465,7 +467,7 @@ order by ${orderByPref} o desc LIMIT $1`;
 			strBo = `${ot}${strOrderField}`;
 		}
 	}
-	
+
 	sql = await formSql();
 	
 	r = await util.getSchemaData(sql, params);
