@@ -7,20 +7,26 @@ const {
 } = require('../../util/sparql/endpoint-queries')
 
 // **************************************************************************************************************
-const findMainProperty = async (schema, pList) => {
+const findMainProperty = async (schema, pList, schemaType = '') => {
 
-	if ( pList.in.length === 1)
-		return { id: pList.in[0], type: 'in', typeId: 1 };
-	if ( pList.in.length > 1){
-		const r =  await db.any(`SELECT id FROM ${schema}.properties where ${util.formWherePart('id', 'in', pList.in, 0)} order by object_cnt limit 1`); 
-		return { id: r[0].id, type: 'in', typeId: 1 }
+	//if ( pList.in.length === 1)
+	//	return { id: pList.in[0], type: 'in', typeId: 1 };
+	let isBig = false;
+
+	if ( pList.in.length > 0){
+		const r =  await db.any(`SELECT * FROM ${schema}.properties where ${util.formWherePart('id', 'in', pList.in, 0)} order by object_cnt limit 1`); 
+		if (schemaType === 'dbpedia' && r[0].cp_count_1 > 500)
+			isBig = true;
+		return { id: r[0].id, type: 'in', typeId: 1, isBig: isBig}
 	}
 	
-	if ( pList.out.length === 1)
-		return { id: pList.out[0], type: 'out', typeId: 2 };
-	if ( pList.out.length > 1){
-		const r =  await db.any(`SELECT id FROM ${schema}.properties where ${util.formWherePart('id', 'in', pList.out, 0)} order by cnt limit 1`); 
-		return { id: r[0].id, type: 'out', typeId: 2  }
+	//if ( pList.out.length === 1)
+	//	return { id: pList.out[0], type: 'out', typeId: 2 };
+	if ( pList.out.length > 0){
+		const r =  await db.any(`SELECT * FROM ${schema}.properties where ${util.formWherePart('id', 'in', pList.out, 0)} order by cnt limit 1`);
+		if (schemaType === 'dbpedia' && r[0].cp_count_2 > 500)
+			isBig = true;		
+		return { id: r[0].id, type: 'out', typeId: 2, isBig: isBig}
 	}
 	return {};
 }
@@ -30,6 +36,8 @@ const getClasses = async (schema, params) => {
 
 	const viewname = ( util.isFilter(params) || ( util.isNamespaces(params) && util.isInNamespaces(params)) ? `${schema}.v_classes_ns v` :`${schema}.v_classes_ns_main v` ) ;
 	const simplePrompt = util.getSimplePrompt(params);
+	const schemaType = util.getSchemaType(params);
+	const isFilter = util.isFilter(params);
 	let whereList = [ true ];
 	let r = { data: [], complete: false };
 	
@@ -54,7 +62,7 @@ const getClasses = async (schema, params) => {
 	if ( util.isPList(params, 0) && !util.isUriIndividual(params, 0)  ){
 		newPList = await util.getIdsfromPList(schema, util.getPList(params, 0));
 		if ( newPList.in.length > 0 || newPList.out.length > 0 ) {
-			mainProp = await findMainProperty(schema, newPList);
+			mainProp = await findMainProperty(schema, newPList, schemaType);
 			console.log("--------galvenā----------")
 			console.log(mainProp)
 			newPList.in = newPList.in.filter(item => item !== mainProp.id);
@@ -85,6 +93,9 @@ const getClasses = async (schema, params) => {
 			}
 		}
 			
+		if (mainProp.isBig && !isFilter)
+			whereList.push('v.id < 2500');	
+				
 		const whereStr = whereList.join(' and ')
 
 		sql = `SELECT v.*, case when p.cover_set_index is not null then 2 else 1 end as principal_class 
@@ -93,7 +104,9 @@ const getClasses = async (schema, params) => {
 		
 		//const w2 = ( util.isFilter(params) ? `v.${util.getFilterColumn(params)} ~ $2 and props_in_schema = false` : 'props_in_schema = false' );
 		//sql_plus = `SELECT v.*, 0 as principal_class FROM ${viewname} WHERE ${w2} order by ${util.getOrderByPrefix(params)} v.cnt desc LIMIT $1`;
-		sql_plus = `SELECT v.*, 0 as principal_class
+		
+		if ( schemaType !== 'dbpedia')
+			sql_plus = `SELECT v.*, 0 as principal_class
                 FROM ${viewname} JOIN ${schema}.cp_rels p ON p.class_id = v.large_superclass_id and p.type_id = ${mainProp.typeId} and p.property_id = ${mainProp.id} 
 				WHERE ${whereStr} order by ${util.getOrderByPrefix(params)} p.cnt desc LIMIT $1`;
 	}

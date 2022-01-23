@@ -58,6 +58,7 @@ const isPListI = params => {
 const getPListI = params => { return params.element.pListI;}
 const getIndividualMode = params => { return getValue(params.main.individualMode);}
 const getSchemaName = params => { return getValue(params.main.schemaName);}
+const getSchemaType = params => { return getValue(params.main.schemaType);}
 const getMakeLog = params => { return getValue(params.main.makeLog);}
 const getDeferredProperties = params => { return getValue(params.main.deferred_properties);}
 const getIsBasicOrder = params => { return getValue(params.main.basicOrder);}
@@ -495,4 +496,5 @@ module.exports = {
 	getIndividualMode,
 	isPListI,
 	getPListI,
+	getSchemaType,
 }
