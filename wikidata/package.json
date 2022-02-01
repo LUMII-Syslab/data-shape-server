@@ -1,0 +1,24 @@
+{
+  "name": "other",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "ansi-colors": "^4.1.1",
+    "debug": "^4.3.3",
+    "dotenv": "^11.0.0",
+    "minimist": "^1.2.5",
+    "node-fetch": "^3.1.0",
+    "pg-connection-string": "^2.5.0",
+    "pg-monitor": "^1.4.1",
+    "pg-promise": "^10.11.1",
+    "progress": "^2.0.3",
+    "sparql-http-client": "^2.4.0"
+  }
+}
