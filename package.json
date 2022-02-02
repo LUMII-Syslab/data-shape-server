@@ -12,15 +12,14 @@
     "dependencies": {
         "ansi-colors": "4.1.1",
         "debug": "^4.3.3",
-        "dotenv": "^8.2.0",
-        "massive": "^6.6.5",
+        "dotenv": "^8.6.0",
         "minimist": "^1.2.5",
-        "node-fetch": "^2.6.1",
-        "pg-connection-string": "^2.4.0",
+        "node-fetch": "^2.6.7",
+        "pg-connection-string": "^2.5.0",
         "pg-monitor": "^1.4.1",
-        "pg-promise": "^10.10.2",
+        "pg-promise": "^10.11.1",
         "progress": "^2.0.3",
-        "sparql-http-client": "^2.2.2",
+        "sparql-http-client": "^2.4.0",
         "sparql-result-converter": "^3.0.1",
         "sparqljson-to-tree": "^2.1.0"
     }
