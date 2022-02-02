@@ -1,7 +1,5 @@
 # Getting Started
 
-- clone this repository
-
 - obtain a JSON file containing the shape info extracted from the endpoint
 
 - create an "empty" DB schema according to the data shape server schema template, see ... . Only the record type definition tables *must* be populated.

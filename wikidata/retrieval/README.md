@@ -3,7 +3,16 @@ Student project for script that extracts schema from Wikidata to assist a progra
 
 ## Running the script
 To run the script first make sure you have all of the requirements.
-Then the script can be simply run with 'Python'.
+
+First, python 3.x is requiret.
+
+Then, to install the required modules, run the command
+
+```
+pip install -r requirements.txt
+```
+
+Then the script can be simply run with `python wikidata_schema_extraction.py`.
 **Important: The script runs a really long time, up to 6 hours.**
 
 ## Requirements
