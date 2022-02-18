@@ -159,9 +159,15 @@ const executeSPARQL = async (endpointUrl, querySparql) => {
     let client = findClient(endpointUrl);
 	console.log('--------executeSPARQL-----------------')
 	console.log(querySparql)
-    const reply = await client.query.select(querySparql);
-	console.log(reply.length)
-    return reply;
+    if (querySparql.toLowerCase().startsWith('ask')) {
+        const reply = await client.query.ask(querySparql);
+        console.log(reply)
+        return reply;
+    } else {
+        const reply = await client.query.select(querySparql);
+        console.log(reply.length)
+        return reply;
+    }
 }
 
 const validateFilter = name => /^[a-žA-Ž0-9_()'-]+$/.test(name)
