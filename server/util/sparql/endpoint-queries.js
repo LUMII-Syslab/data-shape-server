@@ -473,22 +473,26 @@ const sparqlGetIndividualByName =  async (info, params, schema) => {
 	rr.name = name;
 	rr.localName = name;
 	
-	// let sparql = `ASK WHERE { {${name} ?p ?o . } UNION {?s ?p ${name} . } }`; // TODO šī būtu pārbaude, vai eksistē, bet es nedabūju nekādu atbildi	
+	let sparql = `ASK WHERE { {<${iri}> ?p ?o . } UNION {?s ?p <${iri}> . } }`; 
+	let reply = await executeSPARQL(endpointUrl, sparql);
 	
-	if ( util.getSchemaType(params) == 'wikidata') {
-		const sparql = `SELECT ?label_1 WHERE{ <${iri}> rdfs:label ?label_1. FILTER(LANG(?label_1) = 'en').}`;
-		const reply = await executeSPARQL(endpointUrl, sparql);	
-		if ( reply.length > 0 ) {
-			if (reply[0].label_1 !== undefined ) { 
-				rr.label = reply[0].label_1.value;
-				rr.localName = `${name.replace(':',`:[${rr.label} (`)})]`;
-			}
-			else
-				rr.localName = name;
-		}	
+	if (reply) {
+		if ( util.getSchemaType(params) == 'wikidata') {
+			sparql = `SELECT ?label_1 WHERE{ <${iri}> rdfs:label ?label_1. FILTER(LANG(?label_1) = 'en').}`;
+			reply = await executeSPARQL(endpointUrl, sparql);	
+			if ( reply.length > 0 ) {
+				if (reply[0].label_1 !== undefined ) { 
+					rr.label = reply[0].label_1.value;
+					rr.localName = `${name.replace(':',`:[${rr.label} (`)})]`;
+				}
+				else
+					rr.localName = name;
+			}	
+		}
+		return [rr];
 	}
-
-	return [rr];
+	else
+	 return [];
 }
 
 module.exports = {
