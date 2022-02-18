@@ -21,6 +21,7 @@ const {
     executeSPARQL,
 	sparqlGetIndividuals,
 	sparqlGetTreeIndividuals,
+	sparqlGetIndividualByName,
 } = require('../../util/sparql/endpoint-queries')
 
 const validateOntologyName = name => /^[a-zA-Z0-9_-]+$/.test(name)
@@ -228,6 +229,10 @@ router.post('/ontologies/:ont/:fn', async (req, res, next) => {
 		if ( fn === 'resolvePropertyByName') {
 			const propObj = await util.getPropertyByName(util.getName(params), schema);
 			r = util.getSchemaObject(propObj);
+		}
+		if ( fn === 'resolveIndividualByName') {
+			const indObj = await sparqlGetIndividualByName(util.getName(params), params, schema);
+			r = util.getSchemaObject(indObj);
 		}
 		if ( fn === 'checkProperty') {
 			r = await checkProperty(schema, params);
