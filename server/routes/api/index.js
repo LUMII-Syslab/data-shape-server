@@ -227,7 +227,7 @@ router.post('/ontologies/:ont/:fn', async (req, res, next) => {
 			r = util.getSchemaObject(classObj);
 		}
 		if ( fn === 'resolvePropertyByName') {
-			const propObj = await util.getPropertyByName(util.getName(params), schema);
+			const propObj = await util.getPropertyByName(util.getName(params), schema, params);
 			r = util.getSchemaObject(propObj);
 		}
 		if ( fn === 'resolveIndividualByName') {

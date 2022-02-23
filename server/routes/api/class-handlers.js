@@ -60,7 +60,7 @@ const getClasses = async (schema, params) => {
 	let mainProp = {};
 	let newPList = {in:[], out:[]};
 	if ( util.isPList(params, 0) && !util.isUriIndividual(params, 0)  ){
-		newPList = await util.getIdsfromPList(schema, util.getPList(params, 0));
+		newPList = await util.getIdsfromPList(schema, util.getPList(params, 0), params);
 		if ( newPList.in.length > 0 || newPList.out.length > 0 ) {
 			mainProp = await findMainProperty(schema, newPList, schemaType);
 			console.log("--------galvenā----------")

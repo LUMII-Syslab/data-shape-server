@@ -15,7 +15,7 @@ const checkProperty = async (schema, params) => {
 	const className = util.getName(params);
 	const propertyName = util.getPropertyName(params);
 	const classObj = await util.getClassByName(className, schema);
-	const propObj = await util.getPropertyByName(propertyName, schema); 
+	const propObj = await util.getPropertyByName(propertyName, schema, params); 
 
 	if ( classObj.length > 0 && propObj.length > 0 && classObj[0].props_in_schema ) {
 		const sql = `SELECT * from ${schema}.v_cp_rels where class_id = ${classObj[0].id} and property_id = ${propObj[0].id}`;
@@ -237,9 +237,9 @@ order by ${orderByPref} o desc LIMIT $1`;
 	let newPListFrom = {in:[], out:[]};
 	let newPListTo = {in:[], out:[]};
 	if ( util.isPList(params, 0) )
-		newPListFrom = await util.getIdsfromPList(schema, util.getPList(params, 0));
+		newPListFrom = await util.getIdsfromPList(schema, util.getPList(params, 0), params);
 	if ( util.isPList(params, 1) )
-		newPListTo = await util.getIdsfromPList(schema, util.getPList(params, 1));
+		newPListTo = await util.getIdsfromPList(schema, util.getPList(params, 1), params);
 
 	//console.log(classFrom)
 	const only_out = !(util.getPropertyKind(params) === 'ObjectExt' || util.getPropertyKind(params) === 'Connect');

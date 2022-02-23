@@ -92,6 +92,10 @@ const getFilterColumn = params => {
 	return r;
 }
 const getLimit = params => { return getValue(params.main.limit); }
+const setLimit = (params, limit) => { 
+	params.main.limit = limit; 
+	return params;
+}
 const getName = params => { return getValue(params.main.name); }
 const getPropertyName = params => { return getValue(params.main.propertyName); }
 const getTreeMode = params => { return getValue(params.main.treeMode); }
@@ -232,7 +236,7 @@ const getClassByName = async (cName, schema) => {
 	return r;
 }
 
-const getPropertyByName = async (pName, schema) => {
+const getPropertyByName = async (pName, schema, params) => {
 	let r;
 
 	if ( pName.includes('://')){
@@ -243,12 +247,15 @@ const getPropertyByName = async (pName, schema) => {
 		r = await db.any(`SELECT id FROM ${schema}.v_properties_ns v  WHERE ( v.display_name = $2 or v.local_name = $2) and v.prefix = $1 order by v.cnt desc limit 1`, [nList[0], nList[1]]);
 	}
 	else {
-		const ns = await getLocalNamespace(schema);
+		let ns = await getLocalNamespace(schema);
+		if ( getSchemaType(params) == 'wikidata' )
+			ns = {name:'wdt'};
+			
 		r = await db.any(`SELECT id FROM ${schema}.v_properties_ns v  WHERE ( v.display_name = $2 or v.local_name = $2) and v.prefix = $1 order by v.cnt desc limit 1`, [ns.name, pName]);
 		if ( r.length === 0)
 			r = await db.any(`SELECT id FROM ${schema}.v_properties_ns v  WHERE ( v.display_name = $1 or v.local_name = $1) order by v.cnt desc limit 1`, [pName]);
 	}
-	
+
 	let data_types = [null];
 	let data_type;
 	if ( r.length > 0 ) {
@@ -366,11 +373,11 @@ const formWherePart = (col, inT, list, listType) => {
 	return  ` ${col} ${inT} (${sep}${list.join(`${sep},${sep}`)}${sep})`;
 }
 
-const getIdsfromPList = async (schema, pList) => {
+const getIdsfromPList = async (schema, pList, params) => {
 	let r = {in:[], out:[]}
 	if ( parameterExists(pList, "in") ) {
 		for (const element of pList.in) {
-			const pr = await getPropertyByName(element.name, schema)
+			const pr = await getPropertyByName(element.name, schema, params)
 			if ( pr.length > 0 && pr[0].object_cnt > 0)
 				r.in.push(pr[0].id);
 		}	
@@ -378,7 +385,7 @@ const getIdsfromPList = async (schema, pList) => {
 	
 	if ( parameterExists(pList, "out") ) {
 		for (const element of pList.out) {
-			const pr = await getPropertyByName(element.name, schema)
+			const pr = await getPropertyByName(element.name, schema, params)
 			if ( pr.length > 0)
 				r.out.push(pr[0].id);
 		}	
@@ -387,11 +394,11 @@ const getIdsfromPList = async (schema, pList) => {
 	return await r;
 }
 
-const getUrifromPList = async (schema, pList) => {
+const getUrifromPList = async (schema, pList, params) => {
 	let r = {in:[], out:[]}
 	if ( parameterExists(pList, "in") ) {
 		for (const element of pList.in) {
-			const pr = await getPropertyByName(element.name, schema)
+			const pr = await getPropertyByName(element.name, schema, params)
 			if ( pr.length > 0 && pr[0].object_cnt > 0)
 				r.in.push(pr[0].iri);
 		}	
@@ -399,7 +406,7 @@ const getUrifromPList = async (schema, pList) => {
 	
 	if ( parameterExists(pList, "out") ) {
 		for (const element of pList.out) {
-			const pr = await getPropertyByName(element.name, schema)
+			const pr = await getPropertyByName(element.name, schema, params)
 			if ( pr.length > 0)
 				r.out.push(pr[0].iri);
 		}	
@@ -436,7 +443,7 @@ const checkIndividualsParams = async (schema, params) => {
 			prop = pList.out[0];
 		
 		if ( prop !== undefined && prop !== null) {
-			const propObj = await getPropertyByName(prop.name, schema);
+			const propObj = await getPropertyByName(prop.name, schema, params);
 			if (propObj[0].cnt < cnt_limit)
 			find = true;
 		}
@@ -463,6 +470,7 @@ module.exports = {
 	getFilter,
 	setFilter,
 	getLimit,
+	setLimit,
 	getName,
 	getPropertyName,
 	isNamespaces,

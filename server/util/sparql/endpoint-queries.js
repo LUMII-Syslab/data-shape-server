@@ -37,7 +37,7 @@ const sparqlGetPropertiesFromRemoteIndividual = async (params, schema, only_out)
 	let reply;
 	const endpointUrl = util.getEndpointUrl(params); 
 	const pListI = util.getPListI(params);
-	const prop = await util.getPropertyByName(pListI.name, schema);
+	const prop = await util.getPropertyByName(pListI.name, schema, params);
 	const ind = await util.getUriIndividual(schema, params, 2);
 	const typeString = await getTypeString(params);
 	const classFrom = await util.getClassByName(util.getClassName(params, 0), schema);
@@ -109,7 +109,7 @@ const sparqlGetPropertiesFromIndividuals = async (params, pos, only_out, uriIndi
 		sparql = `select distinct ?p where {${uriIndividual} ?p [] .} order by ?p`;
 		reply = await executeSPARQL(endpointUrl, sparql);
 		r.A = reply.map(v => v.p.value);
-		if (!only_out) {
+		if (!only_out && r.A.length < 500 ) {  // TODO Padomāt par šo, vajadzēs vispār savādāk
 			sparql = `select distinct ?p where {[] ?p ${uriIndividual} .} order by ?p`;
 			reply = await executeSPARQL(endpointUrl, sparql);
 			r.B = reply.map(v => v.p.value);
@@ -189,7 +189,7 @@ const sparqlGetTreeIndividuals =  async (schema, params) => {
 	let rr = [];
 	let newPList = {in:[], out:[]};
 	let whereList = [];
-	newPList = await util.getUrifromPList(schema, util.getPList(params, 0));
+	newPList = await util.getUrifromPList(schema, util.getPList(params, 0), params);
 	//console.log(newPList)
 	
 	if (util.isClassName(params, 0) && util.getClassName(params, 0).includes('All classes') && util.getSchemaType(params) == 'dbpedia') {
@@ -390,7 +390,7 @@ const sparqlGetIndividuals =  async (schema, params) => {
 	
 	if ( util.isPListI(params)) {
 		const pListI = util.getPListI(params);
-		const prop = await util.getPropertyByName(pListI.name, schema);
+		const prop = await util.getPropertyByName(pListI.name, schema, params);
 		const ind = await util.getUriIndividual(schema, params, 2);
 		const classFrom = await util.getClassByName(util.getClassName(params, 0), schema);
 		let classInfo = '';
@@ -408,7 +408,7 @@ const sparqlGetIndividuals =  async (schema, params) => {
 		}
 	}
 	else {
-		newPList = await util.getUrifromPList(schema, util.getPList(params, 0));
+		newPList = await util.getUrifromPList(schema, util.getPList(params, 0), params);
 		//console.log(newPList)
 		
 		if (util.isClassName(params, 0) ) {
