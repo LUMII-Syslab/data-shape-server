@@ -489,6 +489,10 @@ const sparqlGetIndividualByName =  async (info, params, schema) => {
 					rr.localName = name;
 			}	
 		}
+		if (rr.name === '') {
+			rr.name = rr.iri;
+			rr.localName =  rr.iri;
+		}
 		return [rr];
 	}
 	else
