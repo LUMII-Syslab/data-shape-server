@@ -8,19 +8,19 @@
   },
   "dependencies": {
     "cors": "^2.8.5",
-    "debug": "~4.3.2",
-    "dotenv": "^10.0.0",
-    "express": "~4.17.1",
+    "debug": "~4.3.4",
+    "dotenv": "^16.0.0",
+    "express": "~4.17.3",
     "http-errors": "~1.8.0",
-    "joi": "^17.4.1",
+    "joi": "^17.6.0",
     "lodash": "^4.17.21",
-    "minimist": "^1.2.5",
+    "minimist": "^1.2.6",
     "morgan": "~1.10.0",
-    "pg-promise": "^10.10.2",
+    "pg-promise": "^10.11.1",
     "pug": "^3.0.2",
     "sparql-http-client": "^2.4.0"
   },
   "devDependencies": {
-    "nodemon": "^2.0.12"
+    "nodemon": "^2.0.15"
   }
 }
