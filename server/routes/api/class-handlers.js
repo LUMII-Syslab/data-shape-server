@@ -168,7 +168,7 @@ const getNamespaces = async schema => {
 	const r = await db.any(`SELECT  *, 
 	          (SELECT count(*) FROM ${schema}.classes where ns_id = ns.id  ) cl_count, 
 			  (SELECT count(*) FROM ${schema}.properties where ns_id = ns.id  ) prop_count 
-		FROM ${schema}.ns order by priority desc`);
+		FROM ${schema}.ns order by value, priority desc`); //Bija tikai order by by priority desc - nav skaidrs, vai tas sakārtojums kaut kut tika ņemts vērā
     return r;
 }
 // **************************************************************************************************************
