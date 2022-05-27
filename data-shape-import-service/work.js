@@ -586,9 +586,46 @@ const importFromJSON = async data => {
     }
 }
 
+const registerImportedSchema = async () => {
+    const schemaName = process.env.SCHEMA_NAME;
+    const schemaDisplayName = process.env.SCHEMA_DISPLAY_NAME || process.env.SCHEMA_NAME;
+
+    const sparqlUrl = process.env.SPARQL_URL;
+    const publicUrl = process.env.PUBLIC_URL || sparqlUrl;
+    const namedGraph = process.env.NAMED_GRAPH || null;
+
+    const ENDPOINT_SQL = `INSERT INTO public.endpoints (sparql_url, public_url, named_graph) VALUES ($1, $2, $3) RETURNING id`;
+    const endpoint_id = (await db.one(ENDPOINT_SQL, [
+        sparqlUrl, 
+        publicUrl,
+        namedGraph,
+    ])).id;
+
+    const SCHEMA_SQL = `INSERT INTO public.schemata (schema_name, db_schema_name, has_pp_rels, has_instance_table) VALUES ($1, $1, $2, $3) RETURNING id`;
+    const schema_id = (await db.one(SCHEMA_SQL, [
+        schemaName,
+        false,
+        false,
+    ])).id;
+
+    const E2S_SQL = `INSERT INTO public.schemata_to_endpoints (schema_id, endpoint_id, display_name, is_active, use_pp_rels) VALUES ($1, $2, $3, $4, $5)`;
+    await db.none(E2S_SQL, [
+        schema_id, 
+        endpoint_id, 
+        schemaDisplayName,
+        true,
+        false,
+    ]);
+
+    console.log(`The new schema "${schemaName}" added to the schema registry`);
+}
+
 const work = async () => {
     const data = require(INPUT_FILE);
+
     await importFromJSON(data);
+    
+    await registerImportedSchema();
 
     return 'done';
 }

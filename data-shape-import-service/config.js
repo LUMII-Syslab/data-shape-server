@@ -1,7 +1,7 @@
 const path = require('path');
 
 const pgpOptions = {}
-const pgp = require('pg-promise')(pgpOptions)
+const pgp = require('pg-promise')(pgpOptions);
 const pg_url_parse = require('pg-connection-string').parse;
 
 const argv = require('minimist')(process.argv.slice(2));
