@@ -6,6 +6,8 @@ const dbSchema = process.env.DB_SCHEMA
 
 const { executeSparql, sleep } = require('../util');
 
+const TEMP_JSON_FILE = './answers-flat4.json';
+
 const getLabels = async () => {
     // const r1 = await db.any(`select distinct local_name from properties where display_name = '' and local_name like 'P%' ;`)
     const missing = await db.any(`select 
@@ -63,20 +65,22 @@ const getLabels = async () => {
     }
 
     const answersFlat = answers.flat()
-    fs.writeFileSync('answers-flat4.json', JSON.stringify(answersFlat, null, 2))
+    fs.writeFileSync(TEMP_JSON_FILE, JSON.stringify(answersFlat, null, 2))
 
     return answersFlat;
 }
 
 const work = async () => {
-    // const answersFlat = await getLabels()
+    let answersFlat;
+
+    answersFlat = await getLabels()
+
     // process.exit(0)
+    // answersFlat = require(TEMP_JSON_FILE)
 
-    const answers = require('./answers-flat4.json')
+    let progress = new ProgressBar('[:bar] ( :current display_name no :total, :percent (:elapsed s/:eta s) )', { total: answersFlat.length, width: 100, incomplete: '.' });
 
-    let progress = new ProgressBar('[:bar] ( :current display_name no :total, :percent (:elapsed s/:eta s) )', { total: answers.length, width: 100, incomplete: '.' });
-
-    for (let one of answers) {
+    for (let one of answersFlat) {
         let propIri = one.property.value; // http://www.wikidata.org/prop/P826
         let label = one.xLabel.value;
 
