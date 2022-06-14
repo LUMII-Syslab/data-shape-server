@@ -5,7 +5,16 @@ const SparqlClient = require('sparql-http-client/ParsingClient')
 // collection in sparql clients for different endpoints
 const clientMap = new Map();
 
+let queryTime = {};
+const delay = ms => new Promise(res => setTimeout(res, ms));
+
 const findClient = endpointUrl => {
+	if ( queryTime[endpointUrl] != undefined ) {
+		if ( Date.now() - queryTime[endpointUrl] < 100 ) {
+			delay(100);
+		}
+	}
+	queryTime[endpointUrl] = Date.now();
     let client = clientMap.get(endpointUrl);
     if (client) return client;
 
