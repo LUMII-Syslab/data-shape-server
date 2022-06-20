@@ -601,12 +601,23 @@ const registerImportedSchema = async () => {
     const sparqlUrl = process.env.SPARQL_URL;
     const publicUrl = process.env.PUBLIC_URL || sparqlUrl;
     const namedGraph = process.env.NAMED_GRAPH || null;
+    let endpointTypeId = 1;
+    if (process.env.ENDPOINT_TYPE) {
+        try {
+            endpointTypeId = (await db.one('SELECT id FROM public.endpoint_types WHERE name = $1', [ 
+                process.env.ENDPOINT_TYPE.toLowerCase().trim(),
+            ])).id;
+        } catch {
+            endpointTypeId = 1; // default = generic
+        }
+    }
 
-    const ENDPOINT_SQL = `INSERT INTO public.endpoints (sparql_url, public_url, named_graph) VALUES ($1, $2, $3) RETURNING id`;
+    const ENDPOINT_SQL = `INSERT INTO public.endpoints (sparql_url, public_url, named_graph, endpoint_type_id) VALUES ($1, $2, $3, $4) RETURNING id`;
     const endpoint_id = (await db.one(ENDPOINT_SQL, [
         sparqlUrl, 
         publicUrl,
         namedGraph,
+        endpointTypeId,
     ])).id;
 
     const SCHEMA_SQL = `INSERT INTO public.schemata (schema_name, db_schema_name, has_pp_rels, has_instance_table) VALUES ($1, $1, $2, $3) RETURNING id`;
