@@ -506,20 +506,28 @@ const addPrefixShortcut = async (namespace, shortcut) => {
     // shortcut: "cc:" vai ":"
     // droši vien ar upsert
     // TODO:
-    if (!shortcut || !shortcut.endsWith(':')) {
+    if (!shortcut) {
+        console.error(`Missing ns alias`);
+        return;
+    }
+    if (!/^\w[a-z0-9]*:$/.test(shortcut)) {
         console.error(`Bad ns alias ${shortcut}`);
         return;
     }
 
     try {
         let is_local = shortcut === ':';
-        let name = shortcut.slice(0, shortcut.length - 1);
+
+        let name = shortcut;
+        if (shortcut.endsWith(':')) {
+            name = shortcut.slice(0, shortcut.length - 1);
+        }
 
         await db.none(`INSERT INTO ${dbSchema}.ns
             (name, value, is_local)
-        VALUES ($1, $2, $3)
-        ON CONFLICT ON CONSTRAINT ns_value_key DO UPDATE SET name = $1, is_local = $3`,
-        // ON CONFLICT ON CONSTRAINT ns_name_key DO UPDATE SET is_local = $3`,
+            VALUES ($1, $2, $3)
+            ON CONFLICT ON CONSTRAINT ns_value_key DO UPDATE SET name = $1, is_local = $3`,
+            // ON CONFLICT ON CONSTRAINT ns_name_key DO UPDATE SET is_local = $3`,
         [
             name,
             namespace,
