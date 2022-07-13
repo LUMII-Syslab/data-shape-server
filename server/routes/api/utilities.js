@@ -252,8 +252,8 @@ const getPropertyByName = async (pName, schema, params) => {
 			ns = {name:'wdt'};
 			
 		r = await db.any(`SELECT id FROM ${schema}.v_properties_ns v  WHERE ( v.display_name = $2 or v.local_name = $2) and v.prefix = $1 order by v.cnt desc limit 1`, [ns.name, pName]);
-		if ( r.length === 0)
-			r = await db.any(`SELECT id FROM ${schema}.v_properties_ns v  WHERE ( v.display_name = $1 or v.local_name = $1) order by v.cnt desc limit 1`, [pName]);
+		//if ( r.length === 0)
+		//	r = await db.any(`SELECT id FROM ${schema}.v_properties_ns v  WHERE ( v.display_name = $1 or v.local_name = $1) order by v.cnt desc limit 1`, [pName]);
 	}
 
 	let data_types = [null];
