@@ -9,6 +9,14 @@ const {
 	getClasses,
 	getTreeClasses,
 	getNamespaces,
+	xx_getClassList,
+	xx_getClassListInfo,
+	xx_getClassInfo,
+	xx_getClassInfoAtr,
+	xx_getClassInfoLink,
+	xx_getPropListInfo,
+	xx_getCCInfo,
+	xx_getPropListInfo2,
 } = require('./class-handlers')
 
 const { 
@@ -237,7 +245,30 @@ router.post('/ontologies/:ont/:fn', async (req, res, next) => {
 		if ( fn === 'checkProperty') {
 			r = await checkProperty(schema, params);
 		}
-		
+		if ( fn === 'xx_getClassList') {
+			r = await xx_getClassList(schema, params);
+		}
+		if ( fn === 'xx_getClassListInfo') {
+			r = await xx_getClassListInfo(schema, params);
+		}
+		if ( fn === 'xx_getPropListInfo') {
+			r = await xx_getPropListInfo(schema, params);
+		}
+		if ( fn === 'xx_getCCInfo') {
+			r = await xx_getCCInfo(schema, params);
+		}
+		if ( fn === 'xx_getClassInfo') {
+			r = await xx_getClassInfo(schema, params);
+		}
+		if ( fn === 'xx_getClassInfoAtr') {
+			r = await xx_getClassInfoAtr(schema, params);
+		}
+		if ( fn === 'xx_getClassInfoLink') {
+			r = await xx_getClassInfoLink(schema, params);
+		}	
+		if ( fn === 'xx_getPropListInfo2') {
+			r = await xx_getPropListInfo2(schema, params);
+		}			
 
 		r.ontology = ont;
 		res.json(r)	
