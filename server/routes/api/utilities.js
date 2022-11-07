@@ -74,6 +74,12 @@ const setEndpointUrl = (params, s) => {
 	return params;
 }
 const getTypeStrings = (params) => { return [ getValue(params.main.direct_class_role), getValue(params.main.indirect_class_role)];}
+const getTypeString = async (schema, params) => {
+	const roles = getTypeStrings(params);
+	return await getUriProperty(schema, roles[0]);
+	return roles[0];
+    //return 'rdf:type';
+}
 const setTypeStrings = (params, direct_class_role, indirect_class_role) => {
 	params.main.direct_class_role = direct_class_role;
 	params.main.indirect_class_role = indirect_class_role;
@@ -142,6 +148,18 @@ const getUriIndividual = async ( schema, params, poz = 0) => {
 		r = `<${r}>`;
 	return r;
 }
+const getUriProperty = async ( schema, property) => {
+
+	if (property.substring(0,1) === '<' )
+		return property;
+		
+	const list = await getIndividualsNS(schema);
+	list.forEach(e => { if ( property.indexOf(e.prefix) == 0)  property = property.replace(e.prefix, e.value) });	
+	
+	if (property.substring(0,7) === 'http://' || property.substring(0,8) === 'https://')
+		property = `<${property}>`;
+	return property;
+}
 const clearUriIndividual = ( params, poz = 0) => {
 	if ( poz === 0 ) 
 		params.element.uriIndividual = '';
@@ -195,7 +213,7 @@ const checkEndpoint = async (params, schema, KNOWN_DATA) => {
 		if (s !== undefined) 
 			params = setEndpointUrl(params, s);
 	}
-	if (s !== undefined)
+	if (s !== undefined) 
 		params = setTypeStrings(params, s.direct_class_role, s.indirect_class_role);
 	else 
 		params = setTypeStrings(params, 'rdf:type', '');
@@ -496,6 +514,7 @@ module.exports = {
 	getIndividualsNS,
 	get_KNOWN_DATA,
 	getTypeStrings,
+	getTypeString,
 	getUsePP,
 	getSimplePrompt,
 	getIsBasicOrder,

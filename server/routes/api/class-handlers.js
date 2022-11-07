@@ -46,7 +46,7 @@ const getClasses = async (schema, params) => {
 
 	if ( util.isUriIndividual(params, 0) ){
 		const ind = await util.getUriIndividual(schema, params, 0);
-		const classList = await sparqlGetIndividualClasses(params, ind);
+		const classList = await sparqlGetIndividualClasses(schema, params, ind);
 		const idList = await db.any(`SELECT id FROM ${schema}.classes where ${util.formWherePart('iri', 'in', classList, 1)}`); 
 		if ( idList.length > 0) 
 			whereList.push(util.formWherePart('id', 'in', idList.map(v => v.id), 0));

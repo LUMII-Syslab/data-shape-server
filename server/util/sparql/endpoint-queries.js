@@ -24,16 +24,17 @@ const findClient = endpointUrl => {
     return client;
 }
 
-const getTypeString = async (params) => {
-	const roles = util.getTypeStrings(params);
-	return  roles[0];
-    //return 'rdf:type';
-}
+//const getTypeString = async (params) => {
+//	const roles = util.getTypeStrings(params);
+//	return  roles[0];
+//    //return 'rdf:type';
+//}
 
-const sparqlGetIndividualClasses = async (params, uriIndividual) => {
+const sparqlGetIndividualClasses = async (schema, params, uriIndividual) => {
 	
 	const endpointUrl = util.getEndpointUrl(params); 
-	const typeString = await getTypeString(params);
+	//const typeString = await getTypeString(params);
+	const typeString = await util.getTypeString(schema, params);
 	const sparql = `select distinct ?c where {${uriIndividual} ${typeString} ?c} order by ?c`;
 	
 	const reply = await executeSPARQL(endpointUrl, sparql);
@@ -48,7 +49,8 @@ const sparqlGetPropertiesFromRemoteIndividual = async (params, schema, only_out)
 	const pListI = util.getPListI(params);
 	const prop = await util.getPropertyByName(pListI.name, schema, params);
 	const ind = await util.getUriIndividual(schema, params, 2);
-	const typeString = await getTypeString(params);
+	//const typeString = await getTypeString(params);
+	const typeString = await util.getTypeString(schema, params);
 	const classFrom = await util.getClassByName(util.getClassName(params, 0), schema);
 	let classInfo = '';
 	if ( classFrom.length > 0 )
@@ -129,12 +131,13 @@ const sparqlGetPropertiesFromIndividuals = async (params, pos, only_out, uriIndi
 	return r;
 }
 
-const sparqlGetPropertiesFromClass = async (params, pos, uriClass, only_out) => {
+const sparqlGetPropertiesFromClass = async (schema, params, pos, uriClass, only_out) => {
 	let r = {};
 	let sparql;
 	let reply;
 	const endpointUrl = util.getEndpointUrl(params);
-	const typeString = await getTypeString(params);	
+	//const typeString = await getTypeString(params);	
+	const typeString = await util.getTypeString(schema, params);
 	
 	if ( pos === 'To') {
 		sparql = `select distinct ?p where {?x1 ${typeString} <${uriClass}>. [] ?p ?x1.} order by ?p`;
@@ -199,7 +202,8 @@ const sparqlGetTreeIndividuals =  async (schema, params) => {
 
 	const individualMode = util.getIndividualMode(params);
 	const endpointUrl = util.getEndpointUrl(params); 
-	const typeString = await getTypeString(params);
+	//const typeString = await getTypeString(params);
+	const typeString = await util.getTypeString(schema, params);
 	const list = await util.getIndividualsNS(schema);
 	const warsampo_label = "<http://www.w3.org/2004/02/skos/core#prefLabel>"; // TODO šim būs jābūt parameros
 	let sparql;
@@ -408,7 +412,8 @@ const sparqlGetIndividuals =  async (schema, params) => {
 	}
 
 	const endpointUrl = util.getEndpointUrl(params); 
-	const typeString = await getTypeString(params);
+	//const typeString = await getTypeString(params);
+	const typeString = await util.getTypeString(schema, params);
 	const list = await util.getIndividualsNS(schema);
 	const warsampo_label = "<http://www.w3.org/2004/02/skos/core#prefLabel>";
 	let sparql;

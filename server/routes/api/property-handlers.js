@@ -16,18 +16,19 @@ const checkProperty = async (schema, params) => {
 	const propertyName = util.getPropertyName(params);
 	const classObj = await util.getClassByName(className, schema);
 	const propObj = await util.getPropertyByName(propertyName, schema, params); 
-
+	const typeString = await util.getTypeString(schema, params);
+	
 	if ( classObj.length > 0 && propObj.length > 0 && classObj[0].props_in_schema ) {
 		const sql = `SELECT * from ${schema}.v_cp_rels where class_id = ${classObj[0].id} and property_id = ${propObj[0].id}`;
 		r = await util.getSchemaData(sql, params);
 	}
 	else if (classObj.length > 0 && propObj.length > 0) {
-		const sparqlOut = `select count(?x1) where {?x1 ${util.getTypeStrings(params)[0]} <${classObj[0].iri}>. ?x1 <${propObj[0].iri}> [].}`;
+		const sparqlOut = `select count(?x1) where {?x1 ${typeString} <${classObj[0].iri}>. ?x1 <${propObj[0].iri}> [].}`;
 		const outPropC = await executeSPARQL(util.getEndpointUrl(params), sparqlOut);
 		if ( outPropC[0]['callret-0'].value !== '0') 
 			r.data.push({ctn: parseInt(outPropC[0]['callret-0'].value), type_id: 2});
 
-		const sparqlIn = `select count(?x1) where {?x1 ${util.getTypeStrings(params)[0]} <${classObj[0].iri}>. [] <${propObj[0].iri}> $x1.}`;
+		const sparqlIn = `select count(?x1) where {?x1 ${typeString} <${classObj[0].iri}>. [] <${propObj[0].iri}> $x1.}`;
 		const inPropC = await executeSPARQL(util.getEndpointUrl(params), sparqlIn);
 		if ( inPropC[0]['callret-0'].value !== '0') 
 			r.data.push({ctn: parseInt(inPropC[0]['callret-0'].value), type_id: 1});		
@@ -270,12 +271,12 @@ order by ${orderByPref} o desc LIMIT $1`;
 			}
 			else {
 				if ( classType(classFrom) === 's') {
-					const propListAB = await sparqlGetPropertiesFromClass(params, 'From', classFrom[0].iri, only_out);
+					const propListAB = await sparqlGetPropertiesFromClass(schema, params, 'From', classFrom[0].iri, only_out);
 					//console.log(propListAB)
 					await addToWhereList(propListAB);
 				}
 				if ( classType(classTo)=== 's' ) {
-					const propListAB = await sparqlGetPropertiesFromClass(params, 'To', classTo[0].iri, only_out);
+					const propListAB = await sparqlGetPropertiesFromClass(schema, params, 'To', classTo[0].iri, only_out);
 					await addToWhereList(propListAB);
 				}
 			}
