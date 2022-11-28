@@ -449,6 +449,7 @@ const sparqlGetIndividuals =  async (schema, params) => {
 				sparql = `select distinct ?x ${vv} where { ${classInfo} ?x  <${prop_iri}> ${ind} ${wherePlus} } LIMIT ${util.getLimit(params)}`;
 				
 			reply = await executeSPARQL(endpointUrl, sparql);
+			reply = reply.filter(function(v) { return v.x.value.indexOf("://") !== -1});
 			reply.forEach(v => { rr.push(getShortName(list, v));});
 		}
 	}
