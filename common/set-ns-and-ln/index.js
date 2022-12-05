@@ -11,6 +11,8 @@ const work = async () => {
     try {
         const ns = await db.many(`select * from ${dbSchema}.ns order by length(value) desc`);
 
+
+        // properties
         let propProgress = new ProgressBar('[:bar] ( :current property namespaces of :total, :percent )', { total: ns.length, width: 100, incomplete: '.' });
 
         for (let nsObj of ns) {
@@ -26,6 +28,7 @@ const work = async () => {
             propProgress.tick();
         }
 
+        // classes
         let classProgress = new ProgressBar('[:bar] ( :current class namespaces of :total, :percent )', { total: ns.length, width: 100, incomplete: '.' });
 
         for (let nsObj of ns) {
@@ -40,6 +43,23 @@ const work = async () => {
 
             classProgress.tick();
         }
+
+        // annot types
+        let atProgress = new ProgressBar('[:bar] ( :current annotation types namespaces of :total, :percent )', { total: ns.length, width: 100, incomplete: '.' });
+
+        for (let nsObj of ns) {
+            await db.none(`update annot_types 
+            set ns_id = $1, local_name = substr(iri, 1 + length($2))
+            where ns_id is null and iri like $3`,
+                [
+                    nsObj.id,
+                    nsObj.value,
+                    `${nsObj.value}%`
+                ]);
+
+            atProgress.tick();
+        }
+
 
         return true;
 
