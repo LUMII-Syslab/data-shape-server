@@ -3,6 +3,7 @@ const path = require('path');
 const pgpOptions = {}
 const pgp = require('pg-promise')(pgpOptions);
 const pg_url_parse = require('pg-connection-string').parse;
+const monitor = require('pg-monitor');
 
 const argv = require('minimist')(process.argv.slice(2));
 
@@ -25,7 +26,16 @@ const DB_SCHEMA = process.env.DB_SCHEMA || 'dbpedia';
 const SHOW_DEBUG = process.env.SHOW_DEBUG === 'true';
 const DRY_RUN = process.env.DRY_RUN || false;
 
-const db = pgp(DB_CONFIG)
+const db = pgp(DB_CONFIG);
+
+if (NODE_ENV_DEVELOPMENT) {
+  const debug = require('debug')('db');
+  monitor.attach(pgpOptions);
+  monitor.setLog((msg, info) => {
+    info.display = false;
+    debug(`${info.time && info.time.toISOString().substring(11, 23)} ${info.event} ${info.text}`);
+  });
+}
 
 module.exports = {
   NODE_ENV,
