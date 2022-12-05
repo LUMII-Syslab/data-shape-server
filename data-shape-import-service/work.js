@@ -172,6 +172,83 @@ const addClassSuperclasses = async c => {
     }
 }
 
+const ANNOT_TYPES = new Map();
+const getOrRegisterAnnotationType = async iri => {
+    let type_id = ANNOT_TYPES.get(iri);
+    if (type_id) return type_id;
+
+    try {
+        type_id = (await db.one(`INSERT INTO ${dbSchema}.annot_types (iri) VALUES ($1) RETURNING id`, [
+            iri
+        ])).id;
+        ANNOT_TYPES.set(iri, type_id);
+        return type_id;
+   
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+const addClassLabels = async c => {
+    // c.Labels[]:
+    // { 
+    //    property: "http://www.w3.org/2000/01/rdf-schema#label",
+    //    value: "Nephew",
+    //    language: "en"
+    // }
+
+    let class_id = getClassId(c.fullName);
+    if (c.Labels && c.Labels.length > 0) {
+        for (const lbl of c.Labels) {
+            let type_id = await getOrRegisterAnnotationType(lbl.property);
+            try {
+                await db.none(`INSERT INTO ${dbSchema}.class_annots (class_id, type_id, annotation, language_code)
+                    VALUES ($1, $2, $3, $4)
+                    ON CONFLICT ON CONSTRAINT class_annots_c_t_l_uq
+                    DO UPDATE SET annotation = $3
+                    `, [
+                        class_id,
+                        type_id,
+                        lbl.value,
+                        lbl.language
+                    ]);
+            } catch (err) {
+                console.error(err);
+            }
+        }
+    }
+}
+
+const addPropertyLabels = async p => {
+    // p.Labels[]:
+    // {
+    //   "property": "http://www.w3.org/2004/02/skos/core#prefLabel",
+    //   "value": "toissijainen nimi",
+    //   "language": "fi"
+    // }
+
+    let prop_id = getPropertyId(p.fullName);
+    if (p.Labels && p.Labels.length > 0) {
+        for (const lbl of p.Labels) {
+            let type_id = await getOrRegisterAnnotationType(lbl.property);
+            try {
+                await db.none(`INSERT INTO ${dbSchema}.property_annots (property_id, type_id, annotation, language_code)
+                    VALUES ($1, $2, $3, $4)
+                    ON CONFLICT ON CONSTRAINT property_annots_p_t_l_uq
+                    DO UPDATE SET annotation = $3
+                    `, [
+                        prop_id,
+                        type_id,
+                        lbl.value,
+                        lbl.language
+                    ]);
+            } catch (err) {
+                console.error(err);
+            }
+        }
+    }
+}
+
 const getClassId = iri => {
     let id = CLASSES.get(iri);
     if (!id) {
@@ -549,6 +626,13 @@ const init = async () => {
             NS_ID_TO_PREFIX.set(row.id, row.value);
             NS_ABBR_TO_PREFIX.set(row.name, row.value);
         }
+
+        const atData = await db.many(`SELECT * FROM ${dbSchema}.annot_types`);
+        console.log(`${atData.length} annotation types loaded`);
+        for (let row of atData) {
+            ANNOT_TYPES.set(row.iri, row.id);
+        }
+
     } catch(err) {
         console.error(err);
         console.error('cannot init; exiting');
@@ -563,6 +647,7 @@ const importFromJSON = async data => {
         let classBar = new ProgressBar(`[:bar] ( :current classes of :total, :percent)`, { total: data.Classes.length, width: 100, incomplete: '.' });
         for (const c of data.Classes) {
             await addClass(c);
+            await addClassLabels(c);
             classBar.tick();
         }
         // 2nd pass because sub may appear before super
@@ -577,6 +662,7 @@ const importFromJSON = async data => {
         let propsBar = new ProgressBar(`[:bar] ( :current props of :total, :percent)`, { total: data.Properties.length, width: 100, incomplete: '.' });
         for (const p of data.Properties) {
             await addProperty(p);
+            await addPropertyLabels(p);
             propsBar.tick();
         }
         // 2nd pass because ref may appear before def
