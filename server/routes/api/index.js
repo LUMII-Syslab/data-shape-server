@@ -17,6 +17,7 @@ const {
 	xx_getPropListInfo,
 	xx_getCCInfo,
 	xx_getPropListInfo2,
+	generateClassUpdate,
 } = require('./class-handlers')
 
 const { 
@@ -244,6 +245,9 @@ router.post('/ontologies/:ont/:fn', async (req, res, next) => {
 		}
 		if ( fn === 'checkProperty') {
 			r = await checkProperty(schema, params);
+		}
+		if ( fn === 'generateClassUpdate') {
+			r = await generateClassUpdate(schema, params);
 		}
 		if ( fn === 'xx_getClassList') {
 			r = await xx_getClassList(schema, params);

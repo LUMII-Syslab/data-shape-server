@@ -4,6 +4,7 @@ const util = require('./utilities')
 
 const { 
 	sparqlGetIndividualClasses,
+	sparqlGetClassLabels,
 } = require('../../util/sparql/endpoint-queries')
 
 // **************************************************************************************************************
@@ -141,10 +142,10 @@ const getTreeClasses = async (schema, params) => {
 		whereList.push(`r.class_2_id = ${util.getClassId(params)} and r.class_1_id = v.id`);
 		sql = `SELECT v.* from ${schema}.v_classes_ns_plus v, ${schema}.cc_rels r WHERE ${whereList.join(' and ')} order by cnt desc LIMIT $1`;
 	}
-	
+
 	r = await util.getSchemaData(sql, params);
 	
-	if ( r.complete && r.data.length > 0 && util.getTreeMode(params) === 'Top' && !util.isFilter(params)) {
+	if ( false && r.complete && r.data.length > 0 && util.getTreeMode(params) === 'Top' && !util.isFilter(params)) {
 		var owlThing = await util.getClassByName( 'owl:Thing', schema);
 		whereList = [];
 		whereList.push(util.formWherePart('v.id', 'in', r.data.map(v => v.id), 0))
@@ -170,7 +171,6 @@ const getNamespaces = async schema => {
 			  (SELECT count(*) FROM ${schema}.properties where ns_id = ns.id  ) prop_count 
 		FROM ${schema}.ns order by cl_count desc`); //Nomainīju sakārtojumu, bija order by value, priority desc
 	const local_ns = r.filter(function(n){ return n.is_local == true});
-	console.log(local_ns)
 	if (local_ns.length == 0 )
 		r[0].is_local = true
     return r;
@@ -254,6 +254,30 @@ select property_id from ${schema}.cp_rels cr where class_id = ${params.main.cc} 
     return r;
 }
 
+const generateClassUpdate = async (schema, params) => {
+	let sql = `select count(*) from ${schema}.classes`;
+	let r = await util.getSchemaData(sql, params);
+	const count = r.data[0].count;
+	let rr = [];
+	//TODO pagaidām ielikta konstante, lai necīnītos ir lielām shēmām
+    if (count<300) {
+		sql = `select iri, local_name from ${schema}.classes`;
+		r = await util.getSchemaData(sql, params);
+		const propObj = await util.getPropertyByName(params.main.label_name, schema, params);
+		await Promise.all(r.data.map(async (element) => {
+			let localName = element.local_name;
+			if (!isNaN(Number(localName.substring(1,localName.length)))) {
+				console.log(localName)
+				const label = await sparqlGetClassLabels(schema, params, element.iri, propObj[0].iri);
+				//console.log(`${schema}.classes set display_name = Concat('[${label} (',local_name ,')]') where iri = '${element.iri}';`)
+				if ( label !== '' )
+					rr.push(`update ${schema}.classes set display_name = Concat('[${label.replace("'", "''")} (',local_name ,')]') where iri = '${element.iri}';`);
+			}
+		}));
+	}
+
+	return {data: rr, complete: true, params: params};
+}
 // **************************************************************************************************************
 
 module.exports = {
@@ -268,4 +292,5 @@ module.exports = {
 	xx_getPropListInfo,
 	xx_getCCInfo,
 	xx_getPropListInfo2,
+	generateClassUpdate,
 }

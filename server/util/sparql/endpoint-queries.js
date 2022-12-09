@@ -28,7 +28,21 @@ const findClient = endpointUrl => {
 //	const roles = util.getTypeStrings(params);
 //	return  roles[0];
 //    //return 'rdf:type';
-//}
+// }
+
+const sparqlGetClassLabels = async (schema, params, uriClass, uriProp) => {
+	
+	const endpointUrl = util.getEndpointUrl(params); 
+	const sparql = `select ?l where {<${uriClass}> <${uriProp}> ?l}`;
+	const reply = await executeSPARQL(endpointUrl, sparql);
+	const reply_en = reply.filter(item => { return item.l.language == 'en'});
+	if ( reply_en.length > 0 )
+		return reply_en[0].l.value;
+	else if (reply.length > 0) 
+		return reply[0].l.value;
+	else
+		return '';
+}
 
 const sparqlGetIndividualClasses = async (schema, params, uriIndividual) => {
 	
@@ -560,4 +574,5 @@ module.exports = {
 	sparqlGetTreeIndividuals,
 	sparqlGetPropertiesFromRemoteIndividual,
 	sparqlGetIndividualByName,
+	sparqlGetClassLabels,
 }
