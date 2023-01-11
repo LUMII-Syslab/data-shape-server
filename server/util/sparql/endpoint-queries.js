@@ -486,11 +486,13 @@ const sparqlGetIndividuals =  async (schema, params) => {
 		if (util.isFilter(params)) {
 			// *******************************
 			if ( util.getSchemaType(params) != 'warsampo' ) {
-				let ii = [];
-				list.forEach(e => { ii.push(`?x =<${e.value}${util.getFilter(params)}>`);});
-				const sparql0 = `select distinct ?x where { ${whereList.join('. ')} FILTER ( ${ii.join(' or ')}) } LIMIT ${list.length}`;
-				reply = await executeSPARQL(endpointUrl, sparql0);
-				reply.forEach(v => { rrT[getShortName(list, v)] = getShortName(list, v);});	
+				if ( util.getSchemaType(params) == 'dbpedia' ) {
+					let ii = [];
+					list.forEach(e => { ii.push(`?x =<${e.value}${util.getFilter(params)}>`);});
+					const sparql0 = `select distinct ?x where { ${whereList.join('. ')} FILTER ( ${ii.join(' or ')}) } LIMIT ${list.length}`;
+					reply = await executeSPARQL(endpointUrl, sparql0);
+					reply.forEach(v => { rrT[getShortName(list, v)] = getShortName(list, v);});	
+				}
 				sparql = `select distinct ?x where { ${whereList.join('. ')} FILTER ( REGEX(?x,'${util.getFilter(params)}','i') ) } LIMIT ${util.getLimit(params)}`;
 			}
 			else {			

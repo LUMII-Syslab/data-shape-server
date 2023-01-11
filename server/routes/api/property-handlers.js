@@ -397,7 +397,6 @@ order by ${orderByPref} o desc LIMIT $1`;
 			}
 			else {
 				if ( contextA === '' && !simplePrompt ) { // Tikai propertijas bez pp_rels
-					form_sql = false;
 					const mainProp = await findMainProperty(schema, newPListFrom, newPListTo);
 					console.log("--------galvenā propertija----------")
 					console.log(mainProp)

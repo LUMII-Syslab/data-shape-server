@@ -247,7 +247,7 @@ const xx_getPropListInfo2 = async (schema, params) => {
 	
 	const sql = ` select prefix, display_name from ${schema}.v_properties_ns
 where id in (select property_id from ${schema}.cp_rels where type_id = 1 and property_id in (
-select property_id from ${schema}.cp_rels cr where class_id = ${params.main.cc} and type_id = 2 and object_cnt > 0) and class_id = ${params.main.cc2})`;
+select property_id from ${schema}.cp_rels cr where class_id = ${params.main.cc} and type_id = 2 and object_cnt > 0) and class_id = ${params.main.cc2}) order by prefix, display_name`;
 		
 	const r = await util.getSchemaData(sql, params);
 
