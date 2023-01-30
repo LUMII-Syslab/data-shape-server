@@ -291,7 +291,7 @@ const sparqlGetTreeIndividuals =  async (schema, params) => {
 		}
 
 		if (util.isFilter(params)) {  // Ir klase un filtrs
-			if (util.getSchemaType(params) == 'wikidata') {
+			if (util.getSchemaType(params) == 'wikidata') {  
 				if (individualMode === 'Direct') {
 					whereList.push(`?x rdfs:label '${util.getFilter(params)}'@en`);
 					whereList.push(`?x rdfs:label ?label_1. FILTER(LANG(?label_1) = 'en' )`);
@@ -320,39 +320,41 @@ const sparqlGetTreeIndividuals =  async (schema, params) => {
 				);
 			
 			}
-			if (util.getSchemaType(params) == 'warsampo') {
-				if (individualMode != 'Direct') {
-					whereList.push(`?x ${warsampo_label} ?label_1. FILTER( REGEX(?label_1,'${util.getFilter(params)}','i'))`);
-					sparql = `select distinct ?x ?label_1 ?description_1 where { ${whereList.join('. ')} } LIMIT ${util.getLimit(params)}`;
-					reply = await executeSPARQL(endpointUrl, sparql);
-					reply.forEach(v => { 
-							let t = {uri:v.x.value};
-							if (v.label_1 !== undefined ) { 
-								t.localName = getLocalName(list, v.x.value, v.label_1.value); 
-							}
-							else
-								t.localName = getShortName(list, v.x.value);
-							rr.push(t);
-						}
-					);	
-				}
-			}
 			else {
-				let ii = [];
-				list.forEach(e => { ii.push(`?x =<${e.value}${util.getFilter(params)}>`);});
-				const sparql0 = `select distinct ?x where { ${whereList.join('. ')} FILTER ( ${ii.join(' or ')}) } LIMIT ${list.length}`;
-				if (individualMode === 'Direct') {
-					reply = await executeSPARQL(endpointUrl, sparql0);
-					reply.forEach(v => { rr.push(getShortName(list, v.x.value));});	
+				if (util.getSchemaType(params) == 'warsampo') {
+					if (individualMode != 'Direct') {
+						whereList.push(`?x ${warsampo_label} ?label_1. FILTER( REGEX(?label_1,'${util.getFilter(params)}','i'))`);
+						sparql = `select distinct ?x ?label_1 ?description_1 where { ${whereList.join('. ')} } LIMIT ${util.getLimit(params)}`;
+						reply = await executeSPARQL(endpointUrl, sparql);
+						reply.forEach(v => { 
+								let t = {uri:v.x.value};
+								if (v.label_1 !== undefined ) { 
+									t.localName = getLocalName(list, v.x.value, v.label_1.value); 
+								}
+								else
+									t.localName = getShortName(list, v.x.value);
+								rr.push(t);
+							}
+						);	
+					}
 				}
 				else {
-					reply = await executeSPARQL(endpointUrl, sparql0);
-					reply.forEach(v => { rrT[getShortName(list, v.x.value)] = getShortName(list, v.x.value);});	
-					sparql = `select distinct ?x where { ${whereList.join('. ')} FILTER ( REGEX(?x,'${util.getFilter(params)}','i') ) } LIMIT ${util.getLimit(params)}`;
-					reply = await executeSPARQL(endpointUrl, sparql);
-					reply.forEach(v => { rrT[getShortName(list, v.x.value)] = getShortName(list, v.x.value);});	
-					for (var key in rrT) 
-						rr.push(key);
+					let ii = [];
+					list.forEach(e => { ii.push(`?x =<${e.value}${util.getFilter(params)}>`);});
+					const sparql0 = `select distinct ?x where { ${whereList.join('. ')} FILTER ( ${ii.join(' or ')}) } LIMIT ${list.length}`;
+					if (individualMode === 'Direct') {
+						reply = await executeSPARQL(endpointUrl, sparql0);
+						reply.forEach(v => { rr.push(getShortName(list, v.x.value));});	
+					}
+					else {
+						reply = await executeSPARQL(endpointUrl, sparql0);
+						reply.forEach(v => { rrT[getShortName(list, v.x.value)] = getShortName(list, v.x.value);});	
+						sparql = `select distinct ?x where { ${whereList.join('. ')} FILTER ( REGEX(?x,'${util.getFilter(params)}','i') ) } LIMIT ${util.getLimit(params)}`;
+						reply = await executeSPARQL(endpointUrl, sparql);
+						reply.forEach(v => { rrT[getShortName(list, v.x.value)] = getShortName(list, v.x.value);});	
+						for (var key in rrT) 
+							rr.push(key);
+					}
 				}
 			}
 		}

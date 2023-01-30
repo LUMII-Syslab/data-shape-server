@@ -22,9 +22,12 @@ const {
 
 const { 
 	getProperties,
-	getNextProperties,
 	checkProperty,
 } = require('./property-handlers')
+
+const { 
+	getPropertiesNew,
+} = require('./property-handlers-new')
 
 const { 
     executeSPARQL,
@@ -218,8 +221,13 @@ router.post('/ontologies/:ont/:fn', async (req, res, next) => {
 			r = await getClasses(schema, params);
 		if ( fn === 'getTreeClasses')
 			r = await getTreeClasses(schema, params);
-		if ( fn === 'getProperties')
-			r = await getProperties(schema, params);
+		if ( fn === 'getProperties') {
+			const view_info = await db.any(`SELECT count(*) FROM information_schema.views v where table_schema = '${schema}' and  table_name = 'v_cp_sources_single'`);
+			if ( view_info[0].count > 0)   // TODO kaut kad būs tikai jaunais variants
+				r = await getPropertiesNew(schema, params);  
+			else
+				r = await getProperties(schema, params); 
+		}
 		if ( fn === 'getNamespaces')
 			r = await getNamespaces(schema);
 		if ( fn === 'getIndividuals') {

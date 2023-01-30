@@ -134,7 +134,7 @@ const getUriIndividual = async ( schema, params, poz = 0) => {
 		r = getValue(params.elementOE.uriIndividual);
 	if ( poz === 2 ) 
 		r = getValue(params.element.pListI.uriIndividual);
-	
+
 	const list = await getIndividualsNS(schema);
 	list.forEach(e => { if ( r.indexOf(e.prefix) == 0)  r = r.replace(e.prefix, e.value) });	
 	//r = r.replace('dbr:','http://dbpedia.org/resource/');
@@ -316,6 +316,8 @@ const getSchemaObject = obj => {
 }
 
 const getSchemaData = async (sql, params) => {
+	if ( sql === '')
+		return {data: []};
 	let complete = true;
 	let r;
 	console.log('--------executeSQL-----------------');
@@ -392,7 +394,7 @@ const formWherePart = (col, inT, list, listType) => {
 }
 
 const getIdsfromPList = async (schema, pList, params) => {
-	let r = {in:[], out:[]}
+	let r = {in:[], out:[]};
 	if ( parameterExists(pList, "in") ) {
 		for (const element of pList.in) {
 			const pr = await getPropertyByName(element.name, schema, params)
@@ -410,6 +412,32 @@ const getIdsfromPList = async (schema, pList, params) => {
 	}
 			
 	return await r;
+}
+
+const addIdsToPList = async (schema, pList, params) => {
+	let pListOut = [];
+	if ( parameterExists(pList, "in") ) {
+		for (const element of pList.in) {
+			const pr = await getPropertyByName(element.name, schema, params)
+			if ( pr.length > 0 && pr[0].object_cnt > 0) {
+				element.id = pr[0].id;
+				pListOut.push(element);
+			}
+				
+		}	
+	}
+	
+	if ( parameterExists(pList, "out") ) {
+		for (const element of pList.out) {
+			const pr = await getPropertyByName(element.name, schema, params)
+			if ( pr.length > 0) {
+				element.id = pr[0].id;
+				pListOut.push(element);
+			}
+		}	
+	}
+			
+	return await pListOut;
 }
 
 const getUrifromPList = async (schema, pList, params) => {
@@ -483,6 +511,7 @@ module.exports = {
 	getSchemaDataPlus,
 	getSchemaObject,
 	getIdsfromPList,
+	addIdsToPList,
 	getUrifromPList,
 	isFilter,
 	getFilter,

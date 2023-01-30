@@ -32,6 +32,15 @@ const findMainProperty = async (schema, pList, schemaType = '') => {
 	return {};
 }
 
+const findMainClassId = async (schema, mainPropInfo) => {
+	if ( mainPropInfo.className !== 'undefined') {
+		const classObj = await util.getClassByName( mainPropInfo.className, schema);
+		return classObj[0].id;
+	}
+	else {
+		return 0;
+	}
+}
 /* list of classes */
 const getClasses = async (schema, params) => {
 
@@ -39,6 +48,7 @@ const getClasses = async (schema, params) => {
 	const simplePrompt = util.getSimplePrompt(params);
 	const schemaType = util.getSchemaType(params);
 	const isFilter = util.isFilter(params);
+	let use_class_pairs = false;
 	let whereList = [ true ];
 	let r = { data: [], complete: false };
 	
@@ -59,16 +69,25 @@ const getClasses = async (schema, params) => {
 			whereList.push(util.getNsWhere(params));
 
 	let mainProp = {};
+	let mainPropInfo;
+	let mainClassId = 0;
 	let newPList = {in:[], out:[]};
 	if ( util.isPList(params, 0) && !util.isUriIndividual(params, 0)  ){
+		const pList = await util.addIdsToPList(schema, util.getPList(params, 0), params);
 		newPList = await util.getIdsfromPList(schema, util.getPList(params, 0), params);
 		if ( newPList.in.length > 0 || newPList.out.length > 0 ) {
 			mainProp = await findMainProperty(schema, newPList, schemaType);
 			console.log("--------galvenā----------")
-			console.log(mainProp)
+			mainPropInfo = pList.filter(item => item.id == mainProp.id)[0];
+			console.log(mainPropInfo)
+			mainClassId = await findMainClassId(schema, mainPropInfo);
+			if ( mainClassId >0 ) {
+				const info = await db.any(`SELECT count(*) FROM ${schema}.cpc_rels`);
+				use_class_pairs = info[0].count > 0;  
+			}
+
 			newPList.in = newPList.in.filter(item => item !== mainProp.id);
 			newPList.out = newPList.out.filter(item => item !== mainProp.id);
-			//console.log(newPList)
 		}
 	}
 	
@@ -98,10 +117,24 @@ const getClasses = async (schema, params) => {
 			whereList.push('v.id < 2500');	
 				
 		const whereStr = whereList.join(' and ')
+		
+		// ************************* TODO kaut kā smukāk salikt
+		//use_class_pairs = false;
 
-		sql = `SELECT v.*, case when p.cover_set_index is not null then 2 else 1 end as principal_class 
-                FROM ${viewname} JOIN ${schema}.cp_rels p ON p.class_id = v.id and p.type_id = ${mainProp.typeId} and p.property_id = ${mainProp.id} 
-				WHERE ${whereStr} order by ${util.getOrderByPrefix(params)} p.cnt desc LIMIT $1`;
+		if ( !use_class_pairs || mainClassId == 0)
+			sql = `SELECT v.*, case when p.cover_set_index  > 0 then 2 else 1 end as principal_class 
+FROM ${viewname} JOIN ${schema}.cp_rels p ON p.class_id = v.id and p.type_id = ${mainProp.typeId} and p.property_id = ${mainProp.id} 
+WHERE ${whereStr} order by ${util.getOrderByPrefix(params)} p.cnt desc LIMIT $1`;
+		else  
+			sql = `SELECT * FROM (
+SELECT v.*, case when p.cover_set_index > 0 then 2 else 1 end as principal_class
+FROM ${viewname} JOIN ${schema}.cp_rels p ON p.class_id = v.id and p.type_id = ${mainProp.typeId} and p.property_id = ${mainProp.id} and p.details_level = 0
+UNION
+SELECT v.*, case when p.cover_set_index > 0 then 2 else 1 end as principal_class
+FROM ${viewname} JOIN ${schema}.cp_rels p ON p.class_id = v.id and p.type_id = ${mainProp.typeId} and p.property_id = ${mainProp.id} and p.details_level > 0
+JOIN ${schema}.cpc_rels cp on cp.cp_rel_id = p.id and cp.other_class_id = ${mainClassId} 
+) aa order by  cnt desc LIMIT $1`;
+			
 		
 		//const w2 = ( util.isFilter(params) ? `v.${util.getFilterColumn(params)} ~ $2 and props_in_schema = false` : 'props_in_schema = false' );
 		//sql_plus = `SELECT v.*, 0 as principal_class FROM ${viewname} WHERE ${w2} order by ${util.getOrderByPrefix(params)} v.cnt desc LIMIT $1`;
