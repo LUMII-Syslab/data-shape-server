@@ -59,18 +59,11 @@ console.log("--------------getPropertiesNew-------------------");
 	async function addToWhereList(propListAB)  {
 		let sqlA = '';
 		let sqlB = '';
-		if ( util.isFilter(params)) {
-			if (propListAB.A.length > 0)
-				sqlA = `SELECT id FROM ${schema}.v_properties_ns where ${util.formWherePart('iri', 'in', propListAB.A, 1)} and ${util.getFilterColumn(params)} ~ $2 and ${strOrderField} > 0 order by ${strOrderField} desc limit $1`;
-			if (propListAB.B.length > 0)
-				sqlB = `SELECT id FROM ${schema}.v_properties_ns where ${util.formWherePart('iri', 'in', propListAB.B, 1)} and ${util.getFilterColumn(params)} ~ $2 and ${strOrderField} > 0 order by ${strOrderField} desc limit $1`;
-		}
-		else {
-			if (propListAB.A.length > 0)
-				sqlA = `SELECT id FROM ${schema}.v_properties_ns where ${util.formWherePart('iri', 'in', propListAB.A, 1)} and ${strOrderField} > 0 order by ${strOrderField} desc limit $1`;
-			if (propListAB.B.length > 0)
-				sqlB = `SELECT id FROM ${schema}.v_properties_ns where ${util.formWherePart('iri', 'in', propListAB.B, 1)} and ${strOrderField} > 0  order by ${strOrderField} desc limit $1`;
-		}
+
+		if (propListAB.A.length > 0)
+			sqlA = `SELECT id FROM ${schema}.v_properties_ns where ${util.formWherePart('iri', 'in', propListAB.A, 1)} ${filter_string} and ${strOrderField} > 0 order by ${strOrderField} desc limit $1`;
+		if (propListAB.B.length > 0)
+			sqlB = `SELECT id FROM ${schema}.v_properties_ns where ${util.formWherePart('iri', 'in', propListAB.B, 1)} ${filter_string} and ${strOrderField} > 0 order by ${strOrderField} desc limit $1`;
 		
 		const idListA = await util.getSchemaData(sqlA,params);
 		if ( idListA.data.length > 0) 
@@ -132,7 +125,9 @@ order by ${orderByPref} o desc LIMIT $1`;
 		return sql;
 	}
 	
+	const filter_string = ( util.isFilter(params) == '' ? '' : ` and v.${util.getFilterColumn(params)} ~ $2`);
 	const propertyKind = util.getPropertyKind(params);
+		
 	const only_out = !(propertyKind === 'ObjectExt' || propertyKind === 'Connect');
 	const orderByPref = ( util.getIsBasicOrder(params) ? `case when ${ util.getDeferredProperties(params)} then 0.5 else basic_order_level end, ` : '');
    	let r = { data: [], complete: false };
@@ -327,7 +322,7 @@ order by ${orderByPref} o desc LIMIT $1`;
 				}
 			}
 			if (strAo === '') {
-				const ot = ( contextA == '' ? 'v.' : 'r.')
+				const ot = ( contextA == '' ? 'v.' : 'r.');
 				strAo = `${ot}${strOrderField}`;
 				strBo = `${ot}${strOrderField}`;
 			}
@@ -369,11 +364,36 @@ order by ${orderByPref} o desc LIMIT $1`;
 		//console.log(sql);
 		r = await util.getSchemaData(sql, params);
 	}
-	else {  // propertyKind == 'Connect'  TODO uztaisīt arī kādus citus variantus, pagaidās apstrāda tikai divu klašu variantu
+	else {  // propertyKind == 'Connect'  TODO pārdomāt, vai ar šo pietiek (nav filtra, dbpedia varbūt būtu interesants)
 		let sql_0 = '';
 		let sql_list = [];
 		strOrderField = 'object_cnt';
-		if ( util.isClassName(params, 0) && util.isClassName(params, 1)) {
+		
+		if (  util.isUriIndividual(params, 0) || util.isUriIndividual(params, 1)) {
+			if (  util.isUriIndividual(params, 0) && util.isUriIndividual(params, 1)) {
+				const indFrom = await util.getUriIndividual(schema, params, 0);
+				const indTo = await util.getUriIndividual(schema, params, 1);
+				const propListAB = await sparqlGetPropertiesFromIndividuals(params, 'All', only_out, indFrom, indTo); 
+				await addToWhereList(propListAB);
+			}
+			else if (util.isUriIndividual(params, 0)) { 
+				const ind = await util.getUriIndividual(schema, params, 0);
+				const propListAB = await sparqlGetPropertiesFromIndividuals(params, 'From', only_out, ind);
+				await addToWhereList(propListAB);
+			}
+			else {  //  util.isUriIndividual(params, 1) = true
+				const ind = await util.getUriIndividual(schema, params, 1);
+				const propListAB = await sparqlGetPropertiesFromIndividuals(params, 'From', only_out, ind);
+				await addToWhereList(propListAB);
+			}
+			sql_0 = `SELECT aa.* FROM ( 
+				SELECT 'out' as mark, v.*, v.object_cnt as o FROM ${schema}.v_properties_ns v WHERE ${whereListA_2.join(' and ')}
+				UNION 
+				SELECT 'in' as mark, v.*, v.object_cnt as o FROM ${schema}.v_properties_ns v WHERE ${whereListB_2.join(' and ')}
+				) aa where o > 0 order by o desc LIMIT $1`;			
+			r = await util.getSchemaData(sql_0, params);
+		}
+		else if ( util.isClassName(params, 0) || util.isClassName(params, 1)) {
 
 			if ( util.isClassName(params, 0))
 				classFrom = await util.getClassByName(util.getClassName(params, 0), schema);		
@@ -388,7 +408,7 @@ order by ${orderByPref} o desc LIMIT $1`;
 					const prop_out = await util.getSchemaData(sql_0, params);
 
 					if ( prop_out.data.length > 0) {
-						sql_0 = `SELECT 'out' as mark, r.x_max_cardinality as x_max_cardinality, v.*, r.object_cnt as o FROM ${schema}.v_properties_ns v , ${schema}.v_cp_rels_card r 
+						sql_0 = `SELECT 'out' as mark, v.*, r.object_cnt as o FROM ${schema}.v_properties_ns v , ${schema}.v_cp_rels_card r 
 						WHERE property_id = v.id and r.type_id = 2 and class_id = ${classFrom[0].id} and ${util.formWherePart('v.id', 'in', prop_out.data.map(v => v.property_id), 0)}`;
 						sql_list.push(sql_0);
 					}
@@ -397,7 +417,7 @@ order by ${orderByPref} o desc LIMIT $1`;
 					const prop_in = await util.getSchemaData(sql_0, params);                         
 
 					if ( prop_in.data.length > 0) {
-						sql_0 = `SELECT 'in' as mark, r.x_max_cardinality as x_max_cardinality, v.*, r.object_cnt as o FROM ${schema}.v_properties_ns v , ${schema}.v_cp_rels_card r
+						sql_0 = `SELECT 'in' as mark, v.*, r.object_cnt as o FROM ${schema}.v_properties_ns v , ${schema}.v_cp_rels_card r
 								WHERE property_id = v.id and r.type_id = 1 and class_id = ${classFrom[0].id} and  ${util.formWherePart('v.id', 'in', prop_in.data.map(v => v.property_id), 0)}`;
 						sql_list.push(sql_0);
 					}
@@ -405,22 +425,23 @@ order by ${orderByPref} o desc LIMIT $1`;
 					sql_0 = `SELECT aa.* FROM ( ${sql_list.join(' UNION ')} ) aa where o > 0 order by  o desc LIMIT $1`;		
 				}
 				else {
-					sql_0 = `SELECT property_id FROM ${schema}.cp_rels r WHERE r.type_id = 2 and class_id = ${classFrom[0].id} 
+					sql_0 = `SELECT property_id FROM ${schema}.v_properties_ns v, ${schema}.cp_rels r WHERE property_id = v.id ${filter_string} and r.type_id = 2 and class_id = ${classFrom[0].id} 
 							and property_id in (select property_id from ${schema}.cp_rels r where r.type_id = 1 and class_id = ${classTo[0].id}) and r.object_cnt > 0 order by r.object_cnt desc LIMIT $1`;
 					const prop_out = await util.getSchemaData(sql_0, params);
-
+					
+			
 					if ( prop_out.data.length > 0) {
-						sql_0 = `SELECT 'out' as mark, r.x_max_cardinality as x_max_cardinality, v.*, r.object_cnt as o FROM ${schema}.v_properties_ns v , ${schema}.v_cp_rels_card r 
+						sql_0 = `SELECT 'out' as mark, v.*, r.object_cnt as o FROM ${schema}.v_properties_ns v , ${schema}.v_cp_rels_card r 
 						WHERE property_id = v.id and r.type_id = 2 and class_id = ${classFrom[0].id} and ${util.formWherePart('v.id', 'in', prop_out.data.map(v => v.property_id), 0)}`;
 						sql_list.push(sql_0);
 					}
 
-					sql_0 = `SELECT property_id FROM ${schema}.cp_rels r WHERE r.type_id = 1 and class_id = ${classFrom[0].id} 
+					sql_0 = `SELECT property_id FROM ${schema}.v_properties_ns v, ${schema}.cp_rels r WHERE property_id = v.id ${filter_string} and r.type_id = 1 and class_id = ${classFrom[0].id} 
 							and property_id in (select property_id from ${schema}.cp_rels r where r.type_id = 2 and class_id = ${classTo[0].id}) and r.object_cnt > 0 order by r.object_cnt desc LIMIT $1`;
 					const prop_in = await util.getSchemaData(sql_0, params);                         
 
 					if ( prop_in.data.length > 0) {
-						sql_0 = `SELECT 'in' as mark, r.x_max_cardinality as x_max_cardinality, v.*, r.object_cnt as o FROM ${schema}.v_properties_ns v , ${schema}.v_cp_rels_card r
+						sql_0 = `SELECT 'in' as mark, v.*, r.object_cnt as o FROM ${schema}.v_properties_ns v , ${schema}.v_cp_rels_card r
 								WHERE property_id = v.id and r.type_id = 1 and class_id = ${classFrom[0].id} and  ${util.formWherePart('v.id', 'in', prop_in.data.map(v => v.property_id), 0)}`;
 						sql_list.push(sql_0);
 					}
@@ -428,8 +449,56 @@ order by ${orderByPref} o desc LIMIT $1`;
 					sql_0 = `SELECT aa.* FROM ( ${sql_list.join(' UNION ')} ) aa where o > 0 order by  o desc LIMIT $1`;					
 				}
 
-				r = await util.getSchemaData(sql_0, params)
+				r = await util.getSchemaData(sql_0, params);
 			}	
+			else if ( classType(classFrom) === 'b' ) {
+				sql_0 = `SELECT property_id FROM ${schema}.v_properties_ns v, ${schema}.cp_rels r WHERE property_id = v.id ${filter_string} and r.type_id = 2 property_id = v.id ${filter_string} and class_id = ${classFrom[0].id} 
+						and r.object_cnt > 0 order by r.object_cnt desc LIMIT $1`;
+				const prop_out = await util.getSchemaData(sql_0, params);
+
+				if ( prop_out.data.length > 0) {
+					sql_0 = `SELECT 'out' as mark, r.x_max_cardinality as x_max_cardinality, v.*, r.object_cnt as o FROM ${schema}.v_properties_ns v , ${schema}.v_cp_rels_card r 
+					WHERE property_id = v.id and r.type_id = 2 and class_id = ${classFrom[0].id} and ${util.formWherePart('v.id', 'in', prop_out.data.map(v => v.property_id), 0)}`;
+					sql_list.push(sql_0);
+				}
+
+				sql_0 = `SELECT property_id FROM ${schema}.v_properties_ns v, ${schema}.cp_rels r WHERE property_id = v.id ${filter_string} and r.type_id = 1 and class_id = ${classFrom[0].id} 
+						and r.object_cnt > 0 order by r.object_cnt desc LIMIT $1`;
+				const prop_in = await util.getSchemaData(sql_0, params);                         
+
+				if ( prop_in.data.length > 0) {
+					sql_0 = `SELECT 'in' as mark, r.x_max_cardinality as x_max_cardinality, v.*, r.object_cnt as o FROM ${schema}.v_properties_ns v , ${schema}.v_cp_rels_card r
+							WHERE property_id = v.id and r.type_id = 1 and class_id = ${classFrom[0].id} and  ${util.formWherePart('v.id', 'in', prop_in.data.map(v => v.property_id), 0)}`;
+					sql_list.push(sql_0);
+				}
+					
+				sql_0 = `SELECT aa.* FROM ( ${sql_list.join(' UNION ')} ) aa where o > 0 order by  o desc LIMIT $1`;	
+				r = await util.getSchemaData(sql_0, params);				
+			}
+			else if ( classType(classTo) === 'b' ) {
+				sql_0 = `SELECT property_id FROM ${schema}.v_properties_ns v, ${schema}.cp_rels r WHERE property_id = v.id ${filter_string} and r.type_id = 1 and class_id = ${classTo[0].id} 
+						and r.object_cnt > 0 order by r.object_cnt desc LIMIT $1`;
+				const prop_out = await util.getSchemaData(sql_0, params);
+
+				if ( prop_out.data.length > 0) {
+					sql_0 = `SELECT 'out' as mark, r.x_max_cardinality as x_max_cardinality, v.*, r.object_cnt as o FROM ${schema}.v_properties_ns v , ${schema}.v_cp_rels_card r 
+					WHERE property_id = v.id and r.type_id = 1 and class_id = ${classTo[0].id} and ${util.formWherePart('v.id', 'in', prop_out.data.map(v => v.property_id), 0)}`;
+					sql_list.push(sql_0);
+				}
+
+				sql_0 = `SELECT property_id FROM ${schema}.v_properties_ns v, ${schema}.cp_rels r WHERE property_id = v.id ${filter_string} and r.type_id = 2 and class_id = ${classTo[0].id} 
+						and r.object_cnt > 0 order by r.object_cnt desc LIMIT $1`;
+				const prop_in = await util.getSchemaData(sql_0, params);                         
+
+				if ( prop_in.data.length > 0) {
+					sql_0 = `SELECT 'in' as mark, r.x_max_cardinality as x_max_cardinality, v.*, r.object_cnt as o FROM ${schema}.v_properties_ns v , ${schema}.v_cp_rels_card r
+							WHERE property_id = v.id and r.type_id = 2 and class_id = ${classTo[0].id} and  ${util.formWherePart('v.id', 'in', prop_in.data.map(v => v.property_id), 0)}`;
+					sql_list.push(sql_0);
+				}
+					
+				sql_0 = `SELECT aa.* FROM ( ${sql_list.join(' UNION ')} ) aa where o > 0 order by  o desc LIMIT $1`;	
+				r = await util.getSchemaData(sql_0, params);				
+			}
 		}
 	}
 
