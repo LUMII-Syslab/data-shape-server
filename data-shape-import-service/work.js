@@ -725,9 +725,24 @@ const addParameter = async (param_name, param_value) => {
     try {
         let name = PARAMETER_NAME_MAP[param_name] ?? param_name;
 
+        if (typeof param_value === 'object') {
+            await db.none(`INSERT INTO ${dbSchema}.parameters
+                (name, jsonvalue)
+                VALUES ($1, $2)       
+                ON CONFLICT ON CONSTRAINT parameters_name_key
+                DO UPDATE SET name = $1, jsonvalue = $2     
+            `, 
+                [ 
+                    name, 
+                    param_value, 
+                ]);            
+            return;
+        } 
+
         // TODO: importējamājā JSON ir nepareizs objektu (sarakstu) kodējums; pagaidām pielabots ar roku
         let value = param_value.trim();
         if (value.startsWith('{') || value.startsWith('[')) {
+        
             let parsed = JSON.parse(value);
             await db.none(`INSERT INTO ${dbSchema}.parameters
                 (name, jsonvalue)
@@ -739,7 +754,9 @@ const addParameter = async (param_name, param_value) => {
                     name, 
                     JSON.stringify(parsed), 
                 ]);            
+
         } else {
+            
             await db.none(`INSERT INTO ${dbSchema}.parameters
                 (name, textvalue)
                 VALUES ($1, $2)       
