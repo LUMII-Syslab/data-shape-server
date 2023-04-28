@@ -1,6 +1,7 @@
 const ProgressBar = require('progress')
 const debug = require('debug')('work')
-const fetch = require('node-fetch')
+const fetch = require('node-fetch');
+const { DB_CONFIG } = require('./config');
 
 const db = require('./config').db;
 
@@ -11,8 +12,8 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 let auto_ns_counter = 1;
 
-const NS_PREFIX_TO_ID = new Map(); // prefix --> id
-const NS_ID_TO_PREFIX = new Map(); // id --> prefix
+const NS_PREFIX_TO_ID = new Map(); // prefix --> ns_id
+const NS_ID_TO_PREFIX = new Map(); // ns_id --> prefix
 
 const generateAbbr = prefix => {
     const P1 = /http:\/\/www\.w3\.org\/2002\/(\d+)\/owl#/;
@@ -59,11 +60,19 @@ const resolveNsPrefix = async (prefix, abbr = null) => {
             resolvedAbbr = generateAbbr(prefix);
         }
 
-        let id = (await db.one(`INSERT INTO ${dbSchema}.ns (value, name) values ($1, $2) RETURNING id`, [prefix, resolvedAbbr])).id;
+        let id = (await db.one(
+            `INSERT INTO ${dbSchema}.ns (value, name) values ($1, $2) RETURNING id`, 
+        [
+            prefix, 
+            resolvedAbbr
+        ])).id;
 
         NS_PREFIX_TO_ID.set(prefix, id);
         NS_ABBR_TO_ID.set(resolvedAbbr, id);
+        NS_ID_TO_ABBR.set(id, resolvedAbbr);
         NS_ID_TO_PREFIX.set(id, prefix);
+        NS_ABBR_TO_PREFIX.set(resolvedAbbr, prefix);
+
         return id;
 
     } catch(err) {
@@ -71,43 +80,98 @@ const resolveNsPrefix = async (prefix, abbr = null) => {
     }
 }
 
-const NS_ABBR_TO_ID = new Map(); // abbr --> id
+const splitIri = iri => {
+    if (!iri || typeof iri !== 'string') throw new Error('bad iri');
+
+    let pos = iri.indexOf('#');
+    if (pos >= 0) return [ iri.slice(0, pos + 1), iri.slice(pos + 1) ];
+    pos = iri.lastIndexOf('/');
+    if (pos >= 0) return [ iri.slice(0, pos + 1), iri.slice(pos + 1) ];
+    pos = iri.lastIndexOf(':');
+    if (pos >= 0) return [ iri.slice(0, pos + 1), iri.slice(pos + 1) ];
+
+    return [ iri, '' ];
+}
+
+const getLocalName = iri => {
+    if (!iri || typeof iri !== 'string') return null;
+
+    let [ prefix, localName ] = splitIri(iri);
+    return localName;
+}
+
+const NS_ABBR_TO_ID = new Map(); // abbr --> ns_id
+const NS_ID_TO_ABBR = new Map(); // ns_id -> abbr
 const NS_ABBR_TO_PREFIX = new Map(); // abbr --> prefix
+
+const DATATYPES_BY_IRI = new Map(); // iri -> datatype_id
+const DATATYPES_BY_SHORT_IRI = new Map(); // abbr:localName -> datatype_id
+
+const resolveDatatypeByShortIri = shortIri => DATATYPES_BY_SHORT_IRI.get(shortIri);
+const resolveDatatypeByIri = iri => DATATYPES_BY_IRI.get(iri);
 
 /**
  * This method works only with data types in form "xsd:integer", as they appear in the input JSON
  */
-const DATATYPES = new Map();
-const addDatatype = async shortIri => {
+const addDatatypeByShortIri = async shortIri => {
     if (!shortIri || typeof shortIri !== 'string') return null;
-    if (DATATYPES.has(shortIri)) {
-        return DATATYPES.get(shortIri);
+    if (DATATYPES_BY_SHORT_IRI.has(shortIri)) {
+        return DATATYPES_BY_SHORT_IRI.get(shortIri);
     }
 
     const parts = shortIri.split(':');
     if (parts.length !== 2) {
-        console.error('Bad data type IRI:', shortIri);
+        console.error('Bad data type short IRI:', shortIri);
         return null;
     }
-    let prefix = NS_ABBR_TO_PREFIX.get(parts[0]);
+
+    let [ abbr, localName ] = parts;
+    let prefix = NS_ABBR_TO_PREFIX.get(abbr);
+    
     if (!prefix) {
-        console.error(`Unknown short prefix: ${parts[0]}`);
+        console.error(`Unknown short prefix: ${abbr}`);
         return null;
     }
 
-    let ns_id = NS_ABBR_TO_ID.get(parts[0]);
+    let ns_id = NS_ABBR_TO_ID.get(abbr);
+    let iri = `${prefix}${localName}`;
 
+    return await addDatatype(iri, ns_id, localName, abbr);
+}
+
+const addDatatypeByIri = async iri => {
+    if (!iri || typeof iri !== 'string') return null;
+    if (DATATYPES_BY_IRI.has(iri)) {
+        return DATATYPES_BY_IRI.get(iri);
+    }
+
+    let [ prefix, localName ] = splitIri(iri);
+    let ns_id = NS_PREFIX_TO_ID.get(prefix);
+
+    if (!ns_id) {
+        console.log(`namespace not found for the prefix '${prefix}'`);
+        return null;
+    }
+
+    let abbr = NS_ID_TO_ABBR.get(ns_id);
+
+    return await addDatatype(iri, ns_id, localName, abbr);
+}
+
+const addDatatype = async (iri, ns_id, localName, abbr) => {
     try {
         let dt_id = (await db.one(`INSERT INTO ${dbSchema}.datatypes (iri, ns_id, local_name)
             VALUES ($1, $2, $3)
             RETURNING id`,
             [
-                `${prefix}${parts[1]}`,
+                iri,
                 ns_id,
-                parts[1],
+                localName,
             ])).id;
 
-        DATATYPES.set(shortIri, dt_id);
+        let shortIri = `${abbr}:${localName}`;
+        DATATYPES_BY_SHORT_IRI.set(shortIri, dt_id);
+        DATATYPES_BY_IRI.set(iri, dt_id);
 
         return dt_id;
 
@@ -115,10 +179,8 @@ const addDatatype = async shortIri => {
         console.error(err)
     }
 }
-const resolveDatatype = shortIri => DATATYPES.get(shortIri);
 
-
-const CLASSES = new Map();
+const CLASSES = new Map(); // iri -> class_id
 const addClass = async c => {
     // c.fullName: "http://dbpedia.org/class/yago/WikicatSingle-partyStates" -> iri
     // ?c.localName: "WikicatSingle-partyStates" -> local_name, ?display_name
@@ -127,23 +189,34 @@ const addClass = async c => {
     // c.SuperClasses[]: ["http://dbpedia.org/class/yago/WikicatStatesAndTerritoriesEstablishedIn1949"] -> cc_rels(1=sub_class_of)
     // c.propertiesInSchema: false
 
+    // c.classificationProperty: "http://data.nobelprize.org/terms/year"
+    // ?c.dataType: "http://www.w3.org/2001/XMLSchema#integer"
+    // c.Labels: [] // ?? pagaidām vienmēr tukšs []
+    // c.isLiteral: true
+
     // if (CLASSES.has(c.fullName)) {
     //     return CLASSES.get(c.fullName)
     // }
 
-    let ns_id = await resolveNsPrefix(c.namespace);
+    let ns_id = (c.namespace !== undefined) ? (await resolveNsPrefix(c.namespace)) : null;
     let props_in_schema = (c.propertiesInSchema === undefined) ? true : c.propertiesInSchema;
+    // let datatype_id = c.dataType ? DATATYPES_BY_IRI.get(c.dataType) : null;
+    let datatype_id = (c.dataType !== undefined) ? (await addDatatypeByIri(c.dataType)) : null;
 
     let class_id;
     try {
-        class_id = (await db.one(`INSERT INTO ${dbSchema}.classes (iri, local_name, display_name, ns_id, cnt, props_in_schema)
-            VALUES ($1, $2, $2, $3, $4, $5) RETURNING id`,
+        class_id = (await db.one(`INSERT INTO ${dbSchema}.classes (iri, local_name, display_name, ns_id, cnt, props_in_schema,
+            classification_property, is_literal, datatype_id)
+            VALUES ($1, $2, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
         [
             c.fullName,
             c.localName,
             ns_id,
             c.instanceCount,
             props_in_schema,
+            c.classificationProperty,
+            c.isLiteral,
+            datatype_id
         ])).id;
         CLASSES.set(c.fullName, class_id);
 
@@ -172,7 +245,7 @@ const addClassSuperclasses = async c => {
     }
 }
 
-const ANNOT_TYPES = new Map();
+const ANNOT_TYPES = new Map(); // iri -> annot_type_id
 const getOrRegisterAnnotationType = async iri => {
     let type_id = ANNOT_TYPES.get(iri);
     if (type_id) return type_id;
@@ -257,7 +330,7 @@ const getClassId = iri => {
     return id;
 }
 
-const PROPS = new Map();
+const PROPS = new Map(); // iri -> property_id
 const addProperty = async p => {
     // p.fullName: "http://dbpedia.org/property/julPrecipitationDays"
     // ?p.localName: "julPrecipitationDays"
@@ -359,8 +432,8 @@ const addProperty = async p => {
             if (srcClass.DataTypes) {
                 for (const dtr of srcClass.DataTypes) {
                     try {
-                        await addDatatype(dtr.dataType);
-                        let datatype_id = resolveDatatype(dtr.dataType);
+                        await addDatatypeByShortIri(dtr.dataType);
+                        let datatype_id = resolveDatatypeByShortIri(dtr.dataType);
 
                         await db.none(`INSERT INTO ${dbSchema}.cpd_rels (cp_rel_id, datatype_id, cnt)
                             VALUES ($1, $2, $3)
@@ -480,8 +553,8 @@ const addProperty = async p => {
     if (p.DataTypes) {
         for (const dtr of p.DataTypes) {
             try {
-                await addDatatype(dtr.dataType)
-                let datatype_id = resolveDatatype(dtr.dataType)
+                await addDatatypeByShortIri(dtr.dataType)
+                let datatype_id = resolveDatatypeByShortIri(dtr.dataType)
                 await db.none(`INSERT INTO ${dbSchema}.pd_rels (property_id, datatype_id, cnt)
                     VALUES ($1, $2, $3)
                     ON CONFLICT ON CONSTRAINT pd_rels_property_id_datatype_id_key DO NOTHING`,
@@ -580,40 +653,109 @@ const getPropertyId = iri => {
 
 const addPrefixShortcut = async (namespace, shortcut) => {
     // namespace: "https://creativecommons.org/ns#""
-    // shortcut: "cc:" vai ":"
-    // droši vien ar upsert
-    // TODO:
+    // shortcut: "cc" (vai "cc:") vai ":"
+
     if (!shortcut) {
         console.error(`Missing ns alias`);
         return;
     }
-    if (!/^\w[a-z0-9]*:$/.test(shortcut)) {
+    if (!namespace) {
+        console.error(`Missing namespace`);
+        return;
+    }
+
+    if (!/^(\w[a-z0-9]*)?:?$/.test(shortcut)) {
         console.error(`Bad ns alias ${shortcut}`);
         return;
     }
 
     try {
         let is_local = shortcut === ':';
-
         let name = shortcut;
-        if (shortcut.endsWith(':')) {
+
+        if (is_local) {
+            await db.none(`UPDATE ${dbSchema}.ns SET is_local = false;`);
+            name = '_local';
+        } else if (shortcut.endsWith(':')) {
             name = shortcut.slice(0, shortcut.length - 1);
         }
-
-        await db.none(`INSERT INTO ${dbSchema}.ns
+        
+        let id = (await db.one(`INSERT INTO ${dbSchema}.ns
             (name, value, is_local)
             VALUES ($1, $2, $3)
-            ON CONFLICT ON CONSTRAINT ns_value_key DO UPDATE SET name = $1, is_local = $3`,
+            ON CONFLICT ON CONSTRAINT ns_value_key DO UPDATE SET name = $1, is_local = $3
+            RETURNING *`,
             // ON CONFLICT ON CONSTRAINT ns_name_key DO UPDATE SET is_local = $3`,
         [
             name,
             namespace,
             is_local,
-        ]);
+        ])).id;
+
+        NS_PREFIX_TO_ID.set(namespace, id);
+        NS_ID_TO_PREFIX.set(id, namespace);
+        NS_ABBR_TO_ID.set(name, id);
+        NS_ID_TO_ABBR.set(id, name);
+        NS_ABBR_TO_PREFIX.set(name, namespace);
 
     } catch(err) {
         console.error(err);
     }
+}
+
+const PARAMETER_NAME_MAP = {
+    endpointUrl: "endpoint_url",
+    graphName: "named_graph",
+}
+
+const addParameter = async (param_name, param_value) => {
+/* 
+    {
+      "name": "minimalAnalyzedClassSize",
+      "value": "1"
+    },
+    {
+      "name": "classificationProperties",
+      "value": "[http://www.w3.org/1999/02/22-rdf-syntax-ns#type, http://data.nobelprize.org/terms/category, http://data.nobelprize.org/terms/year, http://xmlns.com/foaf/0.1/gender]"
+    }
+*/
+    if (!param_name) return;
+    if (!param_value) return;
+
+    try {
+        let name = PARAMETER_NAME_MAP[param_name] ?? param_name;
+
+        // TODO: importējamājā JSON ir nepareizs objektu (sarakstu) kodējums; pagaidām pielabots ar roku
+        let value = param_value.trim();
+        if (value.startsWith('{') || value.startsWith('[')) {
+            let parsed = JSON.parse(value);
+            await db.none(`INSERT INTO ${dbSchema}.parameters
+                (name, jsonvalue)
+                VALUES ($1, $2)       
+                ON CONFLICT ON CONSTRAINT parameters_name_key
+                DO UPDATE SET name = $1, jsonvalue = $2     
+            `, 
+                [ 
+                    name, 
+                    JSON.stringify(parsed), 
+                ]);            
+        } else {
+            await db.none(`INSERT INTO ${dbSchema}.parameters
+                (name, textvalue)
+                VALUES ($1, $2)       
+                ON CONFLICT ON CONSTRAINT parameters_name_key
+                DO UPDATE SET name = $1, textvalue = $2     
+            `, 
+                [ 
+                    name, 
+                    value, 
+                ]);
+        }
+
+    } catch (err) {
+        console.error(err);
+    }
+
 }
 
 const init = async () => {
@@ -623,6 +765,7 @@ const init = async () => {
         for (let row of nsData) {
             NS_PREFIX_TO_ID.set(row.value, row.id);
             NS_ABBR_TO_ID.set(row.name, row.id);
+            NS_ID_TO_ABBR.set(row.id, row.name);
             NS_ID_TO_PREFIX.set(row.id, row.value);
             NS_ABBR_TO_PREFIX.set(row.name, row.value);
         }
@@ -642,6 +785,18 @@ const init = async () => {
 
 const importFromJSON = async data => {
     await init();
+
+    if (data.Parameters) {
+        for (const param of data.Parameters) {
+            await addParameter(param.name, param.value);
+        }
+    }
+
+    if (data.Prefixes) {
+        for (const pref of data.Prefixes) {
+            await addPrefixShortcut(pref.namespace, pref.prefix);
+        }
+    }
 
     if (data.Classes) {
         let classBar = new ProgressBar(`[:bar] ( :current classes of :total, :percent)`, { total: data.Classes.length, width: 100, incomplete: '.' });
@@ -672,12 +827,6 @@ const importFromJSON = async data => {
             propsPairsBar.tick();
         }
     }
-
-    if (data.Prefixes) {
-        for (const pref of data.Prefixes) {
-            await addPrefixShortcut(pref.namespace, pref.prefix);
-        }
-    }
 }
 
 const registerImportedSchema = async () => {
@@ -698,29 +847,34 @@ const registerImportedSchema = async () => {
         }
     }
 
-    const ENDPOINT_SQL = `INSERT INTO public.endpoints (sparql_url, public_url, named_graph, endpoint_type_id) VALUES ($1, $2, $3, $4) RETURNING id`;
-    const endpoint_id = (await db.one(ENDPOINT_SQL, [
-        sparqlUrl, 
-        publicUrl,
-        namedGraph,
-        endpointTypeId,
-    ])).id;
-
-    const SCHEMA_SQL = `INSERT INTO public.schemata (schema_name, db_schema_name, has_pp_rels, has_instance_table) VALUES ($1, $1, $2, $3) RETURNING id`;
-    const schema_id = (await db.one(SCHEMA_SQL, [
-        schemaName,
-        false,
-        false,
-    ])).id;
-
-    const E2S_SQL = `INSERT INTO public.schemata_to_endpoints (schema_id, endpoint_id, display_name, is_active, use_pp_rels) VALUES ($1, $2, $3, $4, $5)`;
-    await db.none(E2S_SQL, [
-        schema_id, 
-        endpoint_id, 
-        schemaDisplayName,
-        true,
-        false,
-    ]);
+    try {
+        const ENDPOINT_SQL = `INSERT INTO public.endpoints (sparql_url, public_url, named_graph, endpoint_type_id) VALUES ($1, $2, $3, $4) RETURNING id`;
+        const endpoint_id = (await db.one(ENDPOINT_SQL, [
+            sparqlUrl, 
+            publicUrl,
+            namedGraph,
+            endpointTypeId,
+        ])).id;
+    
+        const SCHEMA_SQL = `INSERT INTO public.schemata (schema_name, db_schema_name, has_pp_rels, has_instance_table) VALUES ($1, $1, $2, $3) RETURNING id`;
+        const schema_id = (await db.one(SCHEMA_SQL, [
+            schemaName,
+            false,
+            false,
+        ])).id;
+    
+        const E2S_SQL = `INSERT INTO public.schemata_to_endpoints (schema_id, endpoint_id, display_name, is_active, use_pp_rels) VALUES ($1, $2, $3, $4, $5)`;
+        await db.none(E2S_SQL, [
+            schema_id, 
+            endpoint_id, 
+            schemaDisplayName,
+            true,
+            false,
+        ]);
+    
+    } catch (err) {
+        console.error(err);
+    }
 
     console.log(`The new schema "${schemaName}" added to the schema registry`);
 }
