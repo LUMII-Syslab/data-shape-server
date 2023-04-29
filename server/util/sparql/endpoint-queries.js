@@ -1,5 +1,7 @@
 const util = require('../../routes/api/utilities')
 const SparqlClient = require('sparql-http-client/ParsingClient')
+const db = require('../../routes/api/db')
+
 // const client = new SparqlClient({ endpointUrl: ENDPOINT_URL })
 
 // collection in sparql clients for different endpoints
@@ -29,6 +31,121 @@ const findClient = endpointUrl => {
 //	return  roles[0];
 //    //return 'rdf:type';
 // }
+
+const test = async (schema, params) => {
+	const individualPattern = await getIndividualPattern(schema, params)
+	console.log(individualPattern)
+	//const r1 = await getDirectWerePart(schema, '', individualPattern, true);
+	const r2 = await getDirectWerePart(schema, 'AAA', individualPattern, true);
+	//console.log(r1)	
+	console.log(r2)
+	return {};
+}
+
+const getIndividualPattern =  async (schema, params, classIri = null) => {
+	// TODO Šie būs datubāzē, varētu būt ari klasei specifisks
+	let prop;
+	let individualPattern = {};  // Ir tādi vienkāršie, kuriem nav nekā.
+	if (util.getSchemaType(params) == 'wikidata')  
+		individualPattern = {label: {property:'rdfs:label', lang:'en'}, description:{property:'schema:description', lang:'en'}};
+	if (util.getSchemaType(params) == 'nobel_prizes')  
+		individualPattern = {label: {property:'rdfs:label'}}; 
+	if (util.getSchemaType(params) == 'warsampo') 	
+		individualPattern = {label: {property:'skos:prefLabel'}};
+	if (util.getSchemaType(params) == 'dbpedia') 	
+		individualPattern = {ns: ['dbc','dbr']};	
+		
+	if (individualPattern.label !== undefined && individualPattern.label !== null) {
+		prop = await util.getPropertyByName(individualPattern.label.property, schema, params);
+		individualPattern.label.property = `<${prop[0].iri}>`;
+	}
+	if (individualPattern.description !== undefined && individualPattern.description !== null) {
+		prop = await util.getPropertyByName(individualPattern.description.property, schema, params);
+		individualPattern.description.property = `<${prop[0].iri}>`;
+	}
+	return individualPattern;
+}
+
+// Šo jāsauc tikai ar filtru
+const getDirectSparql = async (schema, filter, whereList0, params, individualPattern, showDescr = false) => {
+	let select = '';
+	let sparql = '';
+	let whereList = [];
+	
+	if (individualPattern.label !== undefined && individualPattern.label !== null && individualPattern.label.lang !== undefined && individualPattern.label.lang !== null ) {
+		select = '?x ?label_1 ';
+		whereList.push(` ?x ${individualPattern.label.property} '${filter}'@${individualPattern.label.lang}`);
+		whereList.push(` ?x ${individualPattern.label.property} ?label_1. FILTER(LANG(?label_1) = '${individualPattern.label.lang}' )`);
+		if ( showDescr && individualPattern.description !== undefined && individualPattern.description !== null ) {
+			select = '?x ?label_1 ?description_1 ';
+			if ( individualPattern.description.lang !== undefined &&  individualPattern.description.lang !== null )
+				whereList.push(`OPTIONAL{?x ${individualPattern.description.property} ?description_1. FILTER(LANG(?description_1) = '${individualPattern.description.lang}')} `);
+			else
+				whereList.push(`OPTIONAL{?x ${individualPattern.description.property} ?description_1} `);
+		}
+	}
+	else if (individualPattern.ns !== undefined && individualPattern.ns !== null) {
+		select = '?x ';
+		const ns = individualPattern.ns.join(`' , '`);
+		const sql = `SELECT CONCAT(name,':') as prefix, value from ${schema}.ns WHERE name in ('${ns}')`;
+		const list_ind = await db.any(sql);
+		let ii = [];
+		list_ind.forEach(e => { ii.push(`?x =<${e.value}${filter}>`); });
+		whereList.push(`FILTER ( ${ii.join(' or ')})`);
+	}
+	
+	if ( select !== '') {
+		if ( whereList0.length > 0 )
+			sparql = `select distinct ${select}where { ${whereList0.join('. ')}.  ${whereList.join('. ')}} LIMIT ${util.getLimit(params)}`;
+		else
+			sparql = `select distinct ${select}where { ${whereList.join('. ')} } LIMIT ${util.getLimit(params)}`;
+	}
+	
+	return sparql;
+}
+
+const getSparql = async (schema, filter, whereList0, params, individualPattern, showDescr = false) => {
+	let select = '?x ';
+	let whereList = [];
+	let rez = {select:'?x ', where:''};
+	if (filter !== '') {
+		if ( individualPattern.label !== undefined && individualPattern.label !== null ) {
+			if ( individualPattern.label.lang !== undefined && individualPattern.label.lang !== null ) 
+				whereList.push(`?x ${individualPattern.label.property} ?label_1. FILTER(LANG(?label_1) = '${individualPattern.label.lang}' && REGEX(?label_1,'${filter}','i'))`);
+			else 
+				whereList.push(`?x ${individualPattern.label.property} ?label_1. FILTER( REGEX(?label_1,'${filter}','i'))`);
+		}
+		else {
+			whereList.push(`FILTER( REGEX(?x,'${filter}','i'))`);
+		}
+	}
+	else {
+		if ( individualPattern.label !== undefined && individualPattern.label !== null ) {
+			if ( individualPattern.label.lang !== undefined && individualPattern.label.lang !== null )
+				whereList.push(`OPTIONAL{?x ${individualPattern.label.property} ?label_1. FILTER(LANG(?label_1) = '${individualPattern.label.lang}')} `);
+			else
+				whereList.push(`OPTIONAL{?x ${individualPattern.label.property} ?label_1}`);
+		}
+	}
+	
+	if ( individualPattern.label !== undefined && individualPattern.label !== null ) {
+		select = '?x ?label_1 ';
+		if ( showDescr && individualPattern.description !== undefined && individualPattern.description !== null ) {
+			select = '?x ?label_1  ?description_1 ';
+			if ( individualPattern.description.lang !== undefined &&  individualPattern.description.lang !== null )
+				whereList.push(`OPTIONAL{?x ${individualPattern.description.property} ?description_1. FILTER(LANG(?description_1) = '${individualPattern.description.lang}')}`);
+			else
+				whereList.push(`OPTIONAL{?x ${individualPattern.description.property} ?description_1}`);
+		}
+	}
+	
+	if ( whereList0.length > 0 && whereList.length > 0)
+		return `select distinct ${select}where { ${whereList0.join('. ')}. ${whereList.join('. ')} } LIMIT ${util.getLimit(params)}`;
+	else if ( whereList.length > 0 ) 
+		return `select distinct ${select}where { ${whereList.join('. ')} } LIMIT ${util.getLimit(params)}`;
+	else if ( whereList0.length > 0 ) 
+		return `select distinct ${select}where { ${whereList0.join('. ')} } LIMIT ${util.getLimit(params)}`;	
+}
 
 const sparqlGetClassLabels = async (schema, params, uriClass, uriProp) => {
 	
@@ -206,8 +323,8 @@ const sparqlGetTreeIndividuals =  async (schema, params) => {
 	function getLocalName(list, name, label) {
 		const nn = getShortName(list, name).replace(':',`:[${label} (`);
 		if ( name == getShortName(list, name)) {
-			console.log("###########################")
-			console.log(name)
+			//console.log("###########################")
+			//console.log(name)
 			return name;
 		}
 		else
@@ -217,17 +334,20 @@ const sparqlGetTreeIndividuals =  async (schema, params) => {
 	const individualMode = util.getIndividualMode(params);
 	const endpointUrl = util.getEndpointUrl(params); 
 	//const typeString = await getTypeString(params);
-	const typeString = await util.getTypeString(schema, params);
+	const typeString = await util.getTypeString(schema, params);  // TODO te varētu būt klasei individuāla vērtība
 	const list = await util.getIndividualsNS(schema);
-	const warsampo_label = "<http://www.w3.org/2004/02/skos/core#prefLabel>"; // TODO šim būs jābūt parameros
+	const list_ind = await util.getOnlyIndividualsNS(schema);
+	const warsampo_label = "<http://www.w3.org/2004/02/skos/core#prefLabel>"; // TODO šim būs jābūt parametros
 	let sparql;
 	let sql;
 	let reply;
 	let rrT = {};
 	let rr = [];
 	let whereList = [];
+	const info = await db.any(`SELECT count(*) FROM information_schema.tables v where table_schema = '${schema}' and  table_name = 'instances'`);
+	const has_instances = info[0].count > 0;  
 	
-	if (util.isClassName(params, 0) && util.getClassName(params, 0).includes('All classes') && util.getSchemaType(params) == 'dbpedia') { // DBpedia zars
+	if (util.isClassName(params, 0) && util.getClassName(params, 0).includes('All classes') && has_instances) { //  util.getSchemaType(params) == 'dbpedia' DBpedia zars
 		if ( util.isFilter(params)) {
 			let filter = util.getFilter(params);
 			if ( !validateFilter(filter)) {
@@ -245,7 +365,7 @@ const sparqlGetTreeIndividuals =  async (schema, params) => {
 			if (individualMode === 'Direct') {
 				sql = `SELECT local_name, name FROM (SELECT local_name, ns_id FROM ${schema}.instances where local_name = $2 limit $1) AA , ${schema}.ns where ns_id = ns.id`;
 				reply = await util.getSchemaData(sql, params);
-				reply.data.forEach(v => { rr.push(`${v.name}:${v.local_name}`);});
+				reply.data.forEach(v => { rr.push({localName:`${v.name}:${v.local_name}`, description:''});});
 			}
 			else {
 				sql = `SELECT local_name, name FROM (SELECT local_name, ns_id FROM ${schema}.instances where local_name = $2 limit $1) AA , ${schema}.ns where ns_id = ns.id`;
@@ -257,50 +377,35 @@ const sparqlGetTreeIndividuals =  async (schema, params) => {
 				reply = await util.getSchemaData(sql, params);
 				reply.data.forEach(v => { rrT[`${v.name}:${v.local_name}`] = `${v.name}:${v.local_name}`;});
 				for (var key in rrT) 
-					rr.push(key);				
+					rr.push({localName:key, description:''});				
 				//reply.data.forEach(v => { rr.push(`${v.name}:${v.local_name}`);});
 			}
 		}
-		else {  // Nekad neiestāsies, jo viemēr tiks padots filtrs
+		else {  // Nekad neiestāsies, jo vienmēr tiks padots filtrs
 			sql = `SELECT local_name, name, AA.id FROM (SELECT local_name, ns_id, id FROM ${schema}.instances where local_name is not null limit $1) AA , ${schema}.ns where ns_id = ns.id order by length(local_name)`;
 			reply = await util.getSchemaData(sql, params);
-			reply.data.forEach(v => { rr.push(`${v.name}:${v.local_name}`);});
+			reply.data.forEach(v => { rr.push({localName:key, description:''});});  
 		}
 
 	}
-	/*
-	else if (util.isClassName(params, 0) && util.getClassName(params, 0).includes('All classes') && util.getSchemaType(params) == 'wikidata') {
-		const label = util.getFilter(params);
-		sparql = `SELECT ?x ?description_1 WHERE { ?x rdfs:label "${label}"@en.
-				OPTIONAL{?x schema:description ?description_1. FILTER(LANG(?description_1) = 'en')}}`; 
-		reply = await executeSPARQL(endpointUrl, sparql);
-
-		reply.forEach(v => { 
-			let t = {uri:v.x.value, label:label, description:''};
-			t.localName = getLocalName(list, v.x.value, label); 
-			if (v.description_1 !== undefined ) 
-				t.description = v.description_1.value;
-			rr.push(t);
-			});
-	} */
 	else {  // Ir konkrēta klase
 		if (util.isClassName(params, 0) && !util.getClassName(params, 0).includes('All classes') ) {
 			const clInfo = await util.getClassByName(util.getClassName(params, 0), schema);
 			if (clInfo.length > 0)
-				whereList.push(`?x ${typeString} <${clInfo[0].iri}>`);
-		}
+				whereList.push(`?x ${typeString} <${clInfo[0].iri}>`);   // TODO klasei varētu būt savs typeString
+		}  // TODO - kas notiek, ja klases pēkšņi nav? Tā gan nevajadzētu būt.
 
 		if (util.isFilter(params)) {  // Ir klase un filtrs
 			if (util.getSchemaType(params) == 'wikidata') {  
 				if (individualMode === 'Direct') {
 					whereList.push(`?x rdfs:label '${util.getFilter(params)}'@en`);
 					whereList.push(`?x rdfs:label ?label_1. FILTER(LANG(?label_1) = 'en' )`);
-					whereList.push(`OPTIONAL{?x schema:description ?description_1. FILTER(LANG(?description_1) = 'en')} `);
+					whereList.push(`OPTIONAL{?x schema:description ?description_1. FILTER(LANG(?description_1) = 'en')}`);
 					sparql = `select distinct ?x ?label_1 ?description_1 where { ${whereList.join('. ')} } LIMIT ${util.getLimit(params)}`;
 				}
 				else {
 					whereList.push(`?x rdfs:label ?label_1. FILTER(LANG(?label_1) = 'en' && REGEX(?label_1,'${util.getFilter(params)}','i'))`);
-					whereList.push(`OPTIONAL{?x schema:description ?description_1. FILTER(LANG(?description_1) = 'en')} `);
+					whereList.push(`OPTIONAL{?x schema:description ?description_1. FILTER(LANG(?description_1) = 'en')}`);
 					sparql = `select distinct ?x ?label_1 ?description_1 where { ${whereList.join('. ')} } LIMIT ${util.getLimit(params)}`;
 					
 				}
@@ -324,7 +429,7 @@ const sparqlGetTreeIndividuals =  async (schema, params) => {
 				if (util.getSchemaType(params) == 'warsampo') {
 					if (individualMode != 'Direct') {
 						whereList.push(`?x ${warsampo_label} ?label_1. FILTER( REGEX(?label_1,'${util.getFilter(params)}','i'))`);
-						sparql = `select distinct ?x ?label_1 ?description_1 where { ${whereList.join('. ')} } LIMIT ${util.getLimit(params)}`;
+						sparql = `select distinct ?x ?label_1 where { ${whereList.join('. ')} } LIMIT ${util.getLimit(params)}`;
 						reply = await executeSPARQL(endpointUrl, sparql);
 						reply.forEach(v => { 
 								let t = {uri:v.x.value};
@@ -340,20 +445,22 @@ const sparqlGetTreeIndividuals =  async (schema, params) => {
 				}
 				else {
 					let ii = [];
-					list.forEach(e => { ii.push(`?x =<${e.value}${util.getFilter(params)}>`);});
-					const sparql0 = `select distinct ?x where { ${whereList.join('. ')} FILTER ( ${ii.join(' or ')}) } LIMIT ${list.length}`;
+					list_ind.forEach(e => { ii.push(`?x =<${e.value}${util.getFilter(params)}>`);});
+					const sparql0 = `select distinct ?x where { ${whereList.join('. ')} FILTER ( ${ii.join(' or ')}) } LIMIT ${list_ind.length}`;
 					if (individualMode === 'Direct') {
 						reply = await executeSPARQL(endpointUrl, sparql0);
-						reply.forEach(v => { rr.push(getShortName(list, v.x.value));});	
+						reply.forEach(v => { rr.push({localName:getShortName(list, v.x.value), description:''});});	
 					}
 					else {
-						reply = await executeSPARQL(endpointUrl, sparql0);
-						reply.forEach(v => { rrT[getShortName(list, v.x.value)] = getShortName(list, v.x.value);});	
+						if (util.getSchemaType(params) == 'dbpedia') {
+							reply = await executeSPARQL(endpointUrl, sparql0);
+							reply.forEach(v => { rrT[getShortName(list, v.x.value)] = getShortName(list, v.x.value);});	
+						}
 						sparql = `select distinct ?x where { ${whereList.join('. ')} FILTER ( REGEX(?x,'${util.getFilter(params)}','i') ) } LIMIT ${util.getLimit(params)}`;
 						reply = await executeSPARQL(endpointUrl, sparql);
 						reply.forEach(v => { rrT[getShortName(list, v.x.value)] = getShortName(list, v.x.value);});	
 						for (var key in rrT) 
-							rr.push(key);
+							rr.push({localName:key, description:''});
 					}
 				}
 			}
@@ -395,7 +502,7 @@ const sparqlGetTreeIndividuals =  async (schema, params) => {
 			else  {
 				sparql = `select distinct ?x where { ${whereList.join('. ')} } LIMIT ${util.getLimit(params)}`;
 				reply = await executeSPARQL(endpointUrl, sparql);
-				reply.forEach(v => { rr.push(getShortName(list, v.x.value));});			
+				reply.forEach(v => { rr.push({localName:getShortName(list, v.x.value), description:''});});			
 			}			
 		}
 	}
@@ -403,15 +510,160 @@ const sparqlGetTreeIndividuals =  async (schema, params) => {
     //return reply.map(v => getShortName(list, v.x.value));
 }
 
+const getName = (list, v) => {
+	let name = v.x.value;
+	list.forEach(e => { if ( name.indexOf(e.value) == 0) name = name.replace(e.value,e.prefix) }); 
+
+	//if (name == v.x.value) {
+	//	console.log("###########################")
+	//	console.log(name)
+	// }
+	if (v.label_1 !== undefined && name != v.x.value) { 
+		const nn = name.replace(':',`:[${v.label_1.value} (`);
+		name = `${nn})]`;
+	}
+	return name;
+}
+
+const getResults = async (schema, endpointUrl, sparql, sparql0 = '') => {
+	const list = await util.getIndividualsNS(schema);
+	let reply;
+	let rrT = {}; // Pagaidu dati, dublikātu izķeršanai
+	let rr = [];
+	
+	if ( sparql0 !== '' ) {
+		reply = await executeSPARQL(endpointUrl, sparql0);
+		reply.forEach(v => { rrT[getName(list, v)] = v; });	
+						
+		reply = await executeSPARQL(endpointUrl, sparql);
+		reply.forEach(v => { rrT[getName(list, v)] = v; });	
+		for (var key in rrT) {
+			let t = {uri:rrT[key].x.value, description:''};
+			t.localName = getName(list, rrT[key]); 
+			if (rrT[key].description_1 !== undefined ) 
+				t.description = rrT[key].description_1.value;
+			rr.push(t);	
+		} 
+	}
+	else {
+		reply = await executeSPARQL(endpointUrl, sparql);
+		reply = reply.filter(function(v) { return v.x.value.indexOf("://") !== -1}); // TODO Šāds bija tikai vienā vietā
+		reply.forEach(v => { 
+			let t = {uri:v.x.value, description:''};
+			t.localName = getName(list, v); 
+			if (v.description_1 !== undefined ) 
+				t.description = v.description_1.value;
+			rr.push(t);
+			}
+		);
+	}
+	return rr;
+}
+
+const getFullResults =  async (schema, endpointUrl, whereList, params, individualPattern, individualMode = '', showDescr = false) => {
+	if (util.isFilter(params)) {  
+		const filter = util.getFilter(params);
+		sparql0 = await getDirectSparql(schema, filter, whereList, params, individualPattern, showDescr);
+		sparql = await getSparql(schema, filter, whereList, params, individualPattern, showDescr);
+		
+		if ( sparql0 !== '' ) {
+			if (individualMode === 'Direct') 
+				rr = await getResults(schema, endpointUrl, sparql0);
+			else 
+				rr = await getResults(schema, endpointUrl, sparql, sparql0);
+		}	
+		else {
+			if (individualMode !== 'Direct') 
+				rr = await getResults(schema, endpointUrl, sparql);
+		}
+	}
+	else { 
+		sparql = await getSparql(schema, '', whereList, params, individualPattern, showDescr);
+		rr = await getResults(schema, endpointUrl, sparql);
+	}
+	return rr;
+}
+
+const sparqlGetTreeIndividualsNew =  async (schema, params) => {
+	let individualPattern = await getIndividualPattern(schema, params);
+	const individualMode = util.getIndividualMode(params);
+	const endpointUrl = util.getEndpointUrl(params); 
+	const typeString = await util.getTypeString(schema, params);  // TODO te varētu būt klasei individuāla vērtība
+	const list = await util.getIndividualsNS(schema);
+	let sparql0;
+	let sparql;
+	let sql;
+	let reply;
+	let rrT = {}; // Pagaidu dati, dublikātu izķeršanai
+	let rr = [];
+	let whereList = [];
+	const info = await db.any(`SELECT count(*) FROM information_schema.tables v where table_schema = '${schema}' and  table_name = 'instances'`);
+	const has_instances = info[0].count > 0;  
+	
+	if (util.isClassName(params, 0) && util.getClassName(params, 0).includes('All classes') && has_instances) { //  util.getSchemaType(params) == 'dbpedia' DBpedia zars
+		if ( util.isFilter(params)) {
+			let filter = util.getFilter(params);
+			if ( !validateFilter(filter)) {
+				const filter_list = filter.split('');
+				let filter_list2 = [];
+				filter_list.forEach(f => { 
+					if (validateFilter(f))
+						filter_list2.push(f);
+				});
+				filter = filter_list2.join('');
+				params = util.setFilter(params, filter);
+			}
+			filter = filter.replace("'","''");		
+			
+			if (individualMode === 'Direct') {
+				sql = `SELECT local_name, name FROM (SELECT local_name, ns_id FROM ${schema}.instances where local_name = $2 limit $1) AA , ${schema}.ns where ns_id = ns.id`;
+				reply = await util.getSchemaData(sql, params);
+				reply.data.forEach(v => { rr.push({localName:`${v.name}:${v.local_name}`, description:''});});
+			}
+			else {
+				sql = `SELECT local_name, name FROM (SELECT local_name, ns_id FROM ${schema}.instances where local_name = $2 limit $1) AA , ${schema}.ns where ns_id = ns.id`;
+				reply = await util.getSchemaData(sql, params);
+				reply.data.forEach(v => { rrT[`${v.name}:${v.local_name}`] = `${v.name}:${v.local_name}`;});
+				//reply.data.forEach(v => { rr.push(`${v.name}:${v.local_name}`);});
+				params.main.filter = params.main.filter.replace("(","").replace(")","");
+				sql = `SELECT local_name, name FROM (SELECT local_name, ns_id FROM ${schema}.instances where test @@ to_tsquery($2) limit $1) AA , ${schema}.ns where ns_id = ns.id order by length(local_name)`;
+				reply = await util.getSchemaData(sql, params);
+				reply.data.forEach(v => { rrT[`${v.name}:${v.local_name}`] = `${v.name}:${v.local_name}`;});
+				for (var key in rrT) 
+					rr.push({localName:key, description:''});				
+				//reply.data.forEach(v => { rr.push(`${v.name}:${v.local_name}`);});
+			}
+		}
+		else {  // Nekad neiestāsies, jo vienmēr tiks padots filtrs
+			sql = `SELECT local_name, name, AA.id FROM (SELECT local_name, ns_id, id FROM ${schema}.instances where local_name is not null limit $1) AA , ${schema}.ns where ns_id = ns.id order by length(local_name)`;
+			reply = await util.getSchemaData(sql, params);
+			reply.data.forEach(v => { rr.push({localName:key, description:''});});  
+		}
+
+	}
+	else {  // Ir konkrēta klase
+		if (util.isClassName(params, 0) && !util.getClassName(params, 0).includes('All classes') ) {
+			const clInfo = await util.getClassByName(util.getClassName(params, 0), schema);
+			if (clInfo.length > 0) {
+				whereList.push(`?x ${typeString} <${clInfo[0].iri}>`);   // TODO klasei varētu būt savs typeString
+				individualPattern = await getIndividualPattern(schema, params, clInfo[0].iri);
+			}	
+		}  // TODO - kas notiek, ja klases pēksņi nav? Tā gan nevajadzētu būt. Teorētiski laikam meklē visur kur.
+
+		rr = await getFullResults(schema, endpointUrl, whereList, params, individualPattern, individualMode, true);
+	}
+	return rr;
+}
+
 const sparqlGetIndividuals =  async (schema, params) => {
 	function getShortName(list, v) {
 		let name = v.x.value;
 		list.forEach(e => { if ( name.indexOf(e.value) == 0) name = name.replace(e.value,e.prefix) }); 
 
-		if (name == v.x.value) {
-			console.log("###########################")
-			console.log(name)
-		}
+		//if (name == v.x.value) {
+		//	console.log("###########################")
+		//	console.log(name)
+		// }
 		if (v.label_1 !== undefined && name != v.x.value) { 
 			const nn = name.replace(':',`:[${v.label_1.value} (`);
 			name = `${nn})]`;
@@ -465,7 +717,7 @@ const sparqlGetIndividuals =  async (schema, params) => {
 				sparql = `select distinct ?x ${vv} where { ${classInfo} ?x  <${prop_iri}> ${ind} ${wherePlus} } LIMIT ${util.getLimit(params)}`;
 				
 			reply = await executeSPARQL(endpointUrl, sparql);
-			reply = reply.filter(function(v) { return v.x.value.indexOf("://") !== -1});
+			reply = reply.filter(function(v) { return v.x.value.indexOf("://") !== -1});  // TODO ???
 			reply.forEach(v => { rr.push(getShortName(list, v));});
 		}
 	}
@@ -522,10 +774,59 @@ const sparqlGetIndividuals =  async (schema, params) => {
     //return reply.map(v => getShortName(list, v.x.value));
 }
 
+const sparqlGetIndividualsNew =  async (schema, params) => {
+	let individualPattern = await getIndividualPattern(schema, params);
+	const endpointUrl = util.getEndpointUrl(params); 
+	const typeString = await util.getTypeString(schema, params); // TODO varētu būt katrai klasei sava
+	const list = await util.getIndividualsNS(schema);
+	let sparql;
+	let sparql0 = '';
+	let reply;
+	let rr = [];
+
+	let newPList = {in:[], out:[]};
+	let whereList = [];
+
+	if (util.isClassName(params, 0) ) {
+		const clInfo = await util.getClassByName(util.getClassName(params, 0), schema);
+		if (clInfo.length > 0) {
+			individualPattern = await getIndividualPattern(schema, params, clInfo[0].iri);
+			whereList.push(`?x ${typeString} <${clInfo[0].iri}>`);
+			
+		}	
+	}
+	
+	if ( util.isPListI(params)) {
+		const pListI = util.getPListI(params);
+		const prop = await util.getPropertyByName(pListI.name, schema, params);
+		const ind = await util.getUriIndividual(schema, params, 2);
+		const classFrom = await util.getClassByName(util.getClassName(params, 0), schema);
+
+		if ( prop.length > 0) {
+			if ( pListI.type === 'in')
+				whereList.push(`${ind} <${prop[0].iri}> ?x`);
+			if ( pListI.type === 'out') 
+				whereList.push(`?x  <${prop[0].iri}> ${ind} `);
+		}
+	}
+	else {
+		newPList = await util.getUrifromPList(schema, util.getPList(params, 0), params);
+		if (newPList.in.length > 0 )
+			newPList.in.forEach(element => whereList.push(`[] <${element}> ?x`));
+		if (newPList.out.length > 0 )
+			newPList.out.forEach(element => whereList.push(`?x <${element}> []`));
+	}
+	
+	reply = await getFullResults(schema, endpointUrl, whereList, params, individualPattern);	
+	reply.forEach(v => { rr.push(v.localName);} );
+	return rr;
+}
+
 // TODO pilnais tikai wikidata. Ja ir nezināms ns tad nebūs labi, nestrādā korekti arī neesošiem indivīdiem
 const sparqlGetIndividualByName =  async (info, params, schema) => {
 	const endpointUrl = util.getEndpointUrl(params); 
 	const list = await util.getIndividualsNS(schema);
+	const individualPattern = await getIndividualPattern(schema, params);
 
 	let name = '';
 	let iri = '';
@@ -547,9 +848,13 @@ const sparqlGetIndividualByName =  async (info, params, schema) => {
 	let reply = await executeSPARQL(endpointUrl, sparql);
 	
 	if (reply) {
-		if ( util.getSchemaType(params) == 'wikidata') {
-			sparql = `SELECT ?label_1 WHERE{ <${iri}> rdfs:label ?label_1. FILTER(LANG(?label_1) = 'en').}`;
-			reply = await executeSPARQL(endpointUrl, sparql);	
+		if ( individualPattern.label !== undefined && individualPattern.label !== null ) {
+			if ( individualPattern.label.lang !== undefined && individualPattern.label.lang !== null ) 
+				sparql = `SELECT ?label_1 WHERE{ <${iri}> ${individualPattern.label.property} ?label_1. FILTER(LANG(?label_1) = '${individualPattern.label.lang}').}`; 
+			else 
+				sparql = `SELECT ?label_1 WHERE{ <${iri}> ${individualPattern.label.property} ?label_1.}`;
+			
+			reply = await executeSPARQL(endpointUrl, sparql);
 			if ( reply.length > 0 ) {
 				if (reply[0].label_1 !== undefined ) { 
 					rr.label = reply[0].label_1.value;
@@ -557,8 +862,9 @@ const sparqlGetIndividualByName =  async (info, params, schema) => {
 				}
 				else
 					rr.localName = name;
-			}	
+			}
 		}
+		
 		if (rr.name === '') {
 			rr.name = rr.iri;
 			rr.localName =  rr.iri;
@@ -570,12 +876,15 @@ const sparqlGetIndividualByName =  async (info, params, schema) => {
 }
 
 module.exports = {
+	test,
     executeSPARQL,
 	sparqlGetIndividualClasses,
 	sparqlGetPropertiesFromIndividuals,
 	sparqlGetPropertiesFromClass,
 	sparqlGetIndividuals,
+	sparqlGetIndividualsNew,
 	sparqlGetTreeIndividuals,
+	sparqlGetTreeIndividualsNew,
 	sparqlGetPropertiesFromRemoteIndividual,
 	sparqlGetIndividualByName,
 	sparqlGetClassLabels,

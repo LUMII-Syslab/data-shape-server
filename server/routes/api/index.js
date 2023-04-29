@@ -30,9 +30,12 @@ const {
 } = require('./property-handlers-new')
 
 const { 
+	test,
     executeSPARQL,
 	sparqlGetIndividuals,
+	sparqlGetIndividualsNew,
 	sparqlGetTreeIndividuals,
+	sparqlGetTreeIndividualsNew,
 	sparqlGetIndividualByName,
 } = require('../../util/sparql/endpoint-queries')
 
@@ -234,10 +237,10 @@ router.post('/ontologies/:ont/:fn', async (req, res, next) => {
 			// r = [];	
 			// const find = await util.checkIndividualsParams(schema, params);
 			// if ( find ) // Lielajām klasēm nedod instances, ja nav precizējumu
-			r = await sparqlGetIndividuals(schema, params);
+			r = await sparqlGetIndividualsNew(schema, params);
 		}
 		if ( fn === 'getTreeIndividuals') {
-			r = await sparqlGetTreeIndividuals(schema, params);
+			r = await sparqlGetTreeIndividualsNew(schema, params);
 		}
 		if ( fn === 'resolveClassByName') {
 			const classObj = await util.getClassByName(util.getName(params), schema);
@@ -256,6 +259,9 @@ router.post('/ontologies/:ont/:fn', async (req, res, next) => {
 		}
 		if ( fn === 'generateClassUpdate') {
 			r = await generateClassUpdate(schema, params);
+		}
+		if ( fn === 'xxx_test') {
+			r = await test(schema, params);
 		}
 		if ( fn === 'xx_getClassList') {
 			r = await xx_getClassList(schema, params);

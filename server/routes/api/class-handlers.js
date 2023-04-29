@@ -33,7 +33,7 @@ const findMainProperty = async (schema, pList, schemaType = '') => {
 }
 
 const findMainClassId = async (schema, mainPropInfo) => {
-	if ( mainPropInfo.className !== 'undefined') {
+	if ( mainPropInfo.className !== undefined ) {
 		const classObj = await util.getClassByName( mainPropInfo.className, schema);
 		return classObj[0].id;
 	}
