@@ -30,11 +30,8 @@ const {
 } = require('./property-handlers-new')
 
 const { 
-	test,
     executeSPARQL,
-	sparqlGetIndividuals,
 	sparqlGetIndividualsNew,
-	sparqlGetTreeIndividuals,
 	sparqlGetTreeIndividualsNew,
 	sparqlGetIndividualByName,
 } = require('../../util/sparql/endpoint-queries')
@@ -261,7 +258,7 @@ router.post('/ontologies/:ont/:fn', async (req, res, next) => {
 			r = await generateClassUpdate(schema, params);
 		}
 		if ( fn === 'xxx_test') {
-			r = await test(schema, params);
+			//r = await test(schema, params);
 		}
 		if ( fn === 'xx_getClassList') {
 			r = await xx_getClassList(schema, params);

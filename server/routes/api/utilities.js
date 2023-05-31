@@ -74,7 +74,8 @@ const setEndpointUrl = (params, s) => {
 	return params;
 }
 const getTypeStrings = (params) => { return [ getValue(params.main.direct_class_role), getValue(params.main.indirect_class_role)];}
-const getTypeString = async (schema, params) => {
+const getTypeString = async (schema, params, classIri = null) => {
+	// TODO te vajadzēs ņemt no datu bazes, ja būs zinama klase un varbūt arī kāds parametrs, vai vispār meklēt tajā datu bāzē
 	const roles = getTypeStrings(params);
 	return await getUriProperty(schema, roles[0]);
 	return roles[0];
