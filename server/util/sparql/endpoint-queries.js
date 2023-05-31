@@ -522,6 +522,11 @@ const getName = (list, v) => {
 		const nn = name.replace(':',`:[${v.label_1.value} (`);
 		name = `${nn})]`;
 	}
+	else if ( name.indexOf('/') !== -1 && name != v.x.value ) {
+		const nn = name.replace(':',`:[`);
+		name = `${nn}]`;
+	}
+
 	return name;
 }
 
