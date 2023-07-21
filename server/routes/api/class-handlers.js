@@ -209,6 +209,12 @@ const getNamespaces = async schema => {
 		r[0].is_local = true
     return r;
 }
+
+// **************************************************************************************************************
+const getPublicNamespaces = async () => {
+	const r = await db.any(`SELECT  abbr as name, prefix as value from public.ns_prefixes`); 
+    return r;
+}
 // **************************************************************************************************************
 const xx_getClassList = async (schema, params) => {
 	let sql = '';
@@ -321,6 +327,7 @@ const generateClassUpdate = async (schema, params) => {
 module.exports = {
 	getClasses,
 	getNamespaces,
+	getPublicNamespaces,
 	getTreeClasses,
 	xx_getClassList,
 	xx_getClassListInfo,

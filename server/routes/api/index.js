@@ -9,6 +9,7 @@ const {
 	getClasses,
 	getTreeClasses,
 	getNamespaces,
+	getPublicNamespaces,
 	xx_getClassList,
 	xx_getClassListInfo,
 	xx_getClassInfo,
@@ -78,6 +79,14 @@ router.get('/', (req, res, next) => {
 router.get('/info', async (req, res, next) => {
   const kd = await util.get_KNOWN_DATA();
   res.json(kd);
+});
+
+/**
+ * List of known prefixes
+ */
+router.get('/public_ns', async (req, res, next) => {
+  const ns = await getPublicNamespaces();
+  res.json(ns);
 });
 
 /**
@@ -230,6 +239,7 @@ router.post('/ontologies/:ont/:fn', async (req, res, next) => {
 		}
 		if ( fn === 'getNamespaces')
 			r = await getNamespaces(schema);
+			
 		if ( fn === 'getIndividuals') {
 			// r = [];	
 			// const find = await util.checkIndividualsParams(schema, params);
