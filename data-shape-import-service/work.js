@@ -675,7 +675,8 @@ const addPrefixShortcut = async (namespace, shortcut) => {
 
         if (is_local) {
             await db.none(`UPDATE ${dbSchema}.ns SET is_local = false;`);
-            name = '_local';
+            // name = '_local';
+            name = '';
         } else if (shortcut.endsWith(':')) {
             name = shortcut.slice(0, shortcut.length - 1);
         }
