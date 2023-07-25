@@ -120,17 +120,25 @@ const isUriIndividual = ( params, poz = 0) => {
 		return true;
 	return false;
 }
+const correctValue = ns_list => {
+	for (var ns of ns_list) {
+		ns.value = ns.value.replace(' ','');
+	}
+	return ns_list;
+}
 const getIndividualsNS =  async schema => {
 	//const sql = `SELECT CONCAT(name,':') as prefix, value from ${schema}.ns WHERE name in ('dbc','dbr','rdf','xsd','owl', 'en_wiki') order by value desc`; // TODO 
 	//const sql = `SELECT CONCAT(name,':') as prefix, value from ${schema}.ns WHERE name != '' and value != '' order by value desc`;  
     const sql = `SELECT CONCAT(name,':') as prefix, value from ${schema}.ns WHERE value != '' order by value desc`; 
-	const r = await db.any(sql);
+	let r = await db.any(sql);
+	r = util.correctValue(r);
 	return r;
 }
 const getOnlyIndividualsNS =  async schema => {
 	// TODO Sis vēlāk nebūs vajadzīgs
 	const sql = `SELECT CONCAT(name,':') as prefix, value from ${schema}.ns WHERE name in ('dbc','dbr') order by value desc`; // TODO šis ir pagaidām
-	const r = await db.any(sql);
+	let r = await db.any(sql);
+	r = util.correctValue(r);
 	return r;
 }
 const getUriIndividual = async ( schema, params, poz = 0) => {
@@ -561,4 +569,5 @@ module.exports = {
 	isPListI,
 	getPListI,
 	getSchemaType,
+	correctValue,
 }

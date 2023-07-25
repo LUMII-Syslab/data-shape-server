@@ -200,19 +200,22 @@ const getTreeClasses = async (schema, params) => {
 
 // **************************************************************************************************************
 const getNamespaces = async schema => {
-	const r = await db.any(`SELECT  *, 
+	let r = await db.any(`SELECT  *, 
 	          (SELECT count(*) FROM ${schema}.classes where ns_id = ns.id  ) cl_count, 
 			  (SELECT count(*) FROM ${schema}.properties where ns_id = ns.id  ) prop_count 
 		FROM ${schema}.ns order by cl_count desc`); //Nomainīju sakārtojumu, bija order by value, priority desc
 	const local_ns = r.filter(function(n){ return n.is_local == true});
 	if (local_ns.length == 0 )
-		r[0].is_local = true
+		r[0].is_local = true;
+		
+	r = util.correctValue(r);
     return r;
 }
 
 // **************************************************************************************************************
 const getPublicNamespaces = async () => {
-	const r = await db.any(`SELECT  abbr as name, prefix as value from public.ns_prefixes`); 
+	let r = await db.any(`SELECT  abbr as name, prefix as value from public.ns_prefixes`); 
+	r = util.correctValue(r);
     return r;
 }
 // **************************************************************************************************************
