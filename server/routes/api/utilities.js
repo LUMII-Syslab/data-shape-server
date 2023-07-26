@@ -75,10 +75,15 @@ const setEndpointUrl = (params, s) => {
 }
 const getTypeStrings = (params) => { return [ getValue(params.main.direct_class_role), getValue(params.main.indirect_class_role)];}
 const getTypeString = async (schema, params, classIri = null) => {
-	// TODO te vajadzēs ņemt no datu bazes, ja būs zinama klase un varbūt arī kāds parametrs, vai vispār meklēt tajā datu bāzē
+	// TODO te vajadzēs ņemt no datu bazes, ja būs zināma klase un varbūt arī kāds parametrs, vai vispār meklēt tajā datu bāzē
+	if (params.main.has_classification_property && classIri != null) {
+		const prop_info = await db.any(`SELECT classification_property from ${schema}.classes where iri = '${classIri}'`);
+		return `<${prop_info[0].classification_property}>`;
+	}
+
 	const roles = getTypeStrings(params);
 	return await getUriProperty(schema, roles[0]);
-	return roles[0];
+	//return roles[0];
     //return 'rdf:type';
 }
 const setTypeStrings = (params, direct_class_role, indirect_class_role) => {
@@ -232,6 +237,10 @@ const checkEndpoint = async (params, schema, KNOWN_DATA) => {
 		params = setTypeStrings(params, s.direct_class_role, s.indirect_class_role);
 	else 
 		params = setTypeStrings(params, 'rdf:type', '');
+	
+	const col_info = await db.any(`SELECT count(*) FROM information_schema."columns"  where table_schema = '${schema}' and table_name = 'classes' and column_name = 'classification_property'`);
+	if ( col_info[0].count > 0) 
+		params.main.has_classification_property = true;
 
 	return params;
 }
