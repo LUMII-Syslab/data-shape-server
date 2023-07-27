@@ -53,7 +53,8 @@ def parseIri(iri):
     baseIri = iri[:lastSymbol+1]
     localName = ""
     prefix = WD_PREFIXES.get(baseIri, "")
-    if iri.find("http://www.wikidata.org/") != -1:
+    # if iri.find("http://www.wikidata.org/") != -1:
+    if iri.startswith("http://") or iri.startswith("https://"):
         localName = iri[lastSymbol+1:]
     return prefix, localName
 
@@ -63,11 +64,13 @@ def insertWikidataPrefixes(connection):
                  ON CONFLICT (name)
                  DO NOTHING;"""
     cur = connection.cursor()
-    totalSql = ""
     logging.info("Adding {} prefixes to ns".format(len(WD_PREFIXES)))
     for key, value in WD_PREFIXES.items():
-        totalSql = totalSql + baseSql.format(schema=SCHEMA, name=value, value=key)
-    cur.execute(totalSql)
+        sql = baseSql.format(schema=SCHEMA, name=value, value=key)
+        try:
+            cur.exec(sql)
+        except:
+            pass
     connection.commit()
     cur.close()
 
@@ -147,12 +150,15 @@ def queryWikiData(query, retries=0):
         # This was added to avoid endless error loops, which haven't been seen in later times, maybe fixed
         # Can be disabled if neccessary
         logging.info("More than 10 queries in the last minute, waiting for 60s")
-        time.sleep(61)
+        # time.sleep(61)
+        pass
+
     if retries == 3:
         # TODO - Currently there is a problem, that a failing query even if it was because of too many requests,
         # the failing query will go into an endless fail loop
         logging.warning("Bad requests loop skipping query for now - {}".format(query))
-        return {}
+        # return {}
+        return None, -1
     url = 'https://query.wikidata.org/sparql'
     body = {'query': query,
             'format': 'json',}
@@ -162,27 +168,40 @@ def queryWikiData(query, retries=0):
     response = requests.post(url, headers = headers, data = body)
     if response.ok:
         logging.debug("Succesful query - {}".format(query))
-        return json.loads(response.text)['results']['bindings']
+        try:
+            responseJson = json.loads(response.text)['results']['bindings']
+        except json.decoder.JSONDecodeError as error:
+            logging.debug("Bad JSON received - {}".format(response.text))
+            responseJson = None
+        return responseJson, 200
+        # return json.loads(response.text)['results']['bindings']
     elif response.status_code == 429 or response.status_code == 503 : # To many requests in the last minute, let's wait some time till we make a new one
         sleepTime = 60
         if "Retry-After" in response.headers:
             sleepTime = int(response.headers["Retry-After"])
         logging.info("Query Limit reached. Retrying after {}s".format(sleepTime))
         time.sleep(sleepTime+1)
-        queryWikiData(query, retries+1)
+        if retries > 2:
+            return None, response.status_code
+        return queryWikiData(query, retries+1)
     elif response.status_code == 502: # Bad gateway server, let's just retry the query
         logging.info("Got bad gateway server in response, retrying query...")
         time.sleep(30)
-        queryWikiData(query, retries+1)
+        if retries > 2:
+            return None, response.status_code
+        return queryWikiData(query, retries+1)
     elif response.status_code == 500: # Query timeout, can't do much about this besides skipping
         logging.warning("Query timed out, skipping query - {}".format(query))
-        return {}
+        # return {}
+        return None, response.status_code
     else:
         logging.warning("WikiData returned response code - {}".format(response.status_code))
         logging.warning("Failed query - {}".format(query))
+        return None, response.status_code
 
 def insertClasses(connection, dict):
     # Insert classes from given dictionary into target database
+    logging.info("insertClasses: {}".format(len(dict)))
     cur = connection.cursor()
     # Subclasses used while developing, just to see how many subclasses for relevant classes are there
     baseSql = '''
@@ -206,9 +225,40 @@ def insertClasses(connection, dict):
             totalSql = ""
     connection.commit()
     cur.close()
+    logging.info("insertClasses done.")
+
+CLASS_ID_MAP = {}
+PROP_ID_MAP = {}
+
+def loadClassIdMap(connection):
+    global CLASS_ID_MAP
+    baseSql = '''
+        SELECT id, iri FROM {schema}.classes
+    '''
+    sql = baseSql.format(schema=SCHEMA)
+    with connection.cursor() as curs:
+        curs.execute(sql)
+        for row in curs:
+            CLASS_ID_MAP[row[1]] = row[0]
+            # print(row)
+    print(len(CLASS_ID_MAP))
+
+def loadPropIdMap(connection):
+    global PROP_ID_MAP
+    baseSql = '''
+        SELECT id, iri FROM {schema}.properties
+    '''
+    sql = baseSql.format(schema=SCHEMA)
+    with connection.cursor() as curs:
+        curs.execute(sql)
+        for row in curs:
+            PROP_ID_MAP[row[1]] = row[0]
+            # print(row)
+    print(len(PROP_ID_MAP))
 
 def insertProperties(connection, dict):
     # Insert properties from given dictionary into target database
+    logging.info("insertProperties: {}".format(len(dict)))
     cur = connection.cursor()
     baseSql = '''
         INSERT INTO {schema}.properties(ns_id, iri, cnt, display_name, local_name, object_cnt)
@@ -236,7 +286,7 @@ def insertProperties(connection, dict):
     connection.commit()
     cur.close()
 
-def insertClassPropertyRelations(cursor, relationList, outgoingRelations):
+def insertClassPropertyRelationsOld(cursor, relationList, outgoingRelations):
     # As the Python script has no idea about IDs of the classes, just tell the SQL to select them based on class and property iri's
     # Should watch out, as the iri technically could not be unique, as that could brake this SQL
     baseSql = '''
@@ -260,6 +310,47 @@ def insertClassPropertyRelations(cursor, relationList, outgoingRelations):
         if ((i % 50000) == 0) or (i == totalRelations):
             cursor.execute(totalSql)
             totalSql = ""
+    logging.info("Inserted {} {} property relations into target database...".format(i, propertyDirectionString))
+
+def verbalizeCpRelType(type_id):
+    if type_id == 1:
+        return 'incoming'
+    elif type_id == 2:
+        return 'outgoing'
+    elif type_id == 3:
+        return ''
+    elif type_id == 4:
+        return ''
+    else:
+        return 'unk'
+
+def insertClassPropertyRelations(cursor, relationList, outgoingRelations):
+    baseSql = '''
+        INSERT INTO {schema}.cp_rels(class_id, property_id, type_id, cnt, object_cnt)
+        VALUES {valuesString};
+    '''
+    propertyDirectionString = "outgoing" if outgoingRelations else "incoming"
+    # propertyDirectionString = verbalizeCpRelType()
+    typeId = 2 if outgoingRelations else 1
+    totalRelations = len(relationList)
+    valuesList = []
+    logging.info("Inserting {} {} property relations into target database...".format(totalRelations, propertyDirectionString))
+    i = 0
+    for class1, property, cnt, objectCnt  in relationList:
+        i = i + 1
+        try:
+            classId = CLASS_ID_MAP[class1]
+            propId = PROP_ID_MAP[property]
+        except:
+            # care for the situation where new properties have been added to the endpoint since the property fetching
+            continue
+        valuesItem = f'({classId}, {propId}, {typeId}, {cnt}, {objectCnt})'
+        valuesList.append(valuesItem)
+        if ((i % 5000) == 0) or (i == totalRelations):
+            finalSql = baseSql.format(schema = SCHEMA, valuesString = ', '.join(valuesList))
+            cursor.execute(finalSql)
+            valuesList = []
+    logging.info("Inserted {} {} property relations into target database...".format(i, propertyDirectionString))
 
 def updateClassPropertyRelations(cursor, relationList):
     baseSql = '''
@@ -281,7 +372,7 @@ def updateClassPropertyRelations(cursor, relationList):
             totalSql = ""
 
 def insertClassClassRelations(cursor, relationList):
-    logging.info("Inserting class relations into target database")
+    logging.info("InsertClassClassRelations: {}".format(len(relationList)))
     # As the Python script has no idea about IDs of the classes, just tell the SQL to select them based on class and property iri's
     # Should watch out, as the iri technically could not be unique, as that could brake this SQL
     baseSql = '''
@@ -303,6 +394,15 @@ def insertClassClassRelations(cursor, relationList):
     # Don't commit transaction just yet, because these relations are inserted in batches and not all at once
 
 def insertConstraintRelations(cursor, constraintList):
+    relTypeSql = '''
+        INSERT INTO {schema}.cp_rel_types(name) VALUES('{name}')
+             ON CONFLICT ON CONSTRAINT cp_rel_types_name_unique
+             DO NOTHING;
+    '''
+    # Make sure that type_constraint and value_type_constraint cp_rel_types are in database
+    cursor.execute(relTypeSql.format(schema = SCHEMA, name='type_constraint'))
+    cursor.execute(relTypeSql.format(schema = SCHEMA, name='value_type_constraint'))
+
     # Insert class and property constraint relations into target database
     baseSql = '''
         INSERT INTO {schema}.cp_rels(class_id, property_id, type_id, cnt, object_cnt)
@@ -312,29 +412,23 @@ def insertConstraintRelations(cursor, constraintList):
         {cnt},
         {objectCnt}
         HAVING (SELECT id from {schema}.classes WHERE iri = '{classIri}') IS NOT NULL
-        AND (SELECT id from {schema}.properties WHERE iri = '{propIri}') IS NOT NULL;
+        AND (SELECT id from {schema}.properties WHERE iri = '{propIri}') IS NOT NULL
+        ON CONFLICT DO NOTHING;
     '''
-    relTypeSql = '''
-        INSERT INTO {schema}.cp_rel_types(id, name) VALUES({id},'{name}')
-             ON CONFLICT (id)
-             DO NOTHING;
-    '''
-    # Make sure that type_constraint and value_type_constraint cp_rel_types are in database
-    cursor.execute(relTypeSql.format(schema = SCHEMA, id=11, name='type_constraint'))
-    cursor.execute(relTypeSql.format(schema = SCHEMA, id=12, name='value_type_constraint'))
     totalSql = ""
     totalConstraints = len(constraintList)
     logging.info("Inserting {} constraint relations into target database...".format(totalConstraints))
     i = 0
     for cl, prop, constrType in constraintList:
+        logging.info(f'{cl}, {prop}, {constrType}')
         i = i + 1
-        constr = 'type_constraint' if constrType == 11 else 'value_type_constraint'
-        totalSql = totalSql + baseSql.format(schema = SCHEMA, classIri = cl, propIri = prop, constraintType = constr, cnt = 0, objectCnt = 0)
+        # constr = 'type_constraint' if constrType == 3 else 'value_type_constraint'
+        totalSql = totalSql + baseSql.format(schema = SCHEMA, classIri = cl, propIri = prop, constraintType = constrType, cnt = 0, objectCnt = 0)
         if ((i % 50000) == 0) or (i == totalConstraints):
             cursor.execute(totalSql)
             totalSql = ""
 
-def insertPropObjCount(connection, propDict):
+def insertPropObjCount(connection, propObjCountDict):
     # Update property object count in target database
     baseSql = '''
         UPDATE {schema}.properties
@@ -343,10 +437,10 @@ def insertPropObjCount(connection, propDict):
     '''
     cur = connection.cursor()
     totalSql = ""
-    totalProps = len(propDict)
+    totalProps = len(propObjCountDict)
     logging.info("Updating property object count into target database...")
     i = 0
-    for key, value in propDict.items():
+    for key, value in propObjCountDict.items():
         i = i + 1
         totalSql = totalSql + baseSql.format(schema = SCHEMA, propIri = key, objectCnt = int(value))
         if ((i % 30000) == 0) or (i == totalProps):
@@ -354,6 +448,7 @@ def insertPropObjCount(connection, propDict):
             totalSql = ""
     connection.commit()
     cur.close()
+    logging.info("Property object count in target database updated.")
 
 def getProperties():
     logging.info("Getting list of properties...")
@@ -364,7 +459,7 @@ def getProperties():
         GROUP BY ?property
         ORDER BY DESC(?useCount)
     """
-    responseDict = queryWikiData(query)
+    responseDict, responseStatus = queryWikiData(query)
     resultDict = {}
     if responseDict is not None:
         for i in responseDict:
@@ -379,26 +474,34 @@ def getPropertyLabels(propertiesDict):
         SELECT DISTINCT ?property ?propLabel WHERE {{
           VALUES ?property {{ {} }}
           SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en". }}
-          ?prop wikibase:directClaim ?property
+          ?prop ( wikibase:directClaim | wikibase:claim | wikibase:novalue | wikibase:qualifier | wikibase:qualifierValue | wikibase:qualifierValueNormalized | wikibase:reference | wikibase:referenceValue | wikibase:referenceValueNormalized | wikibase:statementProperty | wikibase:statementValue | wikibase:statementValueNormalized | wikibase:directClaimNormalized ) ?property
         }}
     """
     i = 0
+    k = 0
     propertyList = ""
     for key in propertiesDict:
         i = i + 1
-        propertyList = propertyList + " <" + key + ">"
+        if not key.startswith("http://www.wikidata.org/"):
+            prefix, localName = parseIri(key)
+            propertiesDict[key]['label'] = localName
+        else:
+            k = k + 1
+            propertyList = propertyList + " <" + key + ">"
+
         # Query wikidata in batches of 15000 to maximize query time and minimize amount of queries
         # Can't query in much bigger batches as then queries start to reach payload limit
-        if ((i % 15000) == 0) or (i == totalProps):
-            responseDict = queryWikiData(query.format(propertyList))
+        if ((k % 15000) == 0) or (i == totalProps):
+            responseDict, responseStatus = queryWikiData(query.format(propertyList))
             if responseDict is not None:
                 for j in responseDict:
-                    if j['property']['value'] in propertiesDict:
+                    if j['property']['value'] in propertiesDict and j['propLabel']['value'] is not None and len(j['propLabel']['value']) > 0:
                         propertiesDict[j['property']['value']]['label'] = j['propLabel']['value']
             propertyList = ""
             logging.info("{:.1%} done...".format(i/float(totalProps)))
+    logging.info("Property labels done.")
 
-def getClassClassRelations(connection, classDict):
+def processClassClassRelations(connection, classDict):
     logging.info("Getting Class-Class relations...")
     # A little complicated function, that gets all subclass relations between all relevant classes
     query = """
@@ -428,7 +531,7 @@ def getClassClassRelations(connection, classDict):
         # First check if either the max number of subclasses for collected classes go over 1mil, a total of 15000 classes is collected or if its the last class
         if ((relationsCounter + int(value['subclasses'])) > 1000000) or (collectedClasses  == 15000) or (i == totalClasses):
             # If either check is true, query wikidata to get related classes for batch of the collected classes
-            responseDict = queryWikiData(query.format(classList))
+            responseDict, responseStatus = queryWikiData(query.format(classList))
             # It was a bit heavy to check if the subclass is relevant on wikidata, so it is done within Python
             # But then again we get max 1mil of result rows in response, which can take up to 1GB RAM for a few secs, while the response is processed
             if responseDict is not None:
@@ -453,20 +556,26 @@ def getClassClassRelations(connection, classDict):
     connection.commit()
     cur.close()
 
-def getClassPropertyRelations(connection, classDict, outgoingRelations=True):
+def processClassPropertyRelations(connection, classDict, outgoingRelations=True):
     # Implements a very similar algorithm as for class-class relations, but just collecting classes based on instance count
     # Outgoing properties - 400k instance limit, otherwise timeouts
     # Incoming properties - 2mil instance limit, otherwise timeouts
     # This goes on for quite a while, taking up to 4 hours to get the outgoing and incoming properties
-    propertyLine = "?x ?property ?y \n"
-    classInstanceLimit = 400000
-    classInstanceLimit2 = 200000
-    classAmountLimit = 5000
+
+    classInstanceLimit_outgoing = 400000
+    classInstanceLimit_incoming = 2000000
+
+    propertyLine = "?x ?property ?y \n" if outgoingRelations else "?y ?property ?x. \n"
     propertyDirectionString = "Outgoing" if outgoingRelations else "Incoming"
-    if not outgoingRelations:
-        # For Incoming relations we can't batch together too many classes, as class instance amount doesn't perfectly correlate to query time 
-        classInstanceLimit = 2000000
-        propertyLine = "?y ?property ?x. \n"
+    classInstanceLimit = classInstanceLimit_outgoing if outgoingRelations else classInstanceLimit_incoming
+
+    # classInstanceLimitBatch = 200000
+    # classAmountLimitBatch = 5000
+    classInstanceLimitBatch = 100000
+    classAmountLimitBatch = 2000
+
+    # For Incoming relations we can't batch together too many classes, as class instance amount doesn't perfectly correlate to query time 
+
     query = """
         SELECT ?property ?class (COUNT(?y) AS ?propertyInstances) WHERE {{
            ?x wdt:P31 ?class.""" + propertyLine + """ VALUES ?class {{ {} }}
@@ -477,33 +586,41 @@ def getClassPropertyRelations(connection, classDict, outgoingRelations=True):
     k = 0
     instanceCounter = 0
     totalClasses = len(classDict)
-    classList = ""
+    # classList = ""
+    classList = []
+    skippedClassList = []
     relationList = []
     collectedClasses = 0
     cur = connection.cursor()
     totalInsertedRelations = 0
     logging.info("Getting {} class-property relations for {} classes...".format(propertyDirectionString, totalClasses))
     for key, value in classDict.items():
+        logging.debug("=== klase {} ===".format(key))
+
         i = i + 1
         if int(value['instances']) > classInstanceLimit:
-            # TO-DO should specifically process these larger classes, not just skip them
             logging.warning("Class {} has too many instances, query will timeout, so skipping for now".format(key))
+            skippedClassList.append(value)
             continue
+
         # K: Counter to know which is the first processed class, can't use i for this, as we need also way to tell if it's the last class overall
         k = k + 1
         if k == 1 or i == totalClasses:
             collectedClasses = collectedClasses + 1
-            classList = classList + " <" + key + ">"
+            # classList = classList + " <" + key + ">"
+            classList.append(value)
             instanceCounter = instanceCounter + int(value['instances'])
             if k == 1:
                 continue
         if not outgoingRelations:
             # Calculate batch limits, so that for smaller classes as many classes are batched together, query doesn't time out. Problematic only for incoming relations
             power = math.floor(math.log(i, 10))
-            classInstanceLimit2 = 1000000/pow(2, power)
-            classAmountLimit = pow(10, power) if power < 4 else 1000
-        if ((instanceCounter + int(value['instances'])) > classInstanceLimit2) or (collectedClasses  == classAmountLimit) or (i == totalClasses):
-            responseDict = queryWikiData(query.format(classList))
+            classInstanceLimitBatch = 1000000/pow(2, power)
+            classAmountLimitBatch = pow(10, power) if power < 4 else 1000
+
+        if ((instanceCounter + int(value['instances'])) > classInstanceLimitBatch) or (collectedClasses  == classAmountLimitBatch) or (i == totalClasses):
+            classIriList = " ".join(f'<{x["iri"]}>' for x in classList)
+            responseDict, responseStatus = queryWikiData(query.format(classIriList))
             if responseDict is not None:
                 for j in responseDict:
                     objectCnt = 0
@@ -511,23 +628,43 @@ def getClassPropertyRelations(connection, classDict, outgoingRelations=True):
                         objectCnt = int(j['propertyInstances']['value'])
                     relationList.append((j['class']['value'], j['property']['value'], int(j['propertyInstances']['value']), objectCnt))
                 responseDict.clear() # Clear the response dict as fast as we can, to free up used memory
-            classList = ""
+            else:
+                logging.warning("error {} while getting {} cp_rels; class list ({}) {}, pass 1, fallin back to one class per req".format(responseStatus, propertyDirectionString, collectedClasses, classIriList))
+                for c in classList:
+                    responseDict, responseStatus = queryWikiData(query.format(f'<{c["iri"]}>'))
+                    if responseDict is not None:
+                        for j in responseDict:
+                            objectCnt = 0
+                            if not outgoingRelations:
+                                objectCnt = int(j['propertyInstances']['value'])
+                            relationList.append((j['class']['value'], j['property']['value'], int(j['propertyInstances']['value']), objectCnt))
+                        responseDict.clear() # Clear the response dict as fast as we can, to free up used memory
+                    else:
+                        logging.error("error {} while getting {} cp_rels; class ({}) {}, pass 2, falling back to large class mode".format(responseStatus, propertyDirectionString, collectedClasses, f'<{c["iri"]}>'))
+                        skippedClassList.append(c)
+                # skippedClassList.extend(classList)
+            classList = []
             instanceCounter = 0
             collectedClasses = 0
             currentRelations = len(relationList)
-            logging.info("{} property relations for {}/{} classes done...".format(propertyDirectionString, i, totalClasses))
+            logging.debug("{} property relations for {}/{} classes done...".format(propertyDirectionString, i, totalClasses))
             if (currentRelations > 50000) or (i == totalClasses):
                 insertClassPropertyRelations(cur, relationList, outgoingRelations)
                 totalInsertedRelations = totalInsertedRelations + currentRelations
                 logging.info("{} {} relations collected".format(propertyDirectionString, totalInsertedRelations))
                 relationList.clear()
+                logging.info("{:.1%} done...".format(i/float(totalClasses)))
+
         collectedClasses = collectedClasses + 1
-        classList = classList + " <" + key + ">"
+        # classList = classList + " <" + key + ">"
+        classList.append(value)
         instanceCounter = instanceCounter + int(value['instances'])
     connection.commit()
     cur.close()
+    logging.info("processClassPropertyRelations done. {} classes skipped as large".format(len(skippedClassList)))
+    return skippedClassList
 
-def updateClassPropertyObjCount(connection, classDict):
+def processClassPropertyObjCount(connection, classDict):
     query = """
         SELECT ?property ?class (COUNT(?y) AS ?objectCnt) WHERE {{
            ?x wdt:P31 ?class.
@@ -541,7 +678,9 @@ def updateClassPropertyObjCount(connection, classDict):
     k = 0
     instanceCounter = 0
     totalClasses = len(classDict)
-    classList = ""
+    # classList = ""
+    classList = []
+    skippedClassList = []
     relationList = []
     collectedClasses = 0
     cur = connection.cursor()
@@ -550,24 +689,30 @@ def updateClassPropertyObjCount(connection, classDict):
     for key, value in classDict.items():
         i = i + 1
         if int(value['instances']) > 400000:
-            # TO-DO should specifically process these larger classes, not just skip them
             logging.warning("Class {} has too many instances, query will timeout, so skipping for now".format(key))
+            skippedClassList.append(value)
             continue
+
         # K: Counter to know which is the first processed class, can't use i for this, as we need also way to tell if it's the last class overall
         k = k + 1
         if k == 1 or i == totalClasses:
             collectedClasses = collectedClasses + 1
-            classList = classList + " <" + key + ">"
+            # classList = classList + " <" + key + ">"
+            classList.append(value)
             instanceCounter = instanceCounter + int(value['instances'])
             if k == 1:
                 continue
         if ((instanceCounter + int(value['instances'])) > 400000) or (collectedClasses  == 5000) or (i == totalClasses):
-            responseDict = queryWikiData(query.format(classList))
+            classIriList = " ".join(f'<{x["iri"]}>' for x in classList)
+            responseDict, responseStatus = queryWikiData(query.format(classIriList))
             if responseDict is not None:
                 for j in responseDict:
                     relationList.append((j['class']['value'], j['property']['value'], int(j['objectCnt']['value'])))
                 responseDict.clear() # Clear the response dict as fast as we can, to free up used memory
-            classList = ""
+            else:
+                logging.error("error while getting outgoing cp_rels objCount; class list ({}) {}".format(collectedClasses, classList))
+                skippedClassList.extend(classList)
+            classList = []
             instanceCounter = 0
             collectedClasses = 0
             currentRelations = len(relationList)
@@ -578,12 +723,15 @@ def updateClassPropertyObjCount(connection, classDict):
                 logging.info("{} outgoing relations updated".format(totalUpdatedRelations))
                 relationList.clear()
         collectedClasses = collectedClasses + 1
-        classList = classList + " <" + key + ">"
+        # classList = classList + " <" + key + ">"
+        classList.append(value)
         instanceCounter = instanceCounter + int(value['instances'])
     connection.commit()
     cur.close()
+    logging.info("processClassPropertyObjCount done. {} classes skipped as large".format(len(skippedClassList)))
+    return skippedClassList
 
-def updatePropertyObjCount(propDict):
+def getPropertyObjCount(propDict):
     # Update object count for properties
     # For properties with over 2mil uses in triples, we just take an estimate for 2mil
     # and calculate estimate for total uses for property
@@ -611,18 +759,19 @@ def updatePropertyObjCount(propDict):
     collectedProps = 0
     propCounter = 0
     resultDict = {}
+    LARGE_PROP_THRESHOLD = 2000000
     for key, value in propDict.items():
         i = i + 1
-        if int(value['useCount']) > 2000000:
-            responseDict = queryWikiData(limitQuery.format(property=" <" + key + ">"))
+        if int(value['useCount']) > LARGE_PROP_THRESHOLD:
+            responseDict, responseStatus = queryWikiData(limitQuery.format(property=" <" + key + ">"))
             if responseDict is not None:
                 for j in responseDict:
-                    proportion =  int(j['objCount']['value']) / 2000000
+                    proportion =  int(j['objCount']['value']) / LARGE_PROP_THRESHOLD
                     resultDict[key] = int(value['useCount']) * proportion
-                    logging.info("<{}> property is too big, getting estimate obj count : {}".format(key, int(value['useCount']) * proportion))
+                    logging.warning("<{}> property is too big, getting estimate obj count : {}".format(key, int(value['useCount']) * proportion))
                 responseDict.clear() # Clear the response dict as fast as we can, to free up used memory
             if (i == totalProperties): # Here let's catch the case, where last prop is large and we get obj count for props left in list
-                responseDict = queryWikiData(query.format(propertyList=propList))
+                responseDict, responseStatus = queryWikiData(query.format(propertyList=propList))
                 if responseDict is not None:
                     for j in responseDict:
                         resultDict[j['property']['value']] = j['objectCnt']['value']
@@ -635,8 +784,8 @@ def updatePropertyObjCount(propDict):
                 propCounter = propCounter + int(value['useCount'])
                 if k == 1:
                     continue
-            if ((propCounter + int(value['useCount'])) > 6000000) or (collectedProps  == 5000) or (i == totalProperties):
-                responseDict = queryWikiData(query.format(propertyList=propList))
+            if ((propCounter + int(value['useCount'])) > 2 * LARGE_PROP_THRESHOLD) or (collectedProps  == 5000) or (i == totalProperties):
+                responseDict, responseStatus = queryWikiData(query.format(propertyList=propList))
                 if responseDict is not None:
                     for j in responseDict:
                         resultDict[j['property']['value']] = j['objectCnt']['value']
@@ -660,11 +809,11 @@ def getClasses():
         GROUP BY ?class
         ORDER BY DESC(?instances)
     """
-    responseDict = queryWikiData(query)
+    responseDict, responseStatus = queryWikiData(query)
     classDict = {}
     if responseDict is not None:
         for i in responseDict:
-            classDict[i['class']['value']] = {'instances':int(i['instances']['value']), 'label': "", 'subclasses': 0}
+            classDict[i['class']['value']] = {'iri':i['class']['value'], 'instances':int(i['instances']['value']), 'label': "", 'subclasses': 0}
     logging.info("{} classes retrieved".format(len(classDict)))
     # Then count the number of subclasses for each class, later used for getting class relations
     logging.info("Counting class subclasses...")
@@ -675,7 +824,7 @@ def getClasses():
         GROUP BY ?class
         ORDER BY DESC(?subclasses)
     """
-    responseDict = queryWikiData(query)
+    responseDict, responseStatus = queryWikiData(query)
     if responseDict is not None:
         for i in responseDict:
             if i['class']['value'] in classDict:
@@ -699,16 +848,46 @@ def getClassLabels(classDict):
         classList = classList + " <" + key + ">"
         # Query wikidata in batches of 15000 to maximize query time and minimize amount of queries
         if ((i % 15000) == 0) or (i == totalClasses):
-            responseDict = queryWikiData(query.format(classList))
+            responseDict, responseStatus = queryWikiData(query.format(classList))
             if responseDict is not None:
                 for j in responseDict:
                     if j['class']['value'] in classDict:
                         classDict[j['class']['value']]['label'] = j['classLabel']['value']
             classList = ""
             logging.info("{:.1%} done...".format(i/float(totalClasses)))
+    logging.info("Class labels done.")
 
-def processLargeClasses(connection, classDict):
-    logging.info("Processing large class property relations...")
+def processClassPropertyRelations_large_Incoming(connection, classList):
+    logging.info("Processing large class property relations - incoming ({}) ...".format(len(classList)))
+    # Process the largest class property relations which had too many instances
+    # Get the property relations only for first 500k class instances and calculate aproximate property use count
+    incomingPropsQuery = '''
+    SELECT ?property (COUNT(?x) AS ?useCount)
+        {{SELECT ?property ?x WHERE
+            {{?instance wdt:P31 <{classIri}>.
+            ?x ?property ?instance.}}
+        LIMIT 500000
+    }}
+    GROUP BY ?property'''
+    incomingRelationList = []
+    cur = connection.cursor()
+    # Iterate through all the classes ignoring classes with < 400k instances
+    # Getting incoming property relations only for classes with > 2mil instances
+    for value in classList:
+        key = value['iri']
+        logging.info("Retrieving incoming class property relations for class ({})".format(key))
+        responseDict, responseStatus = queryWikiData(incomingPropsQuery.format(classIri=key))
+        if responseDict is not None:
+            for j in responseDict:
+                useCount = int((float(j['useCount']['value']) / 500000) * int(value['instances']))
+                incomingRelationList.append((key, j['property']['value'], useCount , useCount))
+
+    insertClassPropertyRelations(cur, incomingRelationList, False)
+    connection.commit()
+    cur.close()
+
+def processClassPropertyRelations_large_Outgoing(connection, classList):
+    logging.info("Processing large class property relations - outgoing ({}) ...".format(len(classList)))
     # Process the largest class property relations which had too many instances
     # Get the property relations only for first 500k class instances and calculate aproximate property use count
     outgoingPropsQuery = '''
@@ -719,14 +898,26 @@ def processLargeClasses(connection, classDict):
         LIMIT 500000
     }}
     GROUP BY ?property'''
-    incomingPropsQuery = '''
-    SELECT ?property (COUNT(?x) AS ?useCount)
-        {{SELECT ?property ?x WHERE
-            {{?instance wdt:P31 <{classIri}>.
-            ?x ?property ?instance.}}
-        LIMIT 500000
-    }}
-    GROUP BY ?property'''
+    outgoingRelationList = []
+    cur = connection.cursor()
+    # Iterate through all the classes ignoring classes with < 400k instances
+    # Getting incoming property relations only for classes with > 2mil instances
+    for value in classList:
+        key = value['iri']
+        logging.info("Retrieving outgoing class property relations for class ({})".format(key))
+        responseDict, responseStatus = queryWikiData(outgoingPropsQuery.format(classIri=key))
+        if responseDict is not None:
+            for j in responseDict:
+                useCount = int((float(j['useCount']['value']) / 500000) * int(value['instances']))
+                outgoingRelationList.append((key, j['property']['value'], useCount, 0))
+    insertClassPropertyRelations(cur, outgoingRelationList, True)
+    connection.commit()
+    cur.close()
+
+def processClassPropertyRelations_large_ObjCount(connection, classList):
+    logging.info("Processing large class property relations - outgoing objCount ({}) ...".format(len(classList)))
+    # Process the largest class property relations which had too many instances
+    # Get the property relations only for first 500k class instances and calculate aproximate property use count
     outgoingPropsObjCount = '''
     SELECT ?property (COUNT(?x) AS ?objectCnt) {{
       SELECT ?property ?x WHERE {{
@@ -738,41 +929,23 @@ def processLargeClasses(connection, classDict):
     }}
     GROUP BY ?property
     '''
-    outgoingRelationList = []
-    incomingRelationList = []
     outgoingObjCountList = []
     cur = connection.cursor()
     # Iterate through all the classes ignoring classes with < 400k instances
     # Getting incoming property relations only for classes with > 2mil instances
-    for key, value in classDict.items():
-        if int(value['instances']) < 400000:
-            continue
-        if int(value['instances']) > 2000000:
-            logging.info("Retrieving incoming class property relations for class ({})".format(key))
-            responseDict = queryWikiData(incomingPropsQuery.format(classIri=key))
-            if responseDict is not None:
-                for j in responseDict:
-                    useCount = int((float(j['useCount']['value']) / 500000) * int(value['instances']))
-                    incomingRelationList.append((key, j['property']['value'], useCount , useCount))
-        logging.info("Retrieving outgoing class property relations for class ({})".format(key))
-        responseDict = queryWikiData(outgoingPropsQuery.format(classIri=key))
-        if responseDict is not None:
-            for j in responseDict:
-                useCount = int((float(j['useCount']['value']) / 500000) * int(value['instances']))
-                outgoingRelationList.append((key, j['property']['value'], useCount, 0))
+    for value in classList:
+        key = value['iri']
         logging.info("Getting outgoing class property relation object count for class ({})".format(key))
-        responseDict = queryWikiData(outgoingPropsObjCount.format(classIri=key))
+        responseDict, responseStatus = queryWikiData(outgoingPropsObjCount.format(classIri=key))
         if responseDict is not None:
             for j in responseDict:
                 objCount = int((float(j['objectCnt']['value']) / 500000) * int(value['instances']))
                 outgoingObjCountList.append((key, j['property']['value'], objCount))
-    insertClassPropertyRelations(cur, incomingRelationList, False)
-    insertClassPropertyRelations(cur, outgoingRelationList, True)
     updateClassPropertyRelations(cur, outgoingObjCountList)
     connection.commit()
     cur.close()
 
-def getClassPropertyConstraints(connection, classDict):
+def processClassPropertyConstraints(connection, classDict):
     logging.info("Getting Class-Property constraints...")
     query = """
         SELECT DISTINCT ?class ?property ?constraint {{
@@ -784,21 +957,22 @@ def getClassPropertyConstraints(connection, classDict):
     """
     i = 0
     cur = connection.cursor()
-    classList = ""
+    classIriList = ""
     totalClasses = len(classDict)
     constraintList = []
     classLimit = 500 # For first largest classes take only 500 classes, as constraints are mostly just used for the largest classes
     for key in classDict:
         i = i + 1
-        classList = classList + " <" + key + ">"
+        classIriList = classIriList + " <" + key + ">"
         if ((i % classLimit) == 0) or (i == totalClasses):
-            classLimit = 10000 # For the rest of the classes group them up by 10k
-            responseDict = queryWikiData(query.format(classList=classList))
+            # classLimit = 10000 # For the rest of the classes group them up by 10k
+            classLimit = 4000 # For the rest of the classes group them up by4k
+            responseDict, responseStatus = queryWikiData(query.format(classList=classIriList))
             if responseDict is not None:
                 for j in responseDict:
-                    constraintType = 11 if j['constraint']['value'] == 'http://www.wikidata.org/entity/Q21503250' else 12
+                    constraintType = 'type_constraint' if j['constraint']['value'] == 'http://www.wikidata.org/entity/Q21503250' else 'value_type_constraint'
                     constraintList.append((key, j['property']['value'], constraintType))
-            classList = ""
+            classIriList = ""
             logging.info("{:.1%} done...".format(i/float(totalClasses)))
     insertConstraintRelations(cur, constraintList)
     connection.commit()
@@ -818,26 +992,46 @@ if __name__ == '__main__':
         datefmt='%Y-%m-%d %H:%M:%S'
     )
 
-    insertWikidataPrefixes(databaseCon)
     # The schema extraction is modular, divided into parts by all of these functions
     # There are dependencies for some functions on classes list and for some on property list
     # Otherwise the unnecessary functions can be commented out, to extract only a part of the schema or debug
-    propDict = getProperties()
-    getPropertyLabels(propDict)
-    insertProperties(databaseCon, propDict)
-    propObjCountDict = updatePropertyObjCount(propDict)
-    insertPropObjCount(databaseCon, propObjCountDict)
-    propDict.clear() # Clear the massive dictionary, to not take up RAM space
+
+    # insertWikidataPrefixes(databaseCon)
+
+    # propDict = getProperties()
+    # getPropertyLabels(propDict)
+    # insertProperties(databaseCon, propDict)
+    # propObjCountDict = getPropertyObjCount(propDict)
+    # propDict.clear() # Clear the massive dictionary, to not take up RAM space
+    # insertPropObjCount(databaseCon, propObjCountDict)
+    # propObjCountDict.clear()
+
+    loadPropIdMap(databaseCon)
 
     classDict = getClasses()
-    getClassLabels(classDict)
-    insertClasses(databaseCon, classDict)
-    getClassPropertyRelations(databaseCon, classDict, outgoingRelations=False)
-    getClassPropertyRelations(databaseCon, classDict, outgoingRelations=True)
-    updateClassPropertyObjCount(databaseCon, classDict)
-    getClassClassRelations(databaseCon, classDict)
-    processLargeClasses(databaseCon, classDict)
-    getClassPropertyConstraints(databaseCon, classDict)
+    # getClassLabels(classDict)
+    # insertClasses(databaseCon, classDict)
+
+    loadClassIdMap(databaseCon)
+
+    # largeIncomingList = processClassPropertyRelations(databaseCon, classDict, outgoingRelations=False)
+    # processClassPropertyRelations_large_Incoming(databaseCon, largeIncomingList)
+    # largeIncomingList.clear()
+
+    # largeOutgoingList = processClassPropertyRelations(databaseCon, classDict, outgoingRelations=True)
+    # processClassPropertyRelations_large_Outgoing(databaseCon, largeOutgoingList)
+    # largeOutgoingList.clear()
+
+    largeOutgoingObjCountList = processClassPropertyObjCount(databaseCon, classDict)
+    processClassPropertyRelations_large_ObjCount(databaseCon, largeOutgoingObjCountList)
+    largeOutgoingObjCountList.clear()
+
+    # processLargeClasses(databaseCon, classDict)
+
+    # processClassClassRelations(databaseCon, classDict)
+    
+    # processClassPropertyConstraints(databaseCon, classDict)
     classDict.clear()
 
+    logging.info("Finished")
     databaseCon.close()
