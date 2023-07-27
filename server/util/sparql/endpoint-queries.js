@@ -1,5 +1,7 @@
-const util = require('../../routes/api/utilities')
+const debug = require('debug')('dss:sparql')
 const SparqlClient = require('sparql-http-client/ParsingClient')
+
+const util = require('../../routes/api/utilities')
 const db = require('../../routes/api/db')
 
 // const client = new SparqlClient({ endpointUrl: ENDPOINT_URL })
@@ -9,18 +11,36 @@ const clientMap = new Map();
 
 let queryTime = {};
 const delay = ms => new Promise(res => setTimeout(res, ms));
+const QUERY_INTERVAL = 100;
 
-const findClient = endpointUrl => {
-	if ( queryTime[endpointUrl] != undefined ) {
-		if ( Date.now() - queryTime[endpointUrl] < 100 ) {
-			delay(100);
+const SPARQL_TIMEOUT = 10_000;
+
+const fetchWithTimeout = async (url = "", optionsParam) => {
+    const controller = new AbortController();
+    const { signal } = controller;
+  
+    const timeout = setTimeout(() => {
+      controller.abort();
+    }, SPARQL_TIMEOUT);
+  
+    const options = Object.assign({} , optionsParam, { signal })
+    const request = await fetch(url, options);
+
+    clearTimeout(timeout);
+    return request;
+};
+  
+const findClient = async endpointUrl => {
+	if ( queryTime[endpointUrl] ) {
+		if ( Date.now() - queryTime[endpointUrl] < QUERY_INTERVAL ) {
+			await delay(QUERY_INTERVAL);
 		}
 	}
 	queryTime[endpointUrl] = Date.now();
     let client = clientMap.get(endpointUrl);
     if (client) return client;
 
-    client = new SparqlClient({ endpointUrl });
+    client = new SparqlClient({ endpointUrl, fetch: fetchWithTimeout });
     clientMap.set(endpointUrl, client);
 
     return client;
@@ -288,7 +308,7 @@ const sparqlGetPropertiesFromClass = async (schema, params, pos, uriClass, only_
 
 
 const executeSPARQL = async (endpointUrl, querySparql) => {
-    let client = findClient(endpointUrl);
+    let client = await findClient(endpointUrl);
 	console.log('--------executeSPARQL-----------------')
 	console.log(querySparql)
     if (querySparql.toLowerCase().startsWith('ask')) {
