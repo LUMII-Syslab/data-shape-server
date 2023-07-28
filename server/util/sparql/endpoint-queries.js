@@ -40,7 +40,16 @@ const findClient = async endpointUrl => {
     let client = clientMap.get(endpointUrl);
     if (client) return client;
 
-    client = new SparqlClient({ endpointUrl, fetch: fetchWithTimeout });
+    let nodeVerStr = process.versions.node;
+    let majorNodeVer = Number.parseInt(nodeVerStr.split('.')[0]);
+
+    if (majorNodeVer >= 18) {
+        debug(`Creating client for the endpoint ${endpointUrl}`);
+        client = new SparqlClient({ endpointUrl, fetch: fetchWithTimeout });
+    } else {
+        debug(`Creating legacy client for the endpoint ${endpointUrl}`);
+        client = new SparqlClient({ endpointUrl });
+    }
     clientMap.set(endpointUrl, client);
 
     return client;
