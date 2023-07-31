@@ -222,11 +222,15 @@ const getPublicNamespaces = async () => {
 }
 // **************************************************************************************************************
 const xx_getClassList = async (schema, params) => {
-	let sql = '';
+
+	let where_part = ['true'];
+	if ( params.main.not_in != undefined && params.main.not_in.length > 0 )
+		where_part.push(` ns_id not in (${params.main.not_in.join(',')}) `);
+		
 	if ( params.main.isLocal )
-		sql = `select id from ${schema}.v_classes_ns_main where is_local = true order by cnt desc LIMIT $1`;
-	else
-		sql = `select id from ${schema}.v_classes_ns_main order by cnt desc LIMIT $1`;
+		where_part.push(' is_local = true ');
+	
+	const sql = `select id, concat(prefix,':',display_name, ' (', cnt_x, ')' ) as display_name from ${schema}.v_classes_ns_main where ${where_part.join(' and ')} and cnt >= ${params.main.class_ind} order by cnt desc LIMIT $1`;
 		
 	const r = await util.getSchemaData(sql, params);
 
@@ -294,14 +298,22 @@ const xx_getPropListInfo2 = async (schema, params) => {
 	if (params.main.properties_ids !== '')
 		plus = ` and iri not in ('${params.main.properties_ids}')`;
 	
-	const sql = ` select prefix, display_name from ${schema}.v_properties_ns
-where id in (select property_id from ${schema}.cp_rels where type_id = 1 and property_id in (
-select property_id from ${schema}.cp_rels cr where class_id = ${params.main.cc} and type_id = 2 and object_cnt > 0) and class_id = ${params.main.cc2}) ${plus} order by prefix, display_name`; 
+	const sql = `select prefix, display_name from ${schema}.v_properties_ns
+where id in (select property_id from ${schema}.cp_rels where type_id = 1 and cover_set_index > 0 and property_id in (
+select property_id from ${schema}.cp_rels cr where class_id = ${params.main.cc} and type_id = 2 and cover_set_index > 0 and object_cnt > 0) and class_id = ${params.main.cc2}) ${plus} order by prefix, display_name`; 
 		
 	const r = await util.getSchemaData(sql, params);
 
     return r;
 }
+const xx_getPropInfo = async (schema, params) => {
+
+	const sql = `select type_id, class_id from ${schema}.cp_rels where property_id = ${params.main.prop_id} and cover_set_index > 0 and class_id in (${params.main.c_list})`; 
+
+	const r = await util.getSchemaData(sql, params);
+    return r;
+}
+
 
 const generateClassUpdate = async (schema, params) => {
 	let sql = `select count(*) from ${schema}.classes`;
@@ -342,5 +354,6 @@ module.exports = {
 	xx_getPropListInfo,
 	xx_getCCInfo,
 	xx_getPropListInfo2,
+	xx_getPropInfo,
 	generateClassUpdate,
 }

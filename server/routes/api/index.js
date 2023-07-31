@@ -18,6 +18,7 @@ const {
 	xx_getPropListInfo,
 	xx_getCCInfo,
 	xx_getPropListInfo2,
+	xx_getPropInfo,
 	generateClassUpdate,
 } = require('./class-handlers')
 
@@ -238,6 +239,10 @@ router.post('/ontologies/:ont/:fn', wrapAsync(async (req, res, next) => {
 		let r = { complete: false };
 		if ( fn === 'getClasses')
 			r = await getClasses(schema, params);
+		if ( fn === 'xx_getClassCount') {
+			const classCount = await db.any(`SELECT count(*) from ${schema}.classes`);
+			r = classCount[0].count;
+		}
 		if ( fn === 'getTreeClasses')
 			r = await getTreeClasses(schema, params);
 		if ( fn === 'getProperties') {
@@ -303,7 +308,10 @@ router.post('/ontologies/:ont/:fn', wrapAsync(async (req, res, next) => {
 		}	
 		if ( fn === 'xx_getPropListInfo2') {
 			r = await xx_getPropListInfo2(schema, params);
-		}			
+		}	
+		if ( fn === 'xx_getPropInfo') {
+			r = await xx_getPropInfo(schema, params);
+		}		
 
 		r.ontology = ont;
 		res.json(r)	
