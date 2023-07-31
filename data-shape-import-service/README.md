@@ -71,3 +71,6 @@ The namespaces table can be edited manually after the import. Change the prefixe
 Setting a default namespace would simplify its entity appearance. 
 Setting priorities to namespaces will order the entities in code completion lists. 
 
+## Acknowledgements
+
+Supported in part by Latvian Science Council project lzp-2021/1-0389 "Visual Queries in Distributed Knowledge Graphs" (since 2022).
