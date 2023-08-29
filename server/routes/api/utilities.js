@@ -339,13 +339,15 @@ const getSchemaObject = obj => {
 	return r;
 }
 
-const getSchemaData = async (sql, params) => {
+const getSchemaData = async (sql, params, print = true) => {
 	if ( sql === '')
 		return {data: []};
 	let complete = true;
 	let r;
-	console.log('--------executeSQL-----------------');
-	console.log(sql);
+	if (print) {
+		console.log('--------executeSQL-----------------');
+		console.log(sql);
+	}
 	if ( isFilter(params))	
 		r = await db.any(sql, [getLimit(params)+1, getFilter(params)]);
 	else
@@ -355,7 +357,8 @@ const getSchemaData = async (sql, params) => {
 		complete = false;
 		r.pop();
 	}
-	console.log(r.length)
+	if (print)
+		console.log(r.length)
 	let rr = {data: r, complete: complete, params: params};
 	if ( getMakeLog(params))
 		rr.sql = sql.replace(/(\r\n|\n|\r|\t)/gm,' ');

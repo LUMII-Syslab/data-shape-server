@@ -11,6 +11,8 @@ const {
 	getNamespaces,
 	getPublicNamespaces,
 	xx_getClassList,
+	xx_getClassListExt,
+	xx_getPropList,
 	xx_getClassListInfo,
 	xx_getClassInfo,
 	xx_getClassInfoAtr,
@@ -287,6 +289,12 @@ router.post('/ontologies/:ont/:fn', wrapAsync(async (req, res, next) => {
 		}
 		if ( fn === 'xx_getClassList') {
 			r = await xx_getClassList(schema, params);
+		}
+		if ( fn === 'xx_getClassListExt') {
+			r = await xx_getClassListExt(schema, params);
+		}
+		if ( fn === 'xx_getPropList') {
+			r = await xx_getPropList(schema, params);
 		}
 		if ( fn === 'xx_getClassListInfo') {
 			r = await xx_getClassListInfo(schema, params);
