@@ -241,7 +241,7 @@ const xx_getClassList = async (schema, params) => {
 const xx_getClassListExt = async (schema, params) => {
 	let r;
 	let rr;
-	let sql = `select id, display_name as display_name0, prefix, is_local, cnt, cnt_x from ${schema}.v_classes_ns_main order by is_local desc, prefix, cnt desc LIMIT $1`;;
+	let sql = `select id, display_name as display_name0, prefix, is_local, cnt, cnt_x from ${schema}.v_classes_ns_main order by is_local desc, prefix, cnt desc LIMIT $1`;
 	rr =  await util.getSchemaData(sql, params);
 	let ii = 1;
 	for (var c of rr.data) {
@@ -286,7 +286,7 @@ const xx_getPropList = async (schema, params) => {
 		where_part2 = `and ns_id not in (${params.main.not_in.join(',')})`;
 	}
 	
-	const sql = `select id, display_name, prefix, cnt, cnt_x, object_cnt, data_cnt from ${schema}.v_properties_ns vpn where ${where_part1}
+	const sql = `select id, display_name, prefix, cnt, cnt_x, object_cnt, data_cnt, max_cardinality from ${schema}.v_properties_ns vpn where ${where_part1}
 	id in (select distinct(property_id) from ${schema}.cp_rels where class_id in (${params.main.c_list})) ${where_part2} order by prefix, data_cnt desc, object_cnt desc`;
 	
 	let r = await util.getSchemaData(sql, params);
@@ -386,7 +386,7 @@ select property_id from ${schema}.cp_rels cr where class_id = ${params.main.cc} 
 }
 const xx_getPropInfo = async (schema, params) => {
 
-	const sql = `select type_id, class_id, cnt, object_cnt, data_cnt_calc, x_max_cardinality, cover_set_index 
+	const sql = `select type_id, class_id, cnt, object_cnt, x_max_cardinality, cover_set_index 
 	from ${schema}.v_cp_rels_card where property_id = ${params.main.prop_id} and cover_set_index > 0 and class_id in (${params.main.c_list}) order by class_id`; 
 
 	const r = await util.getSchemaData(sql, params);
