@@ -286,7 +286,7 @@ const xx_getPropList = async (schema, params) => {
 		where_part2 = `and ns_id not in (${params.main.not_in.join(',')})`;
 	}
 	
-	const sql = `select id, display_name, prefix, cnt, cnt_x, object_cnt, data_cnt, max_cardinality from ${schema}.v_properties_ns vpn where ${where_part1}
+	const sql = `select id, display_name, prefix, cnt, cnt_x, object_cnt, data_cnt, max_cardinality, inverse_max_cardinality, range_class_id from ${schema}.v_properties_ns vpn where ${where_part1}
 	id in (select distinct(property_id) from ${schema}.cp_rels where class_id in (${params.main.c_list})) ${where_part2} order by prefix, data_cnt desc, object_cnt desc`;
 	
 	let r = await util.getSchemaData(sql, params);
