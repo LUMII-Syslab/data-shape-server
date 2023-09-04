@@ -243,6 +243,7 @@ const xx_getClassListExt = async (schema, params) => {
 	let rr;
 	let sql = `select id, display_name as display_name0, prefix, is_local, cnt, cnt_x from ${schema}.v_classes_ns_main order by is_local desc, prefix, cnt desc LIMIT $1`;
 	rr =  await util.getSchemaData(sql, params);
+
 	let ii = 1;
 	for (var c of rr.data) {
 		c.order = ii;
@@ -272,6 +273,7 @@ const xx_getClassListExt = async (schema, params) => {
 	
 	//concat(prefix,':',display_name, ' (', cnt_x, ')' )
 	rr.data = rr.data.sort(function(a,b){ return b.cnt-a.cnt;})
+	
 	return rr;
 }
 const xx_getPropList = async (schema, params) => {
@@ -286,7 +288,7 @@ const xx_getPropList = async (schema, params) => {
 		where_part2 = `and ns_id not in (${params.main.not_in.join(',')})`;
 	}
 	
-	const sql = `select id, display_name, prefix, cnt, cnt_x, object_cnt, data_cnt, max_cardinality, inverse_max_cardinality, range_class_id from ${schema}.v_properties_ns vpn where ${where_part1}
+	const sql = `select id, display_name, prefix, cnt, cnt_x, object_cnt, data_cnt, max_cardinality, inverse_max_cardinality, domain_class_id, range_class_id from ${schema}.v_properties_ns vpn where ${where_part1}
 	id in (select distinct(property_id) from ${schema}.cp_rels where class_id in (${params.main.c_list})) ${where_part2} order by prefix, data_cnt desc, object_cnt desc`;
 	
 	let r = await util.getSchemaData(sql, params);
@@ -305,12 +307,15 @@ const xx_getPropList = async (schema, params) => {
 }
 const xx_getClassListInfo = async (schema, params) => {
 
-	const sql = `select id, prefix, display_name, cnt_x, cnt, 
+let cp = '';
+if ( params.main.has_classification_property )
+	cp = 'classification_property, ';
+
+	const sql = `select id, prefix, display_name, cnt_x, cnt, ${cp}
 (select count(*) from ${schema}.cp_rels cr where class_id = vcnm.id and type_id = 2 and data_cnt > 0) as data_prop,
 (select count(*) from ${schema}.cp_rels cr where class_id = vcnm.id and type_id = 2 and object_cnt > 0) as obj_prop
 from ${schema}.v_classes_ns_main vcnm where id in (${params.main.c_list})`;
 
-		
 	const r = await util.getSchemaData(sql, params);
 
     return r;
