@@ -267,7 +267,7 @@ router.post('/ontologies/:ont/:fn', wrapAsync(async (req, res, next) => {
 			r = await sparqlGetTreeIndividualsNew(schema, params);
 		}
 		if ( fn === 'resolveClassByName') {
-			const classObj = await util.getClassByName(util.getName(params), schema);
+			const classObj = await util.getClassByName(util.getName(params), schema, params);
 			r = util.getSchemaObject(classObj);
 		}
 		if ( fn === 'resolvePropertyByName') {

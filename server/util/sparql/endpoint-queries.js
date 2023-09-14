@@ -200,7 +200,7 @@ const sparqlGetPropertiesFromRemoteIndividual = async (params, schema, only_out)
 	const prop = await util.getPropertyByName(pListI.name, schema, params);
 	const ind = await util.getUriIndividual(schema, params, 2);
 	//const typeString = await util.getTypeString(schema, params);
-	const classFrom = await util.getClassByName(util.getClassName(params, 0), schema);
+	const classFrom = await util.getClassByName(util.getClassName(params, 0), schema, params);
 	let classInfo = '';
 	if ( classFrom.length > 0 )
 		classInfo = await getClassSparqlPart(schema, params, classFrom[0].iri, true); //`?x1 ${typeString} <${classFrom[0].iri}>.`;
@@ -470,7 +470,7 @@ const sparqlGetTreeIndividualsNew =  async (schema, params) => {
 	}
 	else {  // Ir konkrēta klase
 		if (util.isClassName(params, 0) && !util.getClassName(params, 0).includes('All classes') ) {
-			const clInfo = await util.getClassByName(util.getClassName(params, 0), schema);
+			const clInfo = await util.getClassByName(util.getClassName(params, 0), schema, params);
 			if (clInfo.length > 0) {
 				const classInfo = await getClassSparqlPart(schema, params, clInfo[0].iri); 
 				whereList.push(classInfo); //(`?x ${typeString} <${clInfo[0].iri}>`);   
@@ -497,7 +497,7 @@ const sparqlGetIndividualsNew =  async (schema, params) => {
 	let whereList = [];
 
 	if (util.isClassName(params, 0) ) {
-		const clInfo = await util.getClassByName(util.getClassName(params, 0), schema);
+		const clInfo = await util.getClassByName(util.getClassName(params, 0), schema, params);
 		if (clInfo.length > 0) {
 			individualPattern = await getIndividualPattern(schema, params, clInfo[0].iri);
 			const classInfo = await getClassSparqlPart(schema, params, clInfo[0].iri); 
@@ -510,7 +510,7 @@ const sparqlGetIndividualsNew =  async (schema, params) => {
 		const pListI = util.getPListI(params);
 		const prop = await util.getPropertyByName(pListI.name, schema, params);
 		const ind = await util.getUriIndividual(schema, params, 2);
-		const classFrom = await util.getClassByName(util.getClassName(params, 0), schema);
+		const classFrom = await util.getClassByName(util.getClassName(params, 0), schema, params);
 
 		if ( prop.length > 0) {
 			if ( pListI.type === 'in')

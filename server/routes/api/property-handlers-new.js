@@ -181,7 +181,7 @@ order by ${orderByPref} o desc LIMIT $1`;
 		}
 		
 		if ( util.isClassName(params, 0))
-			classFrom = await util.getClassByName(util.getClassName(params, 0), schema);
+			classFrom = await util.getClassByName(util.getClassName(params, 0), schema, params);
 		
 		if ( classType(classFrom) === 's' || util.isUriIndividual(params, 0) || util.isPListI(params) ) {  // Informācija no end-pointa
 			if ( util.isUriIndividual(params, 0) ) {
@@ -396,10 +396,10 @@ order by ${orderByPref} o desc LIMIT $1`;
 		else if ( util.isClassName(params, 0) || util.isClassName(params, 1)) {
 
 			if ( util.isClassName(params, 0))
-				classFrom = await util.getClassByName(util.getClassName(params, 0), schema);		
+				classFrom = await util.getClassByName(util.getClassName(params, 0), schema, params);		
 
 			if ( util.isClassName(params, 1))
-				classTo = await util.getClassByName(util.getClassName(params, 1), schema);	
+				classTo = await util.getClassByName(util.getClassName(params, 1), schema, params);	
 				
 			if ( classType(classFrom) === 'b' && classType(classTo) === 'b' ) {
 

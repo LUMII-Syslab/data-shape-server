@@ -33,9 +33,9 @@ const findMainProperty = async (schema, pList, schemaType = '') => {
 	return {};
 }
 
-const findMainClassId = async (schema, mainPropInfo) => {
+const findMainClassId = async (schema, mainPropInfo, params) => {
 	if ( mainPropInfo.className !== undefined && mainPropInfo.className !== '' ) {
-		const classObj = await util.getClassByName( mainPropInfo.className, schema);
+		const classObj = await util.getClassByName( mainPropInfo.className, schema, params);
 		if ( classObj.length > 0)
 			return classObj[0].id;
 		else return 0;	
@@ -83,7 +83,7 @@ const getClasses = async (schema, params) => {
 			console.log("--------galvenā----------")
 			mainPropInfo = pList.filter(item => item.id == mainProp.id)[0];
 			console.log(mainPropInfo)
-			mainClassId = await findMainClassId(schema, mainPropInfo);
+			mainClassId = await findMainClassId(schema, mainPropInfo, params);
 			if ( mainClassId >0 ) {
 				const info = await db.any(`SELECT count(*) FROM ${schema}.cpc_rels`);
 				use_class_pairs = info[0].count > 0;  
@@ -182,7 +182,7 @@ const getTreeClasses = async (schema, params) => {
 	r = await util.getSchemaData(sql, params);
 	
 	if ( false && r.complete && r.data.length > 0 && util.getTreeMode(params) === 'Top' && !util.isFilter(params)) {
-		var owlThing = await util.getClassByName( 'owl:Thing', schema);
+		var owlThing = await util.getClassByName( 'owl:Thing', schema, params);
 		whereList = [];
 		whereList.push(util.formWherePart('v.id', 'in', r.data.map(v => v.id), 0))
 		if ( owlThing.length == 1) {

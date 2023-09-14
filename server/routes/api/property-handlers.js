@@ -14,7 +14,7 @@ const checkProperty = async (schema, params) => {
 	let r = { data: [], complete: false };
 	const className = util.getName(params);
 	const propertyName = util.getPropertyName(params);
-	const classObj = await util.getClassByName(className, schema);
+	const classObj = await util.getClassByName(className, schema, params);
 	const propObj = await util.getPropertyByName(propertyName, schema, params); 
 	const typeString = await util.getTypeString(schema, params);
 	
@@ -231,9 +231,9 @@ order by ${orderByPref} o desc LIMIT $1`;
 	}
 
 	if ( util.isClassName(params, 0))
-		classFrom = await util.getClassByName(util.getClassName(params, 0), schema);
+		classFrom = await util.getClassByName(util.getClassName(params, 0), schema, params);
 	if ( util.isClassName(params, 1))
-		classTo = await util.getClassByName(util.getClassName(params, 1), schema);
+		classTo = await util.getClassByName(util.getClassName(params, 1), schema, params);
 
 	let newPListFrom = {in:[], out:[]};
 	let newPListTo = {in:[], out:[]};

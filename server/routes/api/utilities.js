@@ -260,7 +260,7 @@ const getLocalNamespace = async schema => {
 		
 }
 
-const getClassByName = async (cName, schema) => {
+const getClassByName = async (cName, schema, params) => {
 	let r;
 	if ( cName.includes('://')){
 		r = await db.any(`SELECT * FROM ${schema}.v_classes_ns WHERE iri = $1 order by cnt desc limit 1`, [cName]);
@@ -275,6 +275,11 @@ const getClassByName = async (cName, schema) => {
 		if ( r.length === 0)
 			r = await db.any(`SELECT * FROM ${schema}.v_classes_ns WHERE ( display_name = $1 or local_name = $1) order by cnt desc limit 1`, [cName]);
 	}
+
+	if ( r.length === 1 ) {
+		r[0].classification_property = await getTypeString(schema, params, r[0].iri)   // TODO Varbūt skaistāk būtu dot pilno iri, lai ir visur vienādiDrusku sanāk dubultas darbības
+	}	
+	
 	return r;
 }
 
@@ -502,7 +507,7 @@ const checkIndividualsParams = async (schema, params) => {
 	const cnt_limit = 300000;
 
 	if ( isClassName(params,0)) {
-		const classObj = await getClassByName( getClassName(params,0), schema);
+		const classObj = await getClassByName( getClassName(params,0), schema, params);
 		if (classObj[0].cnt < cnt_limit)
 			find = true;
 	}
