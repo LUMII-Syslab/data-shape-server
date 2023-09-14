@@ -277,7 +277,9 @@ const getClassByName = async (cName, schema, params) => {
 	}
 
 	if ( r.length === 1 ) {
-		r[0].classification_property = await getTypeString(schema, params, r[0].iri)   // TODO Varbūt skaistāk būtu dot pilno iri, lai ir visur vienādiDrusku sanāk dubultas darbības
+		let cp = await getTypeString(schema, params, r[0].iri); // TODO Varbūt skaistāk būtu dot pilno iri, lai ir visur vienādiDrusku sanāk dubultas darbības
+		cp = cp.substring(1, cp.length-1);	
+		r[0].classification_property = cp;		
 	}	
 	
 	return r;
