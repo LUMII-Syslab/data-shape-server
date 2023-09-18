@@ -260,26 +260,82 @@ const getLocalNamespace = async schema => {
 		
 }
 
+getFullName = (cl, params) => {
+	let fullName = '';
+	let prefix;
+	let ad = '';
+	if (( params.main.showPrefixes === "false" && cl.is_local) || cl.prefix == null ) {
+		prefix = '';
+	}	
+	else {
+		prefix = `${cl.prefix}:`;
+	}	
+	if ( params.main.has_classification_property && cl.classification_adornment != null) {
+		ad = `(${cl.classification_adornment}) `;
+	}
+	
+	fullName = `${ad}${prefix}${cl.display_name}`;
+	return fullName;
+}
+
+getFullNameP = (prop, params) => {
+	let fullName = '';
+	let prefix;
+	if (( params.main.showPrefixes === "false" && prop.is_local) ) {
+		prefix = '';
+	}	
+	else {
+		prefix = `${prop.prefix}:`;
+	}	
+
+	fullName = `${prefix}${prop.display_name}`;
+	return fullName;
+}
+
 const getClassByName = async (cName, schema, params) => {
 	let r;
+	cName = cName.replace(' ','');
+	
 	if ( cName.includes('://')){
 		r = await db.any(`SELECT * FROM ${schema}.v_classes_ns WHERE iri = $1 order by cnt desc limit 1`, [cName]);
 	}
-	else if ( cName.includes(':')){
-		const nList = cName.split(':');
-		r = await db.any(`SELECT * FROM ${schema}.v_classes_ns WHERE ( display_name = $2 or local_name = $2) and prefix = $1 order by cnt desc limit 1`, [nList[0], nList[1]]);
-	}
 	else {
-		const ns = await getLocalNamespace(schema);
-		r = await db.any(`SELECT * FROM ${schema}.v_classes_ns WHERE ( display_name = $2 or local_name = $2) and prefix = $1 order by cnt desc limit 1`, [ns.name, cName]);
-		if ( r.length === 0)
-			r = await db.any(`SELECT * FROM ${schema}.v_classes_ns WHERE ( display_name = $1 or local_name = $1) order by cnt desc limit 1`, [cName]);
+		if ( params.main.has_classification_property && cName.substring(0,1) == '(') {
+			const ad = cName.substring(1,cName.indexOf(')'));
+			if ( cName.includes(':')) {
+				const prefix = cName.substring(cName.indexOf(')')+ 1, cName.indexOf(':'));
+				const nList = cName.split(':');
+				r = await db.any(`SELECT * FROM ${schema}.v_classes_ns WHERE ( display_name = $3 or local_name = $3) and prefix = $2 and classification_adornment = $1 order by cnt desc limit 1`, [ad, prefix, nList[1]]);
+			}
+			else {
+				const nList = cName.split(')');
+				const ns = await getLocalNamespace(schema);
+				r = await db.any(`SELECT * FROM ${schema}.v_classes_ns WHERE ( display_name = $3 or local_name = $3) and prefix = $2 and classification_adornment = $1 order by cnt desc limit 1`, [ad, ns.name, nList[1]]);
+				if ( r.length === 0)
+					r = await db.any(`SELECT * FROM ${schema}.v_classes_ns WHERE ( display_name = $2 or local_name = $2) and classification_adornment = $1 order by cnt desc limit 1`, [ad, nList[1]]);
+			}
+		}
+		else {
+			if ( cName.includes(':')){
+				const nList = cName.split(':');
+				r = await db.any(`SELECT * FROM ${schema}.v_classes_ns WHERE ( display_name = $2 or local_name = $2) and prefix = $1 order by cnt desc limit 1`, [nList[0], nList[1]]);
+			}
+			else {
+				const ns = await getLocalNamespace(schema);
+				r = await db.any(`SELECT * FROM ${schema}.v_classes_ns WHERE ( display_name = $2 or local_name = $2) and prefix = $1 order by cnt desc limit 1`, [ns.name, cName]);
+				if ( r.length === 0)
+					r = await db.any(`SELECT * FROM ${schema}.v_classes_ns WHERE ( display_name = $1 or local_name = $1) order by cnt desc limit 1`, [cName]);
+			}
+		}
 	}
+	
+
 
 	if ( r.length === 1 ) {
-		let cp = await getTypeString(schema, params, r[0].iri); // TODO Varbūt skaistāk būtu dot pilno iri, lai ir visur vienādiDrusku sanāk dubultas darbības
+		let cp = await getTypeString(schema, params, r[0].iri); // TODO Varbūt skaistāk būtu dot pilno iri, lai ir visur vienādi. Drusku sanāk dubultas darbības
 		cp = cp.substring(1, cp.length-1);	
-		r[0].classification_property = cp;		
+		r[0].classification_property = cp;	
+		r[0].full_name = getFullName(r[0], params);
 	}	
 	
 	return r;
@@ -330,6 +386,8 @@ const getPropertyByName = async (pName, schema, params) => {
 		}
 		r[0].data_type = data_type;
 		r[0].data_types = data_types;
+		r[0].full_name = getFullNameP(r[0], params);
+
 	}
 	
 	return r;
@@ -589,4 +647,6 @@ module.exports = {
 	getPListI,
 	getSchemaType,
 	correctValue,
+	getFullName,
+	getFullNameP,
 }

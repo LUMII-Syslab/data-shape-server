@@ -71,6 +71,13 @@ const findMainProperty = async (schema, pListFrom, pListTo) => {
 	return {};
 }
 
+const addFullNames = (r, params) => {
+	if ( r.data.length > 0 ) {
+		r.data.forEach(prop => prop.full_name = util.getFullNameP(prop, params));
+	}
+	return r;
+}
+
 /* list of properties */
 const getProperties = async (schema, params) => {
    	let r = { data: [], complete: false };
@@ -471,6 +478,7 @@ order by ${orderByPref} o desc LIMIT $1`;
 	sql = await formSql();
 	
 	r = await util.getSchemaData(sql, params);
+	r = addFullNames(r, params);
 	return r;
 //x_max_cardinality
 }

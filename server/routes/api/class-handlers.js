@@ -44,6 +44,13 @@ const findMainClassId = async (schema, mainPropInfo, params) => {
 		return 0;
 	}
 }
+
+const addFullNames = (r, params) => {
+	if ( r.data.length > 0 ) {
+		r.data.forEach(cl => cl.full_name = util.getFullName(cl, params));
+	}
+	return r;
+}
 /* list of classes */
 const getClasses = async (schema, params) => {
 
@@ -153,6 +160,7 @@ JOIN ${schema}.cpc_rels cp on cp.cp_rel_id = p.id and cp.other_class_id = ${main
 	else
 		r = await util.getSchemaData(sql, params);
 
+	r = addFullNames(r, params);	
 	return r;
 }
 
@@ -196,7 +204,8 @@ const getTreeClasses = async (schema, params) => {
 		sql = `SELECT v.* FROM ${viewname} WHERE ${whereList.join(' and ')} order by cnt desc LIMIT $1`;
 		r = await util.getSchemaData(sql, params);
 	}
-
+	
+	r = addFullNames(r, params);
 	return r;
 }
 
