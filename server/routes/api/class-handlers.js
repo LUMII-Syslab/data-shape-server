@@ -230,28 +230,11 @@ const getPublicNamespaces = async () => {
     return r;
 }
 // **************************************************************************************************************
-const xx_getClassList = async (schema, params) => {
-	// Ir aizdomas, ka vairs netiek izsaukts
-	let where_part = ['true'];
-	if ( params.main.not_in != undefined && params.main.not_in.length > 0 )
-		where_part.push(` ns_id not in (${params.main.not_in.join(',')}) `);
-		
-	if ( params.main.isLocal )
-		where_part.push('is_local = true');
-		
-	where_part.push(`cnt >= ${params.main.class_ind}`);	
-	
-	const sql = `select id, concat(prefix,':',display_name, ' (', cnt_x, ')' ) as display_name from ${schema}.v_classes_ns_main where ${where_part.join(' and ')} order by cnt desc LIMIT $1`;
-		
-	const r = await util.getSchemaData(sql, params);
-
-    return r;
-}
 const xx_getClassListExt = async (schema, params) => {
 	let r;
 	let rr;
 	let ca = '';
-	if ( params.main.has_classification_property ) ca = ', classification_adornment';
+	if ( params.main.has_classification_adornment ) ca = ', classification_adornment';
 	let sql = `select id, display_name, prefix, is_local, cnt, cnt_x ${ca} from ${schema}.v_classes_ns_main order by is_local desc, prefix, cnt desc LIMIT $1`;
 	rr =  await util.getSchemaData(sql, params);
 	rr = addFullNames(rr, params);
@@ -263,8 +246,12 @@ const xx_getClassListExt = async (schema, params) => {
 			c.is_local = 1;
 		else
 			c.is_local = 0;
-		sql = `select distinct(class_id) from ${schema}.cp_rels where type_id = 2 and cover_set_index > 0 and class_id <> ${c.id} and property_id  in
-( select property_id from ${schema}.cp_rels where class_id = ${c.id} and type_id = 1 and cover_set_index > 0)`;
+			
+		// Paņemu drusku vājākus kaimuņus, kuri varētu arī kaimiņi nesanakt	
+		sql = `select distinct(class_id) from ${schema}.cp_rels where type_id = 2  and class_id <> ${c.id} and property_id  in
+( select property_id from ${schema}.cp_rels where class_id = ${c.id} and type_id = 1 )`;
+		//sql = `select distinct(class_id) from ${schema}.cp_rels where type_id = 2 and cover_set_index > 0 and class_id <> ${c.id} and property_id  in
+//( select property_id from ${schema}.cp_rels where class_id = ${c.id} and type_id = 1 and cover_set_index > 0)`;
 		r =  await util.getSchemaData(sql, params, false);
 		c.c = r.data.map( v => { return v.class_id});
 		ii = ii + 1;
@@ -279,7 +266,6 @@ const xx_getClassListExt = async (schema, params) => {
 	}
 	
 	for (var c of rr.data) {
-
 		c.display_name = `${c.full_name} ( cnt-${c.cnt_x} N-${c.c.length} )`;
 		c.selected = 0;
 	}	
@@ -322,9 +308,11 @@ const xx_getClassListInfo = async (schema, params) => {
 
 let cp = '';
 if ( params.main.has_classification_property ) 
-	cp = 'classification_property, classification_adornment,';
+	cp = 'classification_property, ';
 	
-
+if ( params.main.has_classification_adornment )	
+	cp = `${cp}classification_adornment,`;
+	
 	const sql = `select id, prefix, display_name, cnt_x, cnt, ${cp}
 (select count(*) from ${schema}.cp_rels cr where class_id = vcnm.id and type_id = 2 and data_cnt > 0) as data_prop,
 (select count(*) from ${schema}.cp_rels cr where class_id = vcnm.id and type_id = 2 and object_cnt > 0) as obj_prop
@@ -335,71 +323,9 @@ from ${schema}.v_classes_ns_main vcnm where id in (${params.main.c_list})`;
 
     return r;
 }
-const xx_getClassInfo = async (schema, params) => {
-
-	const sql = `select id, prefix, display_name, cnt_x, cnt, 
-(select count(*) from ${schema}.cp_rels cr where class_id = vcnm.id and type_id = 2 and data_cnt > 0) as data_prop,
-(select count(*) from ${schema}.cp_rels cr where class_id = vcnm.id and type_id = 2 and object_cnt > 0) as obj_prop
-from ${schema}.v_classes_ns_main vcnm where id in (${params.main.cc})`;
-
-		
-	const r = await util.getSchemaData(sql, params);
-
-    return r;
-}
-const xx_getClassInfoAtr = async (schema, params) => {
-
-	const sql = `select prefix, display_name from ${schema}.v_properties_ns vpn where id in 
-	(select property_id from ${schema}.cp_rels cr where class_id = ${params.main.cc} and data_cnt > 0 and cover_set_index >0)`;
-		
-	const r = await util.getSchemaData(sql, params);
-
-    return r;
-}
-const xx_getClassInfoLink = async (schema, params) => {
-// Vairs netiek izmantota 
-/*
-select id, prefix, display_name, object_cnt, data_cnt, 
-(select count(*) from cp_rels cr where type_id = 1 and property_id = vpn.id),
-(select count(*) from cp_rels cr where type_id = 1 and property_id = vpn.id and cover_set_index >0 ),
-(select count(*) from cp_rels cr where type_id = 2 and property_id = vpn.id),
-(select count(*) from cp_rels cr where type_id = 2 and property_id = vpn.id and cover_set_index >0 )
-from v_properties_ns vpn 
-where object_cnt > 0 and prefix not in ('rdf', 'owl')
-order by object_cnt desc
-*/
-	const sql = `select prefix, display_name from ${schema}.v_properties_ns vpn where id in (select property_id from ${schema}.cp_rels cr where class_id = ${params.main.cc} and type_id = 2 and object_cnt > 0)`;
-		
-	const r = await util.getSchemaData(sql, params);
-
-    return r;
-}
-const xx_getPropListInfo = async (schema, params) => {
-
-	const sql = `select distinct class_id from ${schema}.cp_rels 
-where property_id in (select property_id from ${schema}.cp_rels vcr where class_id = ${params.main.cc} and type_id = 2) and type_id = 1 and class_id in (${params.main.c_list})`;
-		
-	const r = await util.getSchemaData(sql, params);
-
-    return r;
-}
 const xx_getCCInfo = async (schema, params) => {
 
 	const sql = `select class_1_id, class_2_id from ${schema}.cc_rels where class_1_id in (${params.main.c_list}) and class_2_id in (${params.main.c_list})`;
-	const r = await util.getSchemaData(sql, params);
-
-    return r;
-}
-const xx_getPropListInfo2 = async (schema, params) => {
-
-	let plus = '';
-	if (params.main.properties_ids !== '')
-		plus = ` and iri not in ('${params.main.properties_ids}')`;
-	
-	const sql = `select prefix, display_name from ${schema}.v_properties_ns
-where id in (select property_id from ${schema}.cp_rels where type_id = 1 and cover_set_index > 0 and property_id in (
-select property_id from ${schema}.cp_rels cr where class_id = ${params.main.cc} and type_id = 2 and cover_set_index > 0 and object_cnt > 0) and class_id = ${params.main.cc2}) ${plus} order by prefix, display_name`; 
-		
 	const r = await util.getSchemaData(sql, params);
 
     return r;
@@ -412,7 +338,6 @@ const xx_getPropInfo = async (schema, params) => {
 	const r = await util.getSchemaData(sql, params);
     return r;
 }
-
 
 const generateClassUpdate = async (schema, params) => {
 	let sql = `select count(*) from ${schema}.classes`;
@@ -445,16 +370,10 @@ module.exports = {
 	getNamespaces,
 	getPublicNamespaces,
 	getTreeClasses,
-	xx_getClassList,
 	xx_getClassListExt,
 	xx_getPropList,
 	xx_getClassListInfo,
-	xx_getClassInfo,
-	xx_getClassInfoAtr,
-	xx_getClassInfoLink,
-	xx_getPropListInfo,
 	xx_getCCInfo,
-	xx_getPropListInfo2,
 	xx_getPropInfo,
 	generateClassUpdate,
 }

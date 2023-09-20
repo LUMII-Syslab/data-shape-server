@@ -238,9 +238,12 @@ const checkEndpoint = async (params, schema, KNOWN_DATA) => {
 	else 
 		params = setTypeStrings(params, 'rdf:type', '');
 	
-	const col_info = await db.any(`SELECT count(*) FROM information_schema."columns"  where table_schema = '${schema}' and table_name = 'classes' and column_name = 'classification_property'`);
+	let col_info = await db.any(`SELECT count(*) FROM information_schema."columns"  where table_schema = '${schema}' and table_name = 'classes' and column_name = 'classification_property'`);
 	if ( col_info[0].count > 0) 
 		params.main.has_classification_property = true;
+	col_info = await db.any(`SELECT count(*) FROM information_schema."columns"  where table_schema = '${schema}' and table_name = 'classes' and column_name = 'classification_adornment'`);
+	if ( col_info[0].count > 0) 
+		params.main.has_classification_adornment = true;	
 
 	return params;
 }
@@ -270,7 +273,7 @@ getFullName = (cl, params) => {
 	else {
 		prefix = `${cl.prefix}:`;
 	}	
-	if ( params.main.has_classification_property && cl.classification_adornment != null) {
+	if ( params.main.has_classification_adornment && cl.classification_adornment != null) {
 		ad = `(${cl.classification_adornment}) `;
 	}
 	
