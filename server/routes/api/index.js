@@ -31,6 +31,7 @@ const {
 
 const { 
 	getPropertiesNew,
+	getClassifiers,
 } = require('./property-handlers-new')
 
 const { 
@@ -254,6 +255,9 @@ router.post('/ontologies/:ont/:fn', wrapAsync(async (req, res, next) => {
 			else
 				r = await getProperties(schema, params); 
 		}
+		if ( fn === 'getClassifiers')
+			r = await getClassifiers(schema, params);
+		
 		if ( fn === 'getNamespaces')
 			r = await getNamespaces(schema);
 			

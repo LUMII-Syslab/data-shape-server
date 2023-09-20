@@ -49,6 +49,15 @@ const addFullNames = (r, params) => {
 	return r;
 }
 
+const getClassifiers = async (schema, params) => {
+	let r = { data: [], complete: false };
+	if ( params.main.has_classification_property ) {
+		const sql = `select * from ${schema}.v_properties_ns where is_classifier = true LIMIT $1`;
+		r = await util.getSchemaData(sql, params);		
+	}
+    return r;
+}
+
 /* list of properties */
 const getPropertiesNew = async (schema, params) => {
 console.log("--------------getPropertiesNew-------------------");
@@ -516,4 +525,5 @@ order by ${orderByPref} o desc LIMIT $1`;
 
 module.exports = {
 getPropertiesNew,
+getClassifiers,
 }
