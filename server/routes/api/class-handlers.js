@@ -231,7 +231,7 @@ const getPublicNamespaces = async () => {
 }
 // **************************************************************************************************************
 const xx_getClassList = async (schema, params) => {
-
+	// Ir aizdomas, ka vairs netiek izsaukts
 	let where_part = ['true'];
 	if ( params.main.not_in != undefined && params.main.not_in.length > 0 )
 		where_part.push(` ns_id not in (${params.main.not_in.join(',')}) `);
@@ -250,9 +250,12 @@ const xx_getClassList = async (schema, params) => {
 const xx_getClassListExt = async (schema, params) => {
 	let r;
 	let rr;
-	let sql = `select id, display_name as display_name0, prefix, is_local, cnt, cnt_x from ${schema}.v_classes_ns_main order by is_local desc, prefix, cnt desc LIMIT $1`;
+	let ca = '';
+	if ( params.main.has_classification_property ) ca = ', classification_adornment';
+	let sql = `select id, display_name, prefix, is_local, cnt, cnt_x ${ca} from ${schema}.v_classes_ns_main order by is_local desc, prefix, cnt desc LIMIT $1`;
 	rr =  await util.getSchemaData(sql, params);
-
+	rr = addFullNames(rr, params);
+	
 	let ii = 1;
 	for (var c of rr.data) {
 		c.order = ii;
@@ -276,7 +279,8 @@ const xx_getClassListExt = async (schema, params) => {
 	}
 	
 	for (var c of rr.data) {
-		c.display_name = `${c.prefix}:${c.display_name0} ( cnt-${c.cnt_x} N-${c.c.length} )`;
+
+		c.display_name = `${c.full_name} ( cnt-${c.cnt_x} N-${c.c.length} )`;
 		c.selected = 0;
 	}	
 	
@@ -317,15 +321,17 @@ const xx_getPropList = async (schema, params) => {
 const xx_getClassListInfo = async (schema, params) => {
 
 let cp = '';
-if ( params.main.has_classification_property )
-	cp = 'classification_property, ';
+if ( params.main.has_classification_property ) 
+	cp = 'classification_property, classification_adornment,';
+	
 
 	const sql = `select id, prefix, display_name, cnt_x, cnt, ${cp}
 (select count(*) from ${schema}.cp_rels cr where class_id = vcnm.id and type_id = 2 and data_cnt > 0) as data_prop,
 (select count(*) from ${schema}.cp_rels cr where class_id = vcnm.id and type_id = 2 and object_cnt > 0) as obj_prop
 from ${schema}.v_classes_ns_main vcnm where id in (${params.main.c_list})`;
 
-	const r = await util.getSchemaData(sql, params);
+	let r = await util.getSchemaData(sql, params);
+	r = addFullNames(r, params);
 
     return r;
 }
