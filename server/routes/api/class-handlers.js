@@ -238,6 +238,9 @@ const xx_getClassListExt = async (schema, params) => {
 	let sql = `select id, display_name, prefix, is_local, cnt, cnt_x ${ca} from ${schema}.v_classes_ns_main order by is_local desc, prefix, cnt desc LIMIT $1`;
 	rr =  await util.getSchemaData(sql, params);
 	rr = addFullNames(rr, params);
+	sql = `select * from ${schema}.cc_rels`;
+	r =  await util.getSchemaData(sql, params, false);
+	const cc_rels = r.data;
 	
 	let ii = 1;
 	for (var c of rr.data) {
@@ -247,13 +250,23 @@ const xx_getClassListExt = async (schema, params) => {
 		else
 			c.is_local = 0;
 			
-		// Paņemu drusku vājākus kaimuņus, kuri varētu arī kaimiņi nesanakt	
-		sql = `select distinct(class_id) from ${schema}.cp_rels where type_id = 2  and class_id <> ${c.id} and property_id  in
-( select property_id from ${schema}.cp_rels where class_id = ${c.id} and type_id = 1 )`;
-		//sql = `select distinct(class_id) from ${schema}.cp_rels where type_id = 2 and cover_set_index > 0 and class_id <> ${c.id} and property_id  in
-//( select property_id from ${schema}.cp_rels where class_id = ${c.id} and type_id = 1 and cover_set_index > 0)`;
+		// Paņemu drusku vājākus kaimiņus, kuri varētu arī kaimiņi nesanākt (vairs nepaņemu)	
+//		sql = `select distinct(class_id) from ${schema}.cp_rels where type_id = 2  and class_id <> ${c.id} and property_id  in
+//( select property_id from ${schema}.cp_rels where class_id = ${c.id} and type_id = 1 )`;
+		sql = `select distinct(class_id) from ${schema}.cp_rels where type_id = 2 and cover_set_index > 0 and class_id <> ${c.id} and property_id  in
+( select property_id from ${schema}.cp_rels where class_id = ${c.id} and type_id = 1 and cover_set_index > 0)`;
 		r =  await util.getSchemaData(sql, params, false);
 		c.c = r.data.map( v => { return v.class_id});
+		
+		c.s = [c.id];
+		if ( cc_rels.length > 0 ) {
+			let len = 1;
+			c.s = [...new Set([...c.s, ...cc_rels.filter(function(s){ return c.s.includes(s.class_1_id)}).map( v => { return v.class_2_id})])];
+			while ( len < c.s.length) {
+				len = c.s.length;
+				c.s = [...new Set([...c.s, ...cc_rels.filter(function(s){ return c.s.includes(s.class_1_id)}).map( v => { return v.class_2_id})])];
+			}
+		}
 		ii = ii + 1;
 	}
 
@@ -286,42 +299,69 @@ const xx_getPropList = async (schema, params) => {
 		
 		where_part2 = `and ns_id not in (${params.main.not_in.join(',')})`;
 	}
+	if ( params.main.remSmall > 0  )
+		where_part2 = `${where_part2} and cnt > ${params.main.remSmall-1}`; // TODO te varētu būt dažādi izmēri
 	
-	const sql = `select id, display_name, prefix, cnt, cnt_x, object_cnt, data_cnt, max_cardinality, inverse_max_cardinality, domain_class_id, range_class_id from ${schema}.v_properties_ns vpn where ${where_part1}
+	
+	const sql = `select id, display_name, prefix, cnt, cnt_x, object_cnt, data_cnt, max_cardinality, inverse_max_cardinality, domain_class_id, range_class_id,
+	(select count(*) from ${schema}.cp_rels where property_id = vpn.id and cover_set_index > 0 and type_id = 2) as type_2,
+	(select count(*) from ${schema}.cp_rels where property_id = vpn.id and cover_set_index > 0 and type_id = 1) as type_1	
+	from ${schema}.v_properties_ns vpn where ${where_part1}
 	id in (select distinct(property_id) from ${schema}.cp_rels where class_id in (${params.main.c_list})) ${where_part2} order by prefix, data_cnt desc, object_cnt desc`;
 	
 	let r = await util.getSchemaData(sql, params);
 	
 	for (var c of r.data) {
 		if ( c.cnt == c.object_cnt )
-			c.p_name = `${c.prefix}:${c.display_name} ( cnt-${c.cnt_x}, object property )`;
+			c.p_name = `${c.prefix}:${c.display_name} ( cnt-${c.cnt_x}, object property ${c.type_2}-${c.type_1})`;
 		else if ( c.cnt == c.data_cnt )
 			c.p_name = `${c.prefix}:${c.display_name} ( cnt-${c.cnt_x}, data property )`;
 		else
-			c.p_name = `${c.prefix}:${c.display_name} ( cnt-${c.cnt_x}, property )`;
+			c.p_name = `${c.prefix}:${c.display_name} ( cnt-${c.cnt_x}, property ${c.type_2}-${c.type_1})`;
 		
 	}
 
     return r;
 }
 const xx_getClassListInfo = async (schema, params) => {
-
-let cp = '';
-if ( params.main.has_classification_property ) 
-	cp = 'classification_property, ';
+	let sql = `select * from ${schema}.cc_rels where class_1_id in (${params.main.c_list}) and class_2_id in (${params.main.c_list})`;
+	let rr =  await util.getSchemaData(sql, params, false);
+	const cc_rels = rr.data;
+	let cp = '';
 	
-if ( params.main.has_classification_adornment )	
-	cp = `${cp}classification_adornment,`;
+	if ( params.main.has_classification_property ) 
+		cp = 'classification_property, ';
+		
+	if ( params.main.has_classification_adornment )	
+		cp = `${cp} classification_adornment,`;
+		
+		sql = `select id, prefix, display_name, cnt_x, cnt, ${cp}
+	(select count(*) from ${schema}.cp_rels cr where class_id = vcnm.id and type_id = 2 and data_cnt > 0) as data_prop,
+	(select count(*) from ${schema}.cp_rels cr where class_id = vcnm.id and type_id = 2 and object_cnt > 0) as obj_prop
+	from ${schema}.v_classes_ns_main vcnm where id in (${params.main.c_list})`;
+
+	rr = await util.getSchemaData(sql, params);
+	rr = addFullNames(rr, params);
 	
-	const sql = `select id, prefix, display_name, cnt_x, cnt, ${cp}
-(select count(*) from ${schema}.cp_rels cr where class_id = vcnm.id and type_id = 2 and data_cnt > 0) as data_prop,
-(select count(*) from ${schema}.cp_rels cr where class_id = vcnm.id and type_id = 2 and object_cnt > 0) as obj_prop
-from ${schema}.v_classes_ns_main vcnm where id in (${params.main.c_list})`;
+	for (var c of rr.data) {
+		c.s = [c.id];
+		c.b = [c.id];
+		if ( cc_rels.length > 0 ) {
+			let len = 1;
+			c.s = [...new Set([...c.s, ...cc_rels.filter(function(s){ return c.s.includes(s.class_1_id)}).map( v => { return v.class_2_id})])];
+			while ( len < c.s.length) {
+				len = c.s.length;
+				c.s = [...new Set([...c.s, ...cc_rels.filter(function(s){ return c.s.includes(s.class_1_id)}).map( v => { return v.class_2_id})])];
+			}
+			c.b = [...new Set([...c.b, ...cc_rels.filter(function(s){ return c.b.includes(s.class_2_id)}).map( v => { return v.class_1_id})])];
+			while ( len < c.b.length) {
+				len = c.b.length;
+				c.b = [...new Set([...c.b, ...cc_rels.filter(function(s){ return c.b.includes(s.class_2_id)}).map( v => { return v.class_1_id})])];
+			}
+		}
+	}
 
-	let r = await util.getSchemaData(sql, params);
-	r = addFullNames(r, params);
-
-    return r;
+    return rr;
 }
 const xx_getCCInfo = async (schema, params) => {
 
@@ -330,9 +370,19 @@ const xx_getCCInfo = async (schema, params) => {
 
     return r;
 }
+const xx_getCPCInfo = async (schema, params) => {
+	const sql = `select * from ${schema}.cpc_rels`;
+	const r = await util.getSchemaData(sql, params);
+    return r;
+}
+const xx_getCPInfo = async (schema, params) => {
+	const sql = `select id, property_id, type_id, class_id, cnt, object_cnt, x_max_cardinality, cover_set_index  from ${schema}.v_cp_rels_card where property_id in (${params.main.p_list}) order by property_id, type_id, class_id`;
+	const r = await util.getSchemaData(sql, params);
+    return r;
+}
 const xx_getPropInfo = async (schema, params) => {
-
-	const sql = `select type_id, class_id, cnt, object_cnt, x_max_cardinality, cover_set_index 
+	// Vairs nevajadzēs
+	const sql = `select id, type_id, class_id, cnt, object_cnt, x_max_cardinality, cover_set_index 
 	from ${schema}.v_cp_rels_card where property_id = ${params.main.prop_id} and cover_set_index > 0 and class_id in (${params.main.c_list}) order by class_id`; 
 
 	const r = await util.getSchemaData(sql, params);
@@ -374,6 +424,8 @@ module.exports = {
 	xx_getPropList,
 	xx_getClassListInfo,
 	xx_getCCInfo,
+	xx_getCPCInfo,
+	xx_getCPInfo,
 	xx_getPropInfo,
 	generateClassUpdate,
 }
