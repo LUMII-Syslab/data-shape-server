@@ -297,13 +297,13 @@ getFullNameP = (prop, params) => {
 
 const getClassByName = async (cName, schema, params) => {
 	let r;
-	cName = cName.replace(' ','');
-	
+	//cName = cName.replace(' ','');
 	if ( cName.includes('://')){
 		r = await db.any(`SELECT * FROM ${schema}.v_classes_ns WHERE iri = $1 order by cnt desc limit 1`, [cName]);
 	}
 	else {
 		if ( params.main.has_classification_property && cName.substring(0,1) == '(') {
+			cName = cName.replace(' ','');
 			const ad = cName.substring(1,cName.indexOf(')'));
 			if ( cName.includes(':')) {
 				const prefix = cName.substring(cName.indexOf(')')+ 1, cName.indexOf(':'));
