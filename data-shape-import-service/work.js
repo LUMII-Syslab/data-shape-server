@@ -26,7 +26,9 @@ const generateAbbr = prefix => {
 
 const getAbbrFromTheWeb = async prefix => {
     // may also call `https://prefix.cc/reverse?uri=${prefix}&format=ttl`, e.g., https://prefix.cc/reverse?uri=http://xmlns.com/foaf/0.1/&format=ttl
-    const url = `https://prefix.cc/reverse?uri=${prefix}&format=ttl`;
+    // const url = `https://prefix.cc/reverse?uri=${prefix}&format=ttl`;
+    // broken certificate, degrading to http
+    const url = `http://prefix.cc/reverse?uri=${prefix}&format=ttl`;
 
     try {
         const resp = await fetch(url);
@@ -42,7 +44,7 @@ const getAbbrFromTheWeb = async prefix => {
         }
     } catch (err) {
         console.error(err);
-        process.exit(1);
+        // process.exit(1);
     }
     return null;
 }
@@ -61,9 +63,9 @@ const resolveNsPrefix = async (prefix, abbr = null) => {
         }
 
         let id = (await db.one(
-            `INSERT INTO ${dbSchema}.ns (value, name) values ($1, $2) RETURNING id`, 
+            `INSERT INTO ${dbSchema}.ns (value, name) values ($1, $2) RETURNING id`,
         [
-            prefix, 
+            prefix,
             resolvedAbbr
         ])).id;
 
@@ -127,7 +129,7 @@ const addDatatypeByShortIri = async shortIri => {
 
     let [ abbr, localName ] = parts;
     let prefix = NS_ABBR_TO_PREFIX.get(abbr);
-    
+
     if (!prefix) {
         console.error(`Unknown short prefix: ${abbr}`);
         return null;
@@ -256,7 +258,7 @@ const getOrRegisterAnnotationType = async iri => {
         ])).id;
         ANNOT_TYPES.set(iri, type_id);
         return type_id;
-   
+
     } catch (err) {
         console.error(err);
     }
@@ -264,7 +266,7 @@ const getOrRegisterAnnotationType = async iri => {
 
 const addClassLabels = async c => {
     // c.Labels[]:
-    // { 
+    // {
     //    property: "http://www.w3.org/2000/01/rdf-schema#label",
     //    value: "Nephew",
     //    language: "en"
@@ -680,7 +682,7 @@ const addPrefixShortcut = async (namespace, shortcut) => {
         } else if (shortcut.endsWith(':')) {
             name = shortcut.slice(0, shortcut.length - 1);
         }
-        
+
         let id = (await db.one(`INSERT INTO ${dbSchema}.ns
             (name, value, is_local)
             VALUES ($1, $2, $3)
@@ -710,7 +712,7 @@ const PARAMETER_NAME_MAP = {
 }
 
 const addParameter = async (param_name, param_value) => {
-/* 
+/*
     {
       "name": "minimalAnalyzedClassSize",
       "value": "1"
@@ -729,16 +731,16 @@ const addParameter = async (param_name, param_value) => {
         if (typeof param_value === 'object') {
             await db.none(`INSERT INTO ${dbSchema}.parameters
                 (name, jsonvalue)
-                VALUES ($1, $2)       
+                VALUES ($1, $2)
                 ON CONFLICT ON CONSTRAINT parameters_name_key
-                DO UPDATE SET name = $1, jsonvalue = $2     
-            `, 
-                [ 
-                    name, 
-                    param_value, 
-                ]);            
+                DO UPDATE SET name = $1, jsonvalue = $2
+            `,
+                [
+                    name,
+                    param_value,
+                ]);
             return;
-        } 
+        }
 
         // TODO: importējamājā JSON ir nepareizs objektu (sarakstu) kodējums; pagaidām pielabots ar roku
         let value = param_value.trim();
@@ -747,28 +749,28 @@ const addParameter = async (param_name, param_value) => {
             let parsed = JSON.parse(value);
             await db.none(`INSERT INTO ${dbSchema}.parameters
                 (name, jsonvalue)
-                VALUES ($1, $2)       
+                VALUES ($1, $2)
                 ON CONFLICT ON CONSTRAINT parameters_name_key
-                DO UPDATE SET name = $1, jsonvalue = $2     
-            `, 
-                [ 
-                    name, 
-                    parsed, 
-                ]);            
+                DO UPDATE SET name = $1, jsonvalue = $2
+            `,
+                [
+                    name,
+                    parsed,
+                ]);
             return;
         } catch (err) {
             console.log('not a JSON value');
         }
-            
+
         await db.none(`INSERT INTO ${dbSchema}.parameters
             (name, textvalue)
-            VALUES ($1, $2)       
+            VALUES ($1, $2)
             ON CONFLICT ON CONSTRAINT parameters_name_key
-            DO UPDATE SET name = $1, textvalue = $2     
-        `, 
-            [ 
-                name, 
-                value, 
+            DO UPDATE SET name = $1, textvalue = $2
+        `,
+            [
+                name,
+                value,
             ]);
 
     } catch (err) {
@@ -858,7 +860,7 @@ const registerImportedSchema = async () => {
     let endpointTypeId = 1;
     if (process.env.ENDPOINT_TYPE) {
         try {
-            endpointTypeId = (await db.one('SELECT id FROM public.endpoint_types WHERE name = $1', [ 
+            endpointTypeId = (await db.one('SELECT id FROM public.endpoint_types WHERE name = $1', [
                 process.env.ENDPOINT_TYPE.toLowerCase().trim(),
             ])).id;
         } catch {
@@ -869,28 +871,28 @@ const registerImportedSchema = async () => {
     try {
         const ENDPOINT_SQL = `INSERT INTO public.endpoints (sparql_url, public_url, named_graph, endpoint_type_id) VALUES ($1, $2, $3, $4) RETURNING id`;
         const endpoint_id = (await db.one(ENDPOINT_SQL, [
-            sparqlUrl, 
+            sparqlUrl,
             publicUrl,
             namedGraph,
             endpointTypeId,
         ])).id;
-    
+
         const SCHEMA_SQL = `INSERT INTO public.schemata (schema_name, db_schema_name, has_pp_rels, has_instance_table) VALUES ($1, $1, $2, $3) RETURNING id`;
         const schema_id = (await db.one(SCHEMA_SQL, [
             schemaName,
             false,
             false,
         ])).id;
-    
+
         const E2S_SQL = `INSERT INTO public.schemata_to_endpoints (schema_id, endpoint_id, display_name, is_active, use_pp_rels) VALUES ($1, $2, $3, $4, $5)`;
         await db.none(E2S_SQL, [
-            schema_id, 
-            endpoint_id, 
+            schema_id,
+            endpoint_id,
             schemaDisplayName,
             true,
             false,
         ]);
-    
+
     } catch (err) {
         console.error(err);
     }
@@ -902,7 +904,7 @@ const work = async () => {
     const data = require(INPUT_FILE);
 
     await importFromJSON(data);
-    
+
     await registerImportedSchema();
 
     return 'done';
