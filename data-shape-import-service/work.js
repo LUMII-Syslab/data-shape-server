@@ -1,6 +1,8 @@
 const ProgressBar = require('progress')
 const debug = require('debug')('work')
 const fetch = require('node-fetch');
+const col = require('ansi-colors')
+
 const { DB_CONFIG } = require('./config');
 
 const db = require('./config').db;
@@ -38,7 +40,7 @@ const getAbbrFromTheWeb = async prefix => {
             const P2 = /@prefix (\w+): (<.+>)./
             let m = P2.exec(text);
             if (m) {
-                console.log(`Found abbreviation ${m[1]} for the prefix ${prefix}`);
+                console.log(`Found abbreviation ${col.yellow(m[1])} for the prefix ${col.yellow(prefix)}`);
                 return m[1];
             }
         }
@@ -151,7 +153,7 @@ const addDatatypeByIri = async iri => {
     let ns_id = NS_PREFIX_TO_ID.get(prefix);
 
     if (!ns_id) {
-        console.log(`namespace not found for the prefix '${prefix}'`);
+        console.log(`namespace not found for the prefix '${col.yellow(prefix)}'`);
         return null;
     }
 
@@ -713,6 +715,7 @@ const PARAMETER_NAME_MAP = {
 
 const addParameter = async (param_name, param_value) => {
 /*
+    // old style:
     {
       "name": "minimalAnalyzedClassSize",
       "value": "1"
@@ -721,6 +724,21 @@ const addParameter = async (param_name, param_value) => {
       "name": "classificationProperties",
       "value": "[http://www.w3.org/1999/02/22-rdf-syntax-ns#type, http://data.nobelprize.org/terms/category, http://data.nobelprize.org/terms/year, http://xmlns.com/foaf/0.1/gender]"
     }
+
+    // new style:
+    "Parameters": {
+        "correlationId": "7494937434712105732",
+        "endpointUrl": "http://85.254.199.72:8890/sparql",
+        "calculateSubClassRelations": true,
+        "calculateCardinalitiesMode": "propertyLevelAndClassContext",
+        "checkInstanceNamespaces": false,
+        "minimalAnalyzedClassSize": 1,
+        "classificationProperties": [
+        "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
+        ],
+        "includedLabels": [],
+        ...
+    }
 */
     if (!param_name) return;
     if (!param_value) return;
@@ -728,7 +746,7 @@ const addParameter = async (param_name, param_value) => {
     try {
         let name = PARAMETER_NAME_MAP[param_name] ?? param_name;
 
-        if (typeof param_value === 'object') {
+        if (typeof param_value !== 'string') {
             await db.none(`INSERT INTO ${dbSchema}.parameters
                 (name, jsonvalue)
                 VALUES ($1, $2)
@@ -737,7 +755,8 @@ const addParameter = async (param_name, param_value) => {
             `,
                 [
                     name,
-                    param_value,
+                    // param_value,
+                    JSON.stringify(param_value),
                 ]);
             return;
         }
@@ -759,7 +778,7 @@ const addParameter = async (param_name, param_value) => {
                 ]);
             return;
         } catch (err) {
-            console.log('not a JSON value');
+            console.log(`not a JSON value for parameter ${col.yellow(param_name)}; will be stored as text`);
         }
 
         await db.none(`INSERT INTO ${dbSchema}.parameters
@@ -782,7 +801,7 @@ const addParameter = async (param_name, param_value) => {
 const init = async () => {
     try {
         const nsData = await db.many(`SELECT * FROM ${dbSchema}.ns`);
-        console.log(`${nsData.length} ns entries loaded`);
+        console.log(`${col.yellow(nsData.length)} ns entries loaded`);
         for (let row of nsData) {
             NS_PREFIX_TO_ID.set(row.value, row.id);
             NS_ABBR_TO_ID.set(row.name, row.id);
@@ -792,7 +811,7 @@ const init = async () => {
         }
 
         const atData = await db.many(`SELECT * FROM ${dbSchema}.annot_types`);
-        console.log(`${atData.length} annotation types loaded`);
+        console.log(`${col.yellow(atData.length)} annotation types loaded`);
         for (let row of atData) {
             ANNOT_TYPES.set(row.iri, row.id);
         }
@@ -808,8 +827,18 @@ const importFromJSON = async data => {
     await init();
 
     if (data.Parameters) {
-        for (const param of data.Parameters) {
-            await addParameter(param.name, param.value);
+        if (typeof data.Parameters === 'object') {
+            if (Array.isArray(data.Parameters)) {
+                for (const param of data.Parameters) {
+                    await addParameter(param.name, param.value);
+                }
+            } else {
+                for (const paramName in data.Parameters) {
+                    await addParameter(paramName, data.Parameters[paramName]);
+                }            
+            }
+        } else {
+            console.error(`Parameters block has wrong type`);
         }
     }
 
@@ -850,13 +879,15 @@ const importFromJSON = async data => {
     }
 }
 
-const registerImportedSchema = async () => {
-    const schemaName = process.env.SCHEMA_NAME;
-    const schemaDisplayName = process.env.SCHEMA_DISPLAY_NAME || process.env.SCHEMA_NAME;
+const registerImportedSchema = async (parameters) => {
+    const schemaName = process.env.DB_SCHEMA;
+    const schemaKind = process.env.SCHEMA_KIND || 'default' ;
+    const schemaDisplayName = process.env.SCHEMA_DISPLAY_NAME || schemaName;
 
-    const sparqlUrl = process.env.SPARQL_URL;
+    const sparqlUrl = process.env.SPARQL_URL || parameters.endpointUrl;
     const publicUrl = process.env.PUBLIC_URL || sparqlUrl;
-    const namedGraph = process.env.NAMED_GRAPH || null;
+    const namedGraph = process.env.NAMED_GRAPH || parameters.graphName || null;
+    
     let endpointTypeId = 1;
     if (process.env.ENDPOINT_TYPE) {
         try {
@@ -877,9 +908,10 @@ const registerImportedSchema = async () => {
             endpointTypeId,
         ])).id;
 
-        const SCHEMA_SQL = `INSERT INTO public.schemata (schema_name, db_schema_name, has_pp_rels, has_instance_table) VALUES ($1, $1, $2, $3) RETURNING id`;
+        const SCHEMA_SQL = `INSERT INTO public.schemata (db_schema_name, schema_kind, has_pp_rels, has_instance_table) VALUES ($1, $2, $3, $4) RETURNING id`;
         const schema_id = (await db.one(SCHEMA_SQL, [
             schemaName,
+            'default',
             false,
             false,
         ])).id;
@@ -897,15 +929,15 @@ const registerImportedSchema = async () => {
         console.error(err);
     }
 
-    console.log(`The new schema "${schemaName}" added to the schema registry`);
+    console.log(`The new schema "${col.yellow(schemaName)}" added to the schema registry`);
 }
 
 const work = async () => {
     const data = require(INPUT_FILE);
 
     await importFromJSON(data);
-
-    await registerImportedSchema();
+    
+    await registerImportedSchema(data.Parameters);
 
     return 'done';
 }
