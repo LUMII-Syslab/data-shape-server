@@ -4,12 +4,17 @@
 
 - Obtain the Schema Server database initialization script from [here](sql/public.pgsql). This dump already contains the schema `public` which serves as a schema register for this database.
 
-- Choose the name for your database, e.g., `dss`.
-
-- Execute the following commands:
+- Choose the name for your database, e.g., `dss` and create the database.
 
 ```
 createdb dss
+```
+
+- create the role `rdf` which will own the db objects
+
+- load the public schema executing the command:
+
+```
 psql dss < public.pgsql
 ```
 
