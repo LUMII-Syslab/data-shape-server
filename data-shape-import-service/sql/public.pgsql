@@ -2,10 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 12.11 (Ubuntu 12.11-0ubuntu0.20.04.1)
--- Dumped by pg_dump version 12.9
-
--- Started on 2022-05-28 16:29:22 EEST
+-- Dumped from database version 14.9 (Ubuntu 14.9-0ubuntu0.22.04.1)
+-- Dumped by pg_dump version 15.0
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -19,17 +17,16 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 --
--- TOC entry 8 (class 2615 OID 1981216)
--- Name: public; Type: SCHEMA; Schema: -; Owner: -
+-- Name: public; Type: SCHEMA; Schema: -; Owner: rdf
 --
 
 CREATE SCHEMA IF NOT EXISTS public;
 
 
+ALTER SCHEMA public OWNER TO rdf;
+
 --
--- TOC entry 2984 (class 0 OID 0)
--- Dependencies: 8
--- Name: SCHEMA public; Type: COMMENT; Schema: -; Owner: -
+-- Name: SCHEMA public; Type: COMMENT; Schema: -; Owner: rdf
 --
 
 COMMENT ON SCHEMA public IS 'standard public schema';
@@ -40,8 +37,7 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
--- TOC entry 203 (class 1259 OID 1981217)
--- Name: endpoint_types; Type: TABLE; Schema: public; Owner: -
+-- Name: endpoint_types; Type: TABLE; Schema: public; Owner: rdf
 --
 
 CREATE TABLE public.endpoint_types (
@@ -51,9 +47,10 @@ CREATE TABLE public.endpoint_types (
 );
 
 
+ALTER TABLE public.endpoint_types OWNER TO rdf;
+
 --
--- TOC entry 208 (class 1259 OID 1981254)
--- Name: endpoint_types_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: endpoint_types_id_seq; Type: SEQUENCE; Schema: public; Owner: rdf
 --
 
 ALTER TABLE public.endpoint_types ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
@@ -67,8 +64,7 @@ ALTER TABLE public.endpoint_types ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTI
 
 
 --
--- TOC entry 204 (class 1259 OID 1981223)
--- Name: endpoints; Type: TABLE; Schema: public; Owner: -
+-- Name: endpoints; Type: TABLE; Schema: public; Owner: rdf
 --
 
 CREATE TABLE public.endpoints (
@@ -76,15 +72,16 @@ CREATE TABLE public.endpoints (
     sparql_url text,
     public_url text,
     named_graph text,
-    endpoint_type_id integer DEFAULT 1,
+    endpoint_type_id integer,
     direct_class_role text,
     indirect_class_role text
 );
 
 
+ALTER TABLE public.endpoints OWNER TO rdf;
+
 --
--- TOC entry 209 (class 1259 OID 1981256)
--- Name: endpoints_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: endpoints_id_seq; Type: SEQUENCE; Schema: public; Owner: rdf
 --
 
 CREATE SEQUENCE public.endpoints_id_seq
@@ -96,18 +93,17 @@ CREATE SEQUENCE public.endpoints_id_seq
     CACHE 1;
 
 
+ALTER TABLE public.endpoints_id_seq OWNER TO rdf;
+
 --
--- TOC entry 2988 (class 0 OID 0)
--- Dependencies: 209
--- Name: endpoints_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+-- Name: endpoints_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: rdf
 --
 
 ALTER SEQUENCE public.endpoints_id_seq OWNED BY public.endpoints.id;
 
 
 --
--- TOC entry 210 (class 1259 OID 1981258)
--- Name: ns_prefixes; Type: TABLE; Schema: public; Owner: -
+-- Name: ns_prefixes; Type: TABLE; Schema: public; Owner: rdf
 --
 
 CREATE TABLE public.ns_prefixes (
@@ -117,18 +113,17 @@ CREATE TABLE public.ns_prefixes (
 );
 
 
+ALTER TABLE public.ns_prefixes OWNER TO rdf;
+
 --
--- TOC entry 2989 (class 0 OID 0)
--- Dependencies: 210
--- Name: TABLE ns_prefixes; Type: COMMENT; Schema: public; Owner: -
+-- Name: TABLE ns_prefixes; Type: COMMENT; Schema: public; Owner: rdf
 --
 
 COMMENT ON TABLE public.ns_prefixes IS 'saīsinājumi un prefiksi no vietnes prefix.cc';
 
 
 --
--- TOC entry 211 (class 1259 OID 1981264)
--- Name: ns_prefixes_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: ns_prefixes_id_seq; Type: SEQUENCE; Schema: public; Owner: rdf
 --
 
 ALTER TABLE public.ns_prefixes ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
@@ -142,27 +137,27 @@ ALTER TABLE public.ns_prefixes ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY 
 
 
 --
--- TOC entry 205 (class 1259 OID 1981229)
--- Name: schemata; Type: TABLE; Schema: public; Owner: -
+-- Name: schemata; Type: TABLE; Schema: public; Owner: rdf
 --
 
 CREATE TABLE public.schemata (
     id integer NOT NULL,
-    schema_name text NOT NULL,
+    schema_kind text NOT NULL,
     db_schema_name text,
     db_schema_structure_version text,
     description text,
     origin_endpoint_id integer,
-    spying_details text,
     default_endpoint_id integer,
     has_pp_rels boolean DEFAULT true NOT NULL,
-    has_instance_table boolean DEFAULT false NOT NULL
+    has_instance_table boolean DEFAULT false NOT NULL,
+    spying_details jsonb
 );
 
 
+ALTER TABLE public.schemata OWNER TO rdf;
+
 --
--- TOC entry 212 (class 1259 OID 1981266)
--- Name: schemata_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: schemata_id_seq; Type: SEQUENCE; Schema: public; Owner: rdf
 --
 
 CREATE SEQUENCE public.schemata_id_seq
@@ -174,18 +169,17 @@ CREATE SEQUENCE public.schemata_id_seq
     CACHE 1;
 
 
+ALTER TABLE public.schemata_id_seq OWNER TO rdf;
+
 --
--- TOC entry 2992 (class 0 OID 0)
--- Dependencies: 212
--- Name: schemata_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+-- Name: schemata_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: rdf
 --
 
 ALTER SEQUENCE public.schemata_id_seq OWNED BY public.schemata.id;
 
 
 --
--- TOC entry 206 (class 1259 OID 1981237)
--- Name: schemata_to_endpoints; Type: TABLE; Schema: public; Owner: -
+-- Name: schemata_to_endpoints; Type: TABLE; Schema: public; Owner: rdf
 --
 
 CREATE TABLE public.schemata_to_endpoints (
@@ -196,13 +190,15 @@ CREATE TABLE public.schemata_to_endpoints (
     tree_profile_id integer DEFAULT 1 NOT NULL,
     is_active boolean DEFAULT true NOT NULL,
     hide_instances boolean DEFAULT false NOT NULL,
-    use_pp_rels boolean DEFAULT true NOT NULL
+    use_pp_rels boolean DEFAULT true NOT NULL,
+    is_default_for_endpoint boolean DEFAULT false NOT NULL
 );
 
 
+ALTER TABLE public.schemata_to_endpoints OWNER TO rdf;
+
 --
--- TOC entry 213 (class 1259 OID 1981268)
--- Name: schemata_to_endpoint_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: schemata_to_endpoint_id_seq; Type: SEQUENCE; Schema: public; Owner: rdf
 --
 
 CREATE SEQUENCE public.schemata_to_endpoint_id_seq
@@ -214,18 +210,17 @@ CREATE SEQUENCE public.schemata_to_endpoint_id_seq
     CACHE 1;
 
 
+ALTER TABLE public.schemata_to_endpoint_id_seq OWNER TO rdf;
+
 --
--- TOC entry 2994 (class 0 OID 0)
--- Dependencies: 213
--- Name: schemata_to_endpoint_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+-- Name: schemata_to_endpoint_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: rdf
 --
 
 ALTER SEQUENCE public.schemata_to_endpoint_id_seq OWNED BY public.schemata_to_endpoints.id;
 
 
 --
--- TOC entry 207 (class 1259 OID 1981247)
--- Name: tree_profiles; Type: TABLE; Schema: public; Owner: -
+-- Name: tree_profiles; Type: TABLE; Schema: public; Owner: rdf
 --
 
 CREATE TABLE public.tree_profiles (
@@ -236,9 +231,10 @@ CREATE TABLE public.tree_profiles (
 );
 
 
+ALTER TABLE public.tree_profiles OWNER TO rdf;
+
 --
--- TOC entry 214 (class 1259 OID 1981270)
--- Name: tree_profile_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: tree_profile_id_seq; Type: SEQUENCE; Schema: public; Owner: rdf
 --
 
 ALTER TABLE public.tree_profiles ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
@@ -252,8 +248,7 @@ ALTER TABLE public.tree_profiles ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTIT
 
 
 --
--- TOC entry 215 (class 1259 OID 1981272)
--- Name: v_configurations; Type: VIEW; Schema: public; Owner: -
+-- Name: v_configurations; Type: VIEW; Schema: public; Owner: rdf
 --
 
 CREATE VIEW public.v_configurations AS
@@ -271,7 +266,7 @@ CREATE VIEW public.v_configurations AS
     COALESCE(e.indirect_class_role, ''::text) AS indirect_class_role,
     s.has_instance_table,
     s2e.hide_instances,
-    s.schema_name
+    s.schema_kind AS schema_name
    FROM ((((public.schemata_to_endpoints s2e
      JOIN public.tree_profiles p ON ((p.id = s2e.tree_profile_id)))
      JOIN public.endpoints e ON ((e.id = s2e.endpoint_id)))
@@ -281,34 +276,31 @@ CREATE VIEW public.v_configurations AS
   ORDER BY s2e.display_name;
 
 
+ALTER TABLE public.v_configurations OWNER TO rdf;
+
 --
--- TOC entry 2809 (class 2604 OID 1981277)
--- Name: endpoints id; Type: DEFAULT; Schema: public; Owner: -
+-- Name: endpoints id; Type: DEFAULT; Schema: public; Owner: rdf
 --
 
 ALTER TABLE ONLY public.endpoints ALTER COLUMN id SET DEFAULT nextval('public.endpoints_id_seq'::regclass);
 
 
 --
--- TOC entry 2813 (class 2604 OID 1981278)
--- Name: schemata id; Type: DEFAULT; Schema: public; Owner: -
+-- Name: schemata id; Type: DEFAULT; Schema: public; Owner: rdf
 --
 
 ALTER TABLE ONLY public.schemata ALTER COLUMN id SET DEFAULT nextval('public.schemata_id_seq'::regclass);
 
 
 --
--- TOC entry 2818 (class 2604 OID 1981279)
--- Name: schemata_to_endpoints id; Type: DEFAULT; Schema: public; Owner: -
+-- Name: schemata_to_endpoints id; Type: DEFAULT; Schema: public; Owner: rdf
 --
 
 ALTER TABLE ONLY public.schemata_to_endpoints ALTER COLUMN id SET DEFAULT nextval('public.schemata_to_endpoint_id_seq'::regclass);
 
 
 --
--- TOC entry 2967 (class 0 OID 1981217)
--- Dependencies: 203
--- Data for Name: endpoint_types; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: endpoint_types; Type: TABLE DATA; Schema: public; Owner: rdf
 --
 
 COPY public.endpoint_types (id, name, description) FROM stdin;
@@ -319,9 +311,7 @@ COPY public.endpoint_types (id, name, description) FROM stdin;
 
 
 --
--- TOC entry 2968 (class 0 OID 1981223)
--- Dependencies: 204
--- Data for Name: endpoints; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: endpoints; Type: TABLE DATA; Schema: public; Owner: rdf
 --
 
 COPY public.endpoints (id, sparql_url, public_url, named_graph, endpoint_type_id, direct_class_role, indirect_class_role) FROM stdin;
@@ -329,9 +319,7 @@ COPY public.endpoints (id, sparql_url, public_url, named_graph, endpoint_type_id
 
 
 --
--- TOC entry 2974 (class 0 OID 1981258)
--- Dependencies: 210
--- Data for Name: ns_prefixes; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: ns_prefixes; Type: TABLE DATA; Schema: public; Owner: rdf
 --
 
 COPY public.ns_prefixes (id, abbr, prefix) FROM stdin;
@@ -3141,29 +3129,23 @@ COPY public.ns_prefixes (id, abbr, prefix) FROM stdin;
 
 
 --
--- TOC entry 2969 (class 0 OID 1981229)
--- Dependencies: 205
--- Data for Name: schemata; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: schemata; Type: TABLE DATA; Schema: public; Owner: rdf
 --
 
-COPY public.schemata (id, schema_name, db_schema_name, db_schema_structure_version, description, origin_endpoint_id, spying_details, default_endpoint_id, has_pp_rels, has_instance_table) FROM stdin;
+COPY public.schemata (id, schema_kind, db_schema_name, db_schema_structure_version, description, origin_endpoint_id, default_endpoint_id, has_pp_rels, has_instance_table, spying_details) FROM stdin;
 \.
 
 
 --
--- TOC entry 2970 (class 0 OID 1981237)
--- Dependencies: 206
--- Data for Name: schemata_to_endpoints; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: schemata_to_endpoints; Type: TABLE DATA; Schema: public; Owner: rdf
 --
 
-COPY public.schemata_to_endpoints (id, schema_id, endpoint_id, display_name, tree_profile_id, is_active, hide_instances, use_pp_rels) FROM stdin;
+COPY public.schemata_to_endpoints (id, schema_id, endpoint_id, display_name, tree_profile_id, is_active, hide_instances, use_pp_rels, is_default_for_endpoint) FROM stdin;
 \.
 
 
 --
--- TOC entry 2971 (class 0 OID 1981247)
--- Dependencies: 207
--- Data for Name: tree_profiles; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: tree_profiles; Type: TABLE DATA; Schema: public; Owner: rdf
 --
 
 COPY public.tree_profiles (id, profile_name, data, is_default) FROM stdin;
@@ -3175,62 +3157,49 @@ COPY public.tree_profiles (id, profile_name, data, is_default) FROM stdin;
 
 
 --
--- TOC entry 2997 (class 0 OID 0)
--- Dependencies: 208
--- Name: endpoint_types_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: endpoint_types_id_seq; Type: SEQUENCE SET; Schema: public; Owner: rdf
 --
 
 SELECT pg_catalog.setval('public.endpoint_types_id_seq', 3, true);
 
 
 --
--- TOC entry 2998 (class 0 OID 0)
--- Dependencies: 209
--- Name: endpoints_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: endpoints_id_seq; Type: SEQUENCE SET; Schema: public; Owner: rdf
 --
 
 SELECT pg_catalog.setval('public.endpoints_id_seq', 1, false);
 
 
 --
--- TOC entry 2999 (class 0 OID 0)
--- Dependencies: 211
--- Name: ns_prefixes_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: ns_prefixes_id_seq; Type: SEQUENCE SET; Schema: public; Owner: rdf
 --
 
 SELECT pg_catalog.setval('public.ns_prefixes_id_seq', 2802, true);
 
 
 --
--- TOC entry 3000 (class 0 OID 0)
--- Dependencies: 212
--- Name: schemata_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: schemata_id_seq; Type: SEQUENCE SET; Schema: public; Owner: rdf
 --
 
 SELECT pg_catalog.setval('public.schemata_id_seq', 1, false);
 
 
 --
--- TOC entry 3001 (class 0 OID 0)
--- Dependencies: 213
--- Name: schemata_to_endpoint_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: schemata_to_endpoint_id_seq; Type: SEQUENCE SET; Schema: public; Owner: rdf
 --
 
 SELECT pg_catalog.setval('public.schemata_to_endpoint_id_seq', 1, false);
 
 
 --
--- TOC entry 3002 (class 0 OID 0)
--- Dependencies: 214
--- Name: tree_profile_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: tree_profile_id_seq; Type: SEQUENCE SET; Schema: public; Owner: rdf
 --
 
 SELECT pg_catalog.setval('public.tree_profile_id_seq', 4, true);
 
 
 --
--- TOC entry 2821 (class 2606 OID 1981281)
--- Name: endpoint_types endpoint_types_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: endpoint_types endpoint_types_pkey; Type: CONSTRAINT; Schema: public; Owner: rdf
 --
 
 ALTER TABLE ONLY public.endpoint_types
@@ -3238,8 +3207,7 @@ ALTER TABLE ONLY public.endpoint_types
 
 
 --
--- TOC entry 2823 (class 2606 OID 1981283)
--- Name: endpoints endpoints_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: endpoints endpoints_pkey; Type: CONSTRAINT; Schema: public; Owner: rdf
 --
 
 ALTER TABLE ONLY public.endpoints
@@ -3247,8 +3215,7 @@ ALTER TABLE ONLY public.endpoints
 
 
 --
--- TOC entry 2835 (class 2606 OID 1981285)
--- Name: ns_prefixes ns_prefixes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: ns_prefixes ns_prefixes_pkey; Type: CONSTRAINT; Schema: public; Owner: rdf
 --
 
 ALTER TABLE ONLY public.ns_prefixes
@@ -3256,8 +3223,7 @@ ALTER TABLE ONLY public.ns_prefixes
 
 
 --
--- TOC entry 2827 (class 2606 OID 1981287)
--- Name: schemata_to_endpoints s2e_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: schemata_to_endpoints s2e_pkey; Type: CONSTRAINT; Schema: public; Owner: rdf
 --
 
 ALTER TABLE ONLY public.schemata_to_endpoints
@@ -3265,8 +3231,7 @@ ALTER TABLE ONLY public.schemata_to_endpoints
 
 
 --
--- TOC entry 2825 (class 2606 OID 1981289)
--- Name: schemata schemata_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: schemata schemata_pkey; Type: CONSTRAINT; Schema: public; Owner: rdf
 --
 
 ALTER TABLE ONLY public.schemata
@@ -3274,8 +3239,7 @@ ALTER TABLE ONLY public.schemata
 
 
 --
--- TOC entry 2829 (class 2606 OID 1981291)
--- Name: schemata_to_endpoints schemata_to_endpoints_display_name_key; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: schemata_to_endpoints schemata_to_endpoints_display_name_key; Type: CONSTRAINT; Schema: public; Owner: rdf
 --
 
 ALTER TABLE ONLY public.schemata_to_endpoints
@@ -3283,8 +3247,7 @@ ALTER TABLE ONLY public.schemata_to_endpoints
 
 
 --
--- TOC entry 2831 (class 2606 OID 1981293)
--- Name: tree_profiles tree_profile_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: tree_profiles tree_profile_pkey; Type: CONSTRAINT; Schema: public; Owner: rdf
 --
 
 ALTER TABLE ONLY public.tree_profiles
@@ -3292,8 +3255,7 @@ ALTER TABLE ONLY public.tree_profiles
 
 
 --
--- TOC entry 2833 (class 2606 OID 1981295)
--- Name: tree_profiles tree_profiles_name_key; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: tree_profiles tree_profiles_name_key; Type: CONSTRAINT; Schema: public; Owner: rdf
 --
 
 ALTER TABLE ONLY public.tree_profiles
@@ -3301,17 +3263,15 @@ ALTER TABLE ONLY public.tree_profiles
 
 
 --
--- TOC entry 2836 (class 2606 OID 1981296)
--- Name: endpoints endpoints_endpoint_type_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: endpoints endpoints_endpoint_type_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: rdf
 --
 
 ALTER TABLE ONLY public.endpoints
-    ADD CONSTRAINT endpoints_endpoint_type_id_fkey FOREIGN KEY (endpoint_type_id) REFERENCES public.endpoint_types(id) NOT VALID;
+    ADD CONSTRAINT endpoints_endpoint_type_id_fkey FOREIGN KEY (endpoint_type_id) REFERENCES public.endpoint_types(id);
 
 
 --
--- TOC entry 2837 (class 2606 OID 1981301)
--- Name: schemata_to_endpoints s2e_endpoint_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: schemata_to_endpoints s2e_endpoint_fk; Type: FK CONSTRAINT; Schema: public; Owner: rdf
 --
 
 ALTER TABLE ONLY public.schemata_to_endpoints
@@ -3319,8 +3279,7 @@ ALTER TABLE ONLY public.schemata_to_endpoints
 
 
 --
--- TOC entry 2838 (class 2606 OID 1981306)
--- Name: schemata_to_endpoints s2e_schema_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: schemata_to_endpoints s2e_schema_fk; Type: FK CONSTRAINT; Schema: public; Owner: rdf
 --
 
 ALTER TABLE ONLY public.schemata_to_endpoints
@@ -3328,97 +3287,78 @@ ALTER TABLE ONLY public.schemata_to_endpoints
 
 
 --
--- TOC entry 2839 (class 2606 OID 1981311)
--- Name: schemata_to_endpoints s2e_tree_profile_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: schemata_to_endpoints s2e_tree_profile_fk; Type: FK CONSTRAINT; Schema: public; Owner: rdf
 --
 
 ALTER TABLE ONLY public.schemata_to_endpoints
-    ADD CONSTRAINT s2e_tree_profile_fk FOREIGN KEY (tree_profile_id) REFERENCES public.tree_profiles(id) NOT VALID;
+    ADD CONSTRAINT s2e_tree_profile_fk FOREIGN KEY (tree_profile_id) REFERENCES public.tree_profiles(id);
 
 
 --
--- TOC entry 2985 (class 0 OID 0)
--- Dependencies: 8
--- Name: SCHEMA public; Type: ACL; Schema: -; Owner: -
+-- Name: SCHEMA public; Type: ACL; Schema: -; Owner: rdf
 --
 
-GRANT USAGE ON SCHEMA public TO rdf;
+REVOKE USAGE ON SCHEMA public FROM PUBLIC;
+GRANT ALL ON SCHEMA public TO PUBLIC;
 GRANT USAGE ON SCHEMA public TO rdfgroup;
 GRANT USAGE ON SCHEMA public TO rdfro;
 
 
 --
--- TOC entry 2986 (class 0 OID 0)
--- Dependencies: 203
--- Name: TABLE endpoint_types; Type: ACL; Schema: public; Owner: -
+-- Name: TABLE endpoint_types; Type: ACL; Schema: public; Owner: rdf
 --
 
 GRANT SELECT ON TABLE public.endpoint_types TO rdfro;
 
 
 --
--- TOC entry 2987 (class 0 OID 0)
--- Dependencies: 204
--- Name: TABLE endpoints; Type: ACL; Schema: public; Owner: -
+-- Name: TABLE endpoints; Type: ACL; Schema: public; Owner: rdf
 --
 
 GRANT SELECT ON TABLE public.endpoints TO rdfro;
 
 
 --
--- TOC entry 2990 (class 0 OID 0)
--- Dependencies: 210
--- Name: TABLE ns_prefixes; Type: ACL; Schema: public; Owner: -
+-- Name: TABLE ns_prefixes; Type: ACL; Schema: public; Owner: rdf
 --
 
 GRANT SELECT ON TABLE public.ns_prefixes TO rdfro;
 
 
 --
--- TOC entry 2991 (class 0 OID 0)
--- Dependencies: 205
--- Name: TABLE schemata; Type: ACL; Schema: public; Owner: -
+-- Name: TABLE schemata; Type: ACL; Schema: public; Owner: rdf
 --
 
 GRANT SELECT ON TABLE public.schemata TO rdfro;
 
 
 --
--- TOC entry 2993 (class 0 OID 0)
--- Dependencies: 206
--- Name: TABLE schemata_to_endpoints; Type: ACL; Schema: public; Owner: -
+-- Name: TABLE schemata_to_endpoints; Type: ACL; Schema: public; Owner: rdf
 --
 
 GRANT SELECT ON TABLE public.schemata_to_endpoints TO rdfro;
 
 
 --
--- TOC entry 2995 (class 0 OID 0)
--- Dependencies: 207
--- Name: TABLE tree_profiles; Type: ACL; Schema: public; Owner: -
+-- Name: TABLE tree_profiles; Type: ACL; Schema: public; Owner: rdf
 --
 
 GRANT SELECT ON TABLE public.tree_profiles TO rdfro;
 
 
 --
--- TOC entry 2996 (class 0 OID 0)
--- Dependencies: 215
--- Name: TABLE v_configurations; Type: ACL; Schema: public; Owner: -
+-- Name: TABLE v_configurations; Type: ACL; Schema: public; Owner: rdf
 --
 
 GRANT SELECT ON TABLE public.v_configurations TO rdfro;
 
 
 --
--- TOC entry 1730 (class 826 OID 1981316)
--- Name: DEFAULT PRIVILEGES FOR TABLES; Type: DEFAULT ACL; Schema: public; Owner: -
+-- Name: DEFAULT PRIVILEGES FOR TABLES; Type: DEFAULT ACL; Schema: public; Owner: postgres
 --
 
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT SELECT ON TABLES  TO rdfro;
 
-
--- Completed on 2022-05-28 16:29:32 EEST
 
 --
 -- PostgreSQL database dump complete
