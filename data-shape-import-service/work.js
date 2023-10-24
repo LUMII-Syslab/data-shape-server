@@ -405,9 +405,14 @@ const addProperty = async p => {
     //      DataTypes[]
     //          dataType: "rdf:langString"
     //          tripleCount: 33
+    let property_domain_class_id;
     if (p.SourceClasses) {
         for (const srcClass of p.SourceClasses) {
             const class_id = getClassId(srcClass.classFullName);
+            if (srcClass.isPrincipal) {
+                property_domain_class_id = class_id;
+            }
+
             let cp_rel_id;
             try {
                 cp_rel_id = (await db.one(`INSERT INTO ${dbSchema}.cp_rels (
@@ -485,6 +490,18 @@ const addProperty = async p => {
         }
     }
 
+    // store domain_class_id if found
+    if (property_domain_class_id) {
+        try {
+            await db.none(`UPDATE ${dbSchema}.properties SET domain_class_id = $1 WHERE id = $2`,[
+                property_domain_class_id,
+                property_id,
+            ])
+        } catch(err) {
+            console.error(err);
+        } 
+    }
+
     // p.TargetClasses[] -> cp_rels(1=incoming)
     //      classFullName: "http://www.europeana.eu/schemas/edm/WebResource" -> resolve to class_id
     //      tripleCount: 1 -> cnt
@@ -493,9 +510,14 @@ const addProperty = async p => {
     //      importanceIndex: 1
     //      minInverseCardinality: 1 ?-> min_cardinality
     //      maxInverseCardinality: 1 ?-> max_cardinality
+    let property_range_class_id;
     if (p.TargetClasses) {
         for (const targetClass of p.TargetClasses) {
             const class_id = getClassId(targetClass.classFullName);
+            if (targetClass.isPrincipal) {
+                property_range_class_id = class_id;
+            }
+
             let cp_rel_id;
             try {
                 cp_rel_id = (await db.one(`INSERT INTO ${dbSchema}.cp_rels (
@@ -555,6 +577,18 @@ const addProperty = async p => {
             }
 
         }
+    }
+
+    // store domain_class_id if found
+    if (property_range_class_id) {
+        try {
+            await db.none(`UPDATE ${dbSchema}.properties SET range_class_id = $1 WHERE id = $2`,[
+                property_range_class_id,
+                property_id,
+            ])
+        } catch(err) {
+            console.error(err);
+        } 
     }
 
     // p.DataTypes[]
