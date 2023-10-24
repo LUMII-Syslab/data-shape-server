@@ -3,7 +3,7 @@ const debug = require('debug')('work')
 const fetch = require('node-fetch');
 const col = require('ansi-colors')
 
-const { CC_REL_TYPE, CP_REL_TYPE, PP_REL_TYPE } = require('./types')
+const { CC_REL_TYPE, CP_REL_TYPE, PP_REL_TYPE } = require('./type-constants')
 
 const { DB_CONFIG } = require('./config');
 
