@@ -11,6 +11,8 @@ const db = require('./config').db;
 
 const dbSchema = process.env.DB_SCHEMA;
 const INPUT_FILE = process.env.INPUT_FILE;
+const registrySchema = process.env.REGISTRY_SCHEMA || 'public';
+
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -957,7 +959,7 @@ const registerImportedSchema = async (parameters) => {
     let endpointTypeId = 1;
     if (process.env.ENDPOINT_TYPE) {
         try {
-            endpointTypeId = (await db.one('SELECT id FROM public.endpoint_types WHERE name = $1', [
+            endpointTypeId = (await db.one(`SELECT id FROM ${registrySchema}.endpoint_types WHERE name = $1`, [
                 process.env.ENDPOINT_TYPE.toLowerCase().trim(),
             ])).id;
         } catch {
@@ -966,7 +968,7 @@ const registerImportedSchema = async (parameters) => {
     }
 
     try {
-        const ENDPOINT_SQL = `INSERT INTO public.endpoints (sparql_url, public_url, named_graph, endpoint_type_id) VALUES ($1, $2, $3, $4) RETURNING id`;
+        const ENDPOINT_SQL = `INSERT INTO ${registrySchema}.endpoints (sparql_url, public_url, named_graph, endpoint_type_id) VALUES ($1, $2, $3, $4) RETURNING id`;
         const endpoint_id = (await db.one(ENDPOINT_SQL, [
             sparqlUrl,
             publicUrl,
@@ -974,7 +976,7 @@ const registerImportedSchema = async (parameters) => {
             endpointTypeId,
         ])).id;
 
-        const SCHEMA_SQL = `INSERT INTO public.schemata (db_schema_name, schema_kind, has_pp_rels, has_instance_table) VALUES ($1, $2, $3, $4) RETURNING id`;
+        const SCHEMA_SQL = `INSERT INTO ${registrySchema}.schemata (db_schema_name, schema_kind, has_pp_rels, has_instance_table) VALUES ($1, $2, $3, $4) RETURNING id`;
         const schema_id = (await db.one(SCHEMA_SQL, [
             schemaName,
             'default',
@@ -982,7 +984,7 @@ const registerImportedSchema = async (parameters) => {
             false,
         ])).id;
 
-        const E2S_SQL = `INSERT INTO public.schemata_to_endpoints (schema_id, endpoint_id, display_name, is_active, use_pp_rels) VALUES ($1, $2, $3, $4, $5)`;
+        const E2S_SQL = `INSERT INTO ${registrySchema}.schemata_to_endpoints (schema_id, endpoint_id, display_name, is_active, use_pp_rels) VALUES ($1, $2, $3, $4, $5)`;
         await db.none(E2S_SQL, [
             schema_id,
             endpoint_id,
