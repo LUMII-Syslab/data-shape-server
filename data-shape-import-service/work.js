@@ -3,6 +3,8 @@ const debug = require('debug')('work')
 const fetch = require('node-fetch');
 const col = require('ansi-colors')
 
+const { CC_REL_TYPE, CP_REL_TYPE, PP_REL_TYPE } = require('./types')
+
 const { DB_CONFIG } = require('./config');
 
 const db = require('./config').db;
@@ -421,7 +423,7 @@ const addProperty = async p => {
                     $10,
                     $11) RETURNING id`,
                 [
-                    class_id, property_id, 2,
+                    class_id, property_id, CP_REL_TYPE.OUTGOING,
                     srcClass.tripleCount, srcClass.objectTripleCount, srcClass.dataTripleCount,
                     srcClass.minCardinality, srcClass.maxCardinality,
                     srcClass.importanceIndex,
@@ -509,7 +511,7 @@ const addProperty = async p => {
                     $9)
                 RETURNING id`,
                 [
-                    class_id, property_id, 1,
+                    class_id, property_id, CP_REL_TYPE.INCOMING,
                     targetClass.tripleCount,
                     targetClass.minInverseCardinality, targetClass.maxInverseCardinality,
                     targetClass.importanceIndex,
@@ -528,6 +530,8 @@ const addProperty = async p => {
             //      TargetClass: "http://www.europeana.eu/schemas/edm/WebResource"
             //      targetImportanceIndex: 1
             //      tripleCount: 1
+            //      isPrincipalSource: false
+            //      isPrincipalTarget: false
             if (p.ClassPairs) {
                 for (const pair of p.ClassPairs) {
                     if (pair.TargetClass !== targetClass.classFullName) continue;
