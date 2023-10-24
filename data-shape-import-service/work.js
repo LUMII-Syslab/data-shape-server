@@ -413,6 +413,16 @@ const addProperty = async p => {
                 property_domain_class_id = class_id;
             }
 
+            let principalTargetClassId = null;
+            if (p.ClassPairs) {
+                for (const pair of p.ClassPairs) {
+                    if (pair.SourceClass !== srcClass.classFullName) continue;
+                    if (pair.TargetClass.isPrincipalTarget) {
+                        principalTargetClassId = getClassId(pair.TargetClass.classFullName);
+                    }
+                }
+            }
+
             let cp_rel_id;
             try {
                 cp_rel_id = (await db.one(`INSERT INTO ${dbSchema}.cp_rels (
@@ -421,13 +431,15 @@ const addProperty = async p => {
                     min_cardinality, max_cardinality,
                     cover_set_index,
                     details_level,
-                    sub_cover_complete)
+                    sub_cover_complete,
+                    principal_class_id)
                 VALUES ($1, $2, $3,
                     $4, $5, $6,
                     $7, $8,
                     $9,
                     $10,
-                    $11) RETURNING id`,
+                    $11,
+                    $12) RETURNING id`,
                 [
                     class_id, property_id, CP_REL_TYPE.OUTGOING,
                     srcClass.tripleCount, srcClass.objectTripleCount, srcClass.dataTripleCount,
@@ -435,6 +447,7 @@ const addProperty = async p => {
                     srcClass.importanceIndex,
                     p.ClassPairs ? 2 : 0,
                     srcClass.closedRange || false,
+                    principalTargetClassId,
                 ])).id;
 
             } catch(err) {
@@ -518,6 +531,16 @@ const addProperty = async p => {
                 property_range_class_id = class_id;
             }
 
+            let principalSourceClassId = null;
+            if (p.ClassPairs) {
+                for (const pair of p.ClassPairs) {
+                    if (pair.TargetClass !== targetClass.classFullName) continue;
+                    if (pair.SourceClass.isPrincipalSource) {
+                        principalSourceClassId = getClassId(pair.SourceClass.classFullName);
+                    }
+                }
+            }
+
             let cp_rel_id;
             try {
                 cp_rel_id = (await db.one(`INSERT INTO ${dbSchema}.cp_rels (
@@ -526,13 +549,15 @@ const addProperty = async p => {
                     min_cardinality, max_cardinality,
                     cover_set_index,
                     details_level,
-                    sub_cover_complete)
+                    sub_cover_complete,
+                    principal_class_id)
                 VALUES ($1, $2, $3,
                     $4, $4,
                     $5, $6,
                     $7,
                     $8,
-                    $9)
+                    $9,
+                    $10)
                 RETURNING id`,
                 [
                     class_id, property_id, CP_REL_TYPE.INCOMING,
@@ -541,6 +566,7 @@ const addProperty = async p => {
                     targetClass.importanceIndex,
                     p.ClassPairs ? 2 : 0,
                     targetClass.closedDomain || false,
+                    principalSourceClassId,
                 ])).id;
 
             } catch(err) {
