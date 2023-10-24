@@ -338,16 +338,16 @@ const getClassId = iri => {
 
 const PROPS = new Map(); // iri -> property_id
 const addProperty = async p => {
-    // p.fullName: "http://dbpedia.org/property/julPrecipitationDays"
-    // ?p.localName: "julPrecipitationDays"
-    // ?p.namespace: "http://dbpedia.org/property/"
-    // p.tripleCount: 1 -> cnt
-    // p.dataTripleCount: 1 -> data_cnt
-    // p.objectTripleCount: 0 -> object_cnt
-    // p.maxCardinality: 1, -1 -> max_cardinality
-    // p.maxInverseCardinality: -1 -> inverse_max_cardinality
-    // p.closedDomain: true
-    // p.closedRange: true
+    // fullName: "http://dbpedia.org/property/julPrecipitationDays"
+    // ?localName: "julPrecipitationDays"
+    // ?namespace: "http://dbpedia.org/property/"
+    // tripleCount: 1 -> cnt
+    // dataTripleCount: 1 -> data_cnt
+    // objectTripleCount: 0 -> object_cnt
+    // maxCardinality: 1, -1 -> max_cardinality
+    // maxInverseCardinality: -1 -> inverse_max_cardinality
+    // closedDomain: true
+    // closedRange: true
     let ns_id = await resolveNsPrefix(p.namespace);
 
     let domain_class_id = null;
@@ -400,6 +400,7 @@ const addProperty = async p => {
     //      minCardinality: 0 -> min_cardinality
     //      maxCardinality: -1 -> max_cardinality (?specapstrāde -1?)
     //      closedRange: true
+    //      isPrincipal: true
     //      importanceIndex: 1
     //      DataTypes[]
     //          dataType: "rdf:langString"
@@ -488,6 +489,7 @@ const addProperty = async p => {
     //      classFullName: "http://www.europeana.eu/schemas/edm/WebResource" -> resolve to class_id
     //      tripleCount: 1 -> cnt
     //      closedDomain: true
+    //      isPrincipal: true
     //      importanceIndex: 1
     //      minInverseCardinality: 1 ?-> min_cardinality
     //      maxInverseCardinality: 1 ?-> max_cardinality
