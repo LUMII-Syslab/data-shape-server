@@ -511,7 +511,8 @@ CREATE TABLE empty.parameters (
     textvalue text,
     jsonvalue jsonb,
     comment text,
-    id integer NOT NULL
+    id integer NOT NULL,
+    deprecated boolean DEFAULT false NOT NULL
 );
 
 
@@ -1462,19 +1463,27 @@ COPY empty.ns (id, name, value, priority, is_local, basic_order_level) FROM stdi
 -- Data for Name: parameters; Type: TABLE DATA; Schema: empty; Owner: rdf
 --
 
-COPY empty.parameters (order_inx, name, textvalue, jsonvalue, comment, id) FROM stdin;
-10	schema_name	\N	\N	Name of the schema by which it is to be known in the visual query environment (must be unique).	1
-20	description	\N	\N	Description of the schema	2
-30	endpoint_url	\N	\N	Default endpoint URL for visual environment projects using this schema (can be overridden in induvidual project settings).	3
-40	named_graph	\N	\N	Default named graph for visual environment projects using this schema.	4
-60	direct_class_role	\N	\N	Default property to be used for instance-to-class relationship. Leave empty in the most typical case of the property being rdf:type.	5
-70	indirect_class_role	\N	\N	Fill in, if an indirect class membership is to be used in the environment, along with the direct membership (normally leave empty).	6
-120	hide_instances	\N	\N	Hide instance tab in the entity lookup pane in the visual environment	7
-130	use_instance_table	\N	\N	Mark, if a dedicated instance table is installed within the data schema (requires a custom solution).	8
-160	use_pp_rels	\N	\N	Use the property-property relationships from the data schema in the query auto-completion (the property-property relationships must be retrieved from the data and stored in the pp_rels table).	9
-210	instance_name_pattern	\N	\N	Default pattern for instance name presentation in visual query fields. Work in progress. Can be overriden on individual class level. Leave empty to present instances by their URIs.	10
-110	tree_profile	\N	\N	A custom configuration of the entity lookup pane tree (copy the initial value from the parameters of a similar schema)	11
-50	endpoint_type	\N	\N	Type of the endpoint (GENERIC, VIRTUOSO, JENA, BLAZEGRAPH), associated by default with the schema (can be overridden in a project).	12
+COPY empty.parameters (order_inx, name, textvalue, jsonvalue, comment, id, deprecated) FROM stdin;
+30	endpoint_url	\N	\N	Default endpoint URL for visual environment projects using this schema (can be overridden in induvidual project settings).	3	f
+40	named_graph	\N	\N	Default named graph for visual environment projects using this schema.	4	f
+60	direct_class_role	\N	\N	Default property to be used for instance-to-class relationship. Leave empty in the most typical case of the property being rdf:type.	5	f
+70	indirect_class_role	\N	\N	Fill in, if an indirect class membership is to be used in the environment, along with the direct membership (normally leave empty).	6	f
+120	hide_instances	\N	\N	Hide instance tab in the entity lookup pane in the visual environment	7	f
+160	use_pp_rels	\N	\N	Use the property-property relationships from the data schema in the query auto-completion (the property-property relationships must be retrieved from the data and stored in the pp_rels table).	9	f
+210	instance_name_pattern	\N	\N	Default pattern for instance name presentation in visual query fields. Work in progress. Can be overriden on individual class level. Leave empty to present instances by their URIs.	10	f
+110	tree_profile	\N	\N	A custom configuration of the entity lookup pane tree (copy the initial value from the parameters of a similar schema)	11	f
+50	endpoint_type	\N	\N	Type of the endpoint (GENERIC, VIRTUOSO, JENA, BLAZEGRAPH), associated by default with the schema (can be overridden in a project).	12	f
+999	tree_profile_name	\N	\N	Look up public tree profile by this name (mutually exclusive with local tree_profile)	14	f
+999	schema_kind	\N	\N	one of: default, dbpedia, wikidata, ...	13	f
+10	schema_name	\N	\N	Name of the schema by which it is to be known in the visual query environment (must be unique).	1	t
+20	schema_description	\N	\N	Description of the schema	2	f
+999	show_instance_tab	\N	\N	atbilst not hide_instances	15	f
+999	endpoint_public_url	\N	\N	human readable web site of the endpoint, if available	16	f
+999	schema_extracting_details	\N	\N	json with parameters used in schema extraction	17	f
+999	schema_import_datetime	\N	\N	\N	18	f
+130	use_instance_table	\N	\N	Mark, if a dedicated instance table is installed within the data schema (requires a custom solution).	8	t
+999	instance_lookup_mode	\N	\N	table - use instances table, default - use data endpoint	19	f
+999	display_name_default	\N	\N	\N	20	f
 \.
 
 
@@ -1610,7 +1619,7 @@ SELECT pg_catalog.setval('empty.ns_id_seq', 67, true);
 -- Name: parameters_id_seq; Type: SEQUENCE SET; Schema: empty; Owner: rdf
 --
 
-SELECT pg_catalog.setval('empty.parameters_id_seq', 12, true);
+SELECT pg_catalog.setval('empty.parameters_id_seq', 20, true);
 
 
 --
