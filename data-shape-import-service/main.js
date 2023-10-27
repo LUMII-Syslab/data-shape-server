@@ -132,6 +132,7 @@ const doImport = async () => {
         effectiveParams = await importFromJSON(data);
     } catch(err) {
         console.error('error while importing data from JSON to db schema');
+        console.error(err);
         process.exit(1);
     }
     

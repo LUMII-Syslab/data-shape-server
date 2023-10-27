@@ -65,7 +65,8 @@ const registerImportedSchema = async (params) => {
         const ENDPOINT_SQL = `INSERT INTO ${registrySchema}.endpoints 
             (sparql_url, public_url, named_graph, endpoint_type) 
             VALUES ($1, $2, $3, $4) 
-            ON CONFLICT DO UPDATE 
+            ON CONFLICT ON CONSTRAINT endpoints_sparql_graph_unique
+            DO UPDATE 
             SET public_url = $2, named_graph = $3, endpoint_type = $4
             RETURNING id`;
         const endpoint_id = (await db.one(ENDPOINT_SQL, [
@@ -78,7 +79,8 @@ const registerImportedSchema = async (params) => {
         const SCHEMA_SQL = `INSERT INTO ${registrySchema}.schemata 
             (db_schema_name, description) 
             VALUES ($1, $2)
-            ON CONFLICT DO UPDATE
+            ON CONFLICT ON CONSTRAINT schemata_name_unique
+            DO UPDATE
             SET description = $2 
             RETURNING id`;
         const schema_id = (await db.one(SCHEMA_SQL, [
@@ -89,7 +91,8 @@ const registerImportedSchema = async (params) => {
         const E2S_SQL = `INSERT INTO ${registrySchema}.schemata_to_endpoints 
             (schema_id, endpoint_id, display_name, is_active, tree_profile_id, is_default_for_endpoint) 
             VALUES ($1, $2, $3, $4, $5, $6)
-            ON CONFLICT DO UPDATE
+            ON CONFLICT ON CONSTRAINT schemata_to_endpoints_display_name_unique
+            DO UPDATE
             SET schema_id = $1, endpoint_id = $2, is_active = $4, tree_profile_id = $5, is_default_for_endpoint = $6`;
         await db.none(E2S_SQL, [
             schema_id,

@@ -778,6 +778,8 @@ const addOneParameter = async (param_name, param_value) => {
     if (!param_name) return;
     if (!param_value) return;
 
+    let name = param_name.trim();
+
     try {
         if (typeof param_value !== 'string') {
             await db.none(`INSERT INTO ${dbSchema}.parameters
@@ -794,11 +796,8 @@ const addOneParameter = async (param_name, param_value) => {
             return;
         }
 
-        // TODO: importējamājā JSON ir nepareizs objektu (sarakstu) kodējums; pagaidām pielabots ar roku
-        let value = param_value.trim();
-
         try {
-            let parsed = JSON.parse(value);
+            let parsed = JSON.parse(param_value);
             await db.none(`INSERT INTO ${dbSchema}.parameters
                 (name, jsonvalue)
                 VALUES ($1, $2)
@@ -811,7 +810,7 @@ const addOneParameter = async (param_name, param_value) => {
                 ]);
             return;
         } catch (err) {
-            console.log(`not a JSON value for parameter ${col.yellow(param_name)}; will be stored as text`);
+            console.log(`not a JSON value for parameter ${col.yellow(name)}; will be stored as text`);
         }
 
         await db.none(`INSERT INTO ${dbSchema}.parameters
@@ -822,7 +821,7 @@ const addOneParameter = async (param_name, param_value) => {
         `,
             [
                 name,
-                value,
+                param_value,
             ]);
 
     } catch (err) {
