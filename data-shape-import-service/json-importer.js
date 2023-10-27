@@ -1,13 +1,11 @@
 const ProgressBar = require('progress')
-const debug = require('debug')('work')
+const debug = require('debug')('import')
 const fetch = require('node-fetch');
 const col = require('ansi-colors')
 
 const { CC_REL_TYPE, CP_REL_TYPE, PP_REL_TYPE } = require('./type-constants')
 
-const { DB_CONFIG } = require('./config');
-
-const db = require('./config').db;
+const { DB_CONFIG, db } = require('./config');
 
 const dbSchema = process.env.DB_SCHEMA;
 const INPUT_FILE = process.env.INPUT_FILE;
@@ -776,44 +774,11 @@ const addPrefixShortcut = async (namespace, shortcut) => {
     }
 }
 
-const PARAMETER_NAME_MAP = {
-    endpointUrl: "endpoint_url",
-    graphName: "named_graph",
-}
-
-const addParameter = async (param_name, param_value) => {
-/*
-    // old style:
-    {
-      "name": "minimalAnalyzedClassSize",
-      "value": "1"
-    },
-    {
-      "name": "classificationProperties",
-      "value": "[http://www.w3.org/1999/02/22-rdf-syntax-ns#type, http://data.nobelprize.org/terms/category, http://data.nobelprize.org/terms/year, http://xmlns.com/foaf/0.1/gender]"
-    }
-
-    // new style:
-    "Parameters": {
-        "correlationId": "7494937434712105732",
-        "endpointUrl": "http://85.254.199.72:8890/sparql",
-        "calculateSubClassRelations": true,
-        "calculateCardinalitiesMode": "propertyLevelAndClassContext",
-        "checkInstanceNamespaces": false,
-        "minimalAnalyzedClassSize": 1,
-        "classificationProperties": [
-        "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
-        ],
-        "includedLabels": [],
-        ...
-    }
-*/
+const addOneParameter = async (param_name, param_value) => {
     if (!param_name) return;
     if (!param_value) return;
 
     try {
-        let name = PARAMETER_NAME_MAP[param_name] ?? param_name;
-
         if (typeof param_value !== 'string') {
             await db.none(`INSERT INTO ${dbSchema}.parameters
                 (name, jsonvalue)
@@ -866,6 +831,27 @@ const addParameter = async (param_name, param_value) => {
 
 }
 
+const addParameters = async (params) => {
+    const parameters = {
+        display_name_default: process.env.SCHEMA_DISPLAY_NAME ?? process.env.DB_SCHEMA,
+        schema_name: process.env.DB_SCHEMA,
+        description: process.env.SCHEMA_DESCRIPTION,
+        endpoint_url: process.env.SPARQL_URL ?? params.endpointUrl,
+        named_graph: process.env.NAMED_GRAPH ?? params.graphName,
+        endpoint_public_url: process.env.PUBLIC_URL,
+        schema_kind: process.env.SCHEMA_KIND || 'default',
+        endpoint_type: process.env.ENDPOINT_TYPE || 'generic',
+        acquiring_details: params,
+    }
+
+    for (let key in parameters) {
+        console.log(`Adding parameter ${col.yellow(key)} with value ${col.yellow(parameters[key])}`);
+        await addOneParameter(key, parameters[key]);
+    }
+
+    return parameters;
+}
+
 const init = async () => {
     try {
         const nsData = await db.many(`SELECT * FROM ${dbSchema}.ns`);
@@ -894,28 +880,14 @@ const init = async () => {
 const importFromJSON = async data => {
     await init();
 
-    if (data.Parameters) {
-        if (typeof data.Parameters === 'object') {
-            if (Array.isArray(data.Parameters)) {
-                for (const param of data.Parameters) {
-                    await addParameter(param.name, param.value);
-                }
-            } else {
-                for (const paramName in data.Parameters) {
-                    await addParameter(paramName, data.Parameters[paramName]);
-                }            
-            }
-        } else {
-            console.error(`Parameters block has wrong type`);
-        }
-    }
-
+    // prefixes
     if (data.Prefixes) {
         for (const pref of data.Prefixes) {
             await addPrefixShortcut(pref.namespace, pref.prefix);
         }
     }
 
+    // classes
     if (data.Classes) {
         let classBar = new ProgressBar(`[:bar] ( :current classes of :total, :percent)`, { total: data.Classes.length, width: 100, incomplete: '.' });
         for (const c of data.Classes) {
@@ -931,6 +903,7 @@ const importFromJSON = async data => {
         }
     }
 
+    // properties
     if (data.Properties) {
         let propsBar = new ProgressBar(`[:bar] ( :current props of :total, :percent)`, { total: data.Properties.length, width: 100, incomplete: '.' });
         for (const p of data.Properties) {
@@ -945,69 +918,43 @@ const importFromJSON = async data => {
             propsPairsBar.tick();
         }
     }
-}
-
-const registerImportedSchema = async (parameters) => {
-    const schemaName = process.env.DB_SCHEMA;
-    const schemaKind = process.env.SCHEMA_KIND || 'default' ;
-    const schemaDisplayName = process.env.SCHEMA_DISPLAY_NAME || schemaName;
-
-    const sparqlUrl = process.env.SPARQL_URL || parameters.endpointUrl;
-    const publicUrl = process.env.PUBLIC_URL || sparqlUrl;
-    const namedGraph = process.env.NAMED_GRAPH || parameters.graphName || null;
-    
-    let endpointTypeId = 1;
-    if (process.env.ENDPOINT_TYPE) {
-        try {
-            endpointTypeId = (await db.one(`SELECT id FROM ${registrySchema}.endpoint_types WHERE name = $1`, [
-                process.env.ENDPOINT_TYPE.toLowerCase().trim(),
-            ])).id;
-        } catch {
-            endpointTypeId = 1; // default = generic
-        }
+    // schema parameters
+/*
+    // old style:
+    {
+      "name": "minimalAnalyzedClassSize",
+      "value": "1"
+    },
+    {
+      "name": "classificationProperties",
+      "value": "[http://www.w3.org/1999/02/22-rdf-syntax-ns#type, http://data.nobelprize.org/terms/category, http://data.nobelprize.org/terms/year, http://xmlns.com/foaf/0.1/gender]"
     }
 
-    try {
-        const ENDPOINT_SQL = `INSERT INTO ${registrySchema}.endpoints (sparql_url, public_url, named_graph, endpoint_type_id) VALUES ($1, $2, $3, $4) RETURNING id`;
-        const endpoint_id = (await db.one(ENDPOINT_SQL, [
-            sparqlUrl,
-            publicUrl,
-            namedGraph,
-            endpointTypeId,
-        ])).id;
-
-        const SCHEMA_SQL = `INSERT INTO ${registrySchema}.schemata (db_schema_name, schema_kind, has_pp_rels, has_instance_table) VALUES ($1, $2, $3, $4) RETURNING id`;
-        const schema_id = (await db.one(SCHEMA_SQL, [
-            schemaName,
-            'default',
-            false,
-            false,
-        ])).id;
-
-        const E2S_SQL = `INSERT INTO ${registrySchema}.schemata_to_endpoints (schema_id, endpoint_id, display_name, is_active, use_pp_rels) VALUES ($1, $2, $3, $4, $5)`;
-        await db.none(E2S_SQL, [
-            schema_id,
-            endpoint_id,
-            schemaDisplayName,
-            true,
-            false,
-        ]);
-
-    } catch (err) {
-        console.error(err);
+    // new style:
+    "Parameters": {
+        "correlationId": "7494937434712105732",
+        "endpointUrl": "http://85.254.199.72:8890/sparql",
+        "calculateSubClassRelations": true,
+        "calculateCardinalitiesMode": "propertyLevelAndClassContext",
+        "checkInstanceNamespaces": false,
+        "minimalAnalyzedClassSize": 1,
+        "classificationProperties": [
+        "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
+        ],
+        "includedLabels": [],
+        ...
     }
+*/
+    let jsonParams = typeof data.Parameters === 'object'
+        ? Array.isArray(data.Parameters)
+            ? Object.fromEntries(data.Parameters.map(x => [ x.name, x.value ])) 
+            : data.Parameters
+        : {}
 
-    console.log(`The new schema "${col.yellow(schemaName)}" added to the schema registry`);
+    const effectiveParams = await addParameters(jsonParams);
+    return effectiveParams;
 }
 
-const work = async () => {
-    const data = require(INPUT_FILE);
-
-    await importFromJSON(data);
-    
-    await registerImportedSchema(data.Parameters);
-
-    return 'done';
+module.exports = {
+    importFromJSON,
 }
-
-work().then(console.log).catch(console.error);
