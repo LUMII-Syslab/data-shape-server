@@ -840,7 +840,8 @@ const addParameters = async (params) => {
         endpoint_public_url: process.env.PUBLIC_URL,
         schema_kind: process.env.SCHEMA_KIND || 'default',
         endpoint_type: process.env.ENDPOINT_TYPE || 'generic',
-        acquiring_details: params,
+        schema_extracting_details: params,
+        schema_import_datetime: new Date(),
     }
 
     for (let key in parameters) {
