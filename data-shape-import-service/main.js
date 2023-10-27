@@ -36,6 +36,10 @@ const checkSchemaExists = async schemaName => {
 }
 
 const dropSchema = async schemaName => {
+    const confirm = await question(`Data schema ${schemaName} will be deleted and replaced by a new version. Are you sure (y/N)?`);
+    if (confirm.toLowerCase() !== 'y') return false;
+
+    console.log(`Dropping old schema ${schemaName}...`);
     try {
         await db.none(`drop schema if exists ${schemaName} cascade;`);
         return true;
@@ -93,7 +97,6 @@ const doImport = async () => {
     if (zxMode) {
         if (schemaExists) {
             if (overrideExistingSchema) {
-                console.log(`Dropping old schema ${schemaName}...`);
                 let dropped = await dropSchema(schemaName);
                 if (!dropped) {
                     console.error('Schema could not be dropped; exiting');
