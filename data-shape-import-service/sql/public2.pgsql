@@ -55,22 +55,14 @@ ALTER TABLE public2.endpoints OWNER TO rdf;
 -- Name: endpoints_id_seq; Type: SEQUENCE; Schema: public2; Owner: rdf
 --
 
-CREATE SEQUENCE public2.endpoints_id_seq
-    AS integer
+ALTER TABLE public2.endpoints ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public2.endpoints_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
-    CACHE 1;
-
-
-ALTER TABLE public2.endpoints_id_seq OWNER TO rdf;
-
---
--- Name: endpoints_id_seq; Type: SEQUENCE OWNED BY; Schema: public2; Owner: rdf
---
-
-ALTER SEQUENCE public2.endpoints_id_seq OWNED BY public2.endpoints.id;
+    CACHE 1
+);
 
 
 --
@@ -113,8 +105,12 @@ ALTER TABLE public2.ns_prefixes ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY
 
 CREATE TABLE public2.schemata (
     id integer NOT NULL,
+    display_name text,
     db_schema_name text,
-    description text
+    description text,
+    endpoint_id integer NOT NULL,
+    is_active boolean DEFAULT true NOT NULL,
+    is_default_for_endpoint boolean DEFAULT false NOT NULL
 );
 
 
@@ -124,61 +120,14 @@ ALTER TABLE public2.schemata OWNER TO rdf;
 -- Name: schemata_id_seq; Type: SEQUENCE; Schema: public2; Owner: rdf
 --
 
-CREATE SEQUENCE public2.schemata_id_seq
-    AS integer
+ALTER TABLE public2.schemata ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public2.schemata_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
-    CACHE 1;
-
-
-ALTER TABLE public2.schemata_id_seq OWNER TO rdf;
-
---
--- Name: schemata_id_seq; Type: SEQUENCE OWNED BY; Schema: public2; Owner: rdf
---
-
-ALTER SEQUENCE public2.schemata_id_seq OWNED BY public2.schemata.id;
-
-
---
--- Name: schemata_to_endpoints; Type: TABLE; Schema: public2; Owner: rdf
---
-
-CREATE TABLE public2.schemata_to_endpoints (
-    id integer NOT NULL,
-    schema_id integer NOT NULL,
-    endpoint_id integer NOT NULL,
-    display_name text,
-    tree_profile_id integer DEFAULT 1 NOT NULL,
-    is_active boolean DEFAULT true NOT NULL,
-    is_default_for_endpoint boolean DEFAULT false NOT NULL
+    CACHE 1
 );
-
-
-ALTER TABLE public2.schemata_to_endpoints OWNER TO rdf;
-
---
--- Name: schemata_to_endpoint_id_seq; Type: SEQUENCE; Schema: public2; Owner: rdf
---
-
-CREATE SEQUENCE public2.schemata_to_endpoint_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER TABLE public2.schemata_to_endpoint_id_seq OWNER TO rdf;
-
---
--- Name: schemata_to_endpoint_id_seq; Type: SEQUENCE OWNED BY; Schema: public2; Owner: rdf
---
-
-ALTER SEQUENCE public2.schemata_to_endpoint_id_seq OWNED BY public2.schemata_to_endpoints.id;
 
 
 --
@@ -207,73 +156,6 @@ ALTER TABLE public2.tree_profiles ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTI
     NO MAXVALUE
     CACHE 1
 );
-
-
---
--- Name: v_configurations; Type: VIEW; Schema: public2; Owner: rdf
---
-
-CREATE VIEW public2.v_configurations AS
- SELECT s2e.display_name,
-    s.db_schema_name,
-    e.endpoint_type,
-    e.sparql_url,
-    COALESCE(e.named_graph, ''::text) AS named_graph,
-    p.profile_name,
-    p.data AS profile_data,
-    p.is_default AS is_default_profile
-   FROM (((public2.schemata_to_endpoints s2e
-     JOIN public2.tree_profiles p ON ((p.id = s2e.tree_profile_id)))
-     JOIN public2.endpoints e ON ((e.id = s2e.endpoint_id)))
-     JOIN public2.schemata s ON ((s.id = s2e.schema_id)))
-  WHERE s2e.is_active
-  ORDER BY s2e.display_name;
-
-
-ALTER TABLE public2.v_configurations OWNER TO rdf;
-
---
--- Name: v_legacy_parameters; Type: VIEW; Schema: public2; Owner: rdf
---
-
-CREATE VIEW public2.v_legacy_parameters AS
- SELECT m.display_name,
-    s.description AS schema_description,
-    e.sparql_url AS endpoint_url,
-    e.named_graph,
-    e.public_url AS endpoint_public_url,
-    e.endpoint_type,
-    m.is_active,
-    s.db_schema_name,
-    t.profile_name AS tree_profile_name,
-    t.data AS tree_profile
-   FROM (((public2.schemata_to_endpoints m
-     JOIN public2.schemata s ON ((m.schema_id = s.id)))
-     JOIN public2.endpoints e ON ((m.endpoint_id = e.id)))
-     JOIN public2.tree_profiles t ON ((m.tree_profile_id = t.id)));
-
-
-ALTER TABLE public2.v_legacy_parameters OWNER TO rdf;
-
---
--- Name: endpoints id; Type: DEFAULT; Schema: public2; Owner: rdf
---
-
-ALTER TABLE ONLY public2.endpoints ALTER COLUMN id SET DEFAULT nextval('public2.endpoints_id_seq'::regclass);
-
-
---
--- Name: schemata id; Type: DEFAULT; Schema: public2; Owner: rdf
---
-
-ALTER TABLE ONLY public2.schemata ALTER COLUMN id SET DEFAULT nextval('public2.schemata_id_seq'::regclass);
-
-
---
--- Name: schemata_to_endpoints id; Type: DEFAULT; Schema: public2; Owner: rdf
---
-
-ALTER TABLE ONLY public2.schemata_to_endpoints ALTER COLUMN id SET DEFAULT nextval('public2.schemata_to_endpoint_id_seq'::regclass);
 
 
 --
@@ -3098,15 +2980,7 @@ COPY public2.ns_prefixes (id, abbr, prefix) FROM stdin;
 -- Data for Name: schemata; Type: TABLE DATA; Schema: public2; Owner: rdf
 --
 
-COPY public2.schemata (id, db_schema_name, description) FROM stdin;
-\.
-
-
---
--- Data for Name: schemata_to_endpoints; Type: TABLE DATA; Schema: public2; Owner: rdf
---
-
-COPY public2.schemata_to_endpoints (id, schema_id, endpoint_id, display_name, tree_profile_id, is_active, is_default_for_endpoint) FROM stdin;
+COPY public2.schemata (id, display_name, db_schema_name, description, endpoint_id, is_active, is_default_for_endpoint) FROM stdin;
 \.
 
 
@@ -3144,13 +3018,6 @@ SELECT pg_catalog.setval('public2.schemata_id_seq', 1, false);
 
 
 --
--- Name: schemata_to_endpoint_id_seq; Type: SEQUENCE SET; Schema: public2; Owner: rdf
---
-
-SELECT pg_catalog.setval('public2.schemata_to_endpoint_id_seq', 1, false);
-
-
---
 -- Name: tree_profile_id_seq; Type: SEQUENCE SET; Schema: public2; Owner: rdf
 --
 
@@ -3182,19 +3049,11 @@ ALTER TABLE ONLY public2.ns_prefixes
 
 
 --
--- Name: schemata_to_endpoints s2e_pkey; Type: CONSTRAINT; Schema: public2; Owner: rdf
---
-
-ALTER TABLE ONLY public2.schemata_to_endpoints
-    ADD CONSTRAINT s2e_pkey PRIMARY KEY (id);
-
-
---
--- Name: schemata schemata_name_unique; Type: CONSTRAINT; Schema: public2; Owner: rdf
+-- Name: schemata schemata_display_name_unique; Type: CONSTRAINT; Schema: public2; Owner: rdf
 --
 
 ALTER TABLE ONLY public2.schemata
-    ADD CONSTRAINT schemata_name_unique UNIQUE (db_schema_name);
+    ADD CONSTRAINT schemata_display_name_unique UNIQUE (display_name);
 
 
 --
@@ -3203,14 +3062,6 @@ ALTER TABLE ONLY public2.schemata
 
 ALTER TABLE ONLY public2.schemata
     ADD CONSTRAINT schemata_pkey PRIMARY KEY (id);
-
-
---
--- Name: schemata_to_endpoints schemata_to_endpoints_display_name_unique; Type: CONSTRAINT; Schema: public2; Owner: rdf
---
-
-ALTER TABLE ONLY public2.schemata_to_endpoints
-    ADD CONSTRAINT schemata_to_endpoints_display_name_unique UNIQUE (display_name);
 
 
 --
@@ -3230,27 +3081,11 @@ ALTER TABLE ONLY public2.tree_profiles
 
 
 --
--- Name: schemata_to_endpoints s2e_endpoint_fk; Type: FK CONSTRAINT; Schema: public2; Owner: rdf
+-- Name: schemata schemata_endpoint_fk; Type: FK CONSTRAINT; Schema: public2; Owner: rdf
 --
 
-ALTER TABLE ONLY public2.schemata_to_endpoints
-    ADD CONSTRAINT s2e_endpoint_fk FOREIGN KEY (endpoint_id) REFERENCES public2.endpoints(id) ON DELETE CASCADE;
-
-
---
--- Name: schemata_to_endpoints s2e_schema_fk; Type: FK CONSTRAINT; Schema: public2; Owner: rdf
---
-
-ALTER TABLE ONLY public2.schemata_to_endpoints
-    ADD CONSTRAINT s2e_schema_fk FOREIGN KEY (schema_id) REFERENCES public2.schemata(id) ON DELETE CASCADE;
-
-
---
--- Name: schemata_to_endpoints s2e_tree_profile_fk; Type: FK CONSTRAINT; Schema: public2; Owner: rdf
---
-
-ALTER TABLE ONLY public2.schemata_to_endpoints
-    ADD CONSTRAINT s2e_tree_profile_fk FOREIGN KEY (tree_profile_id) REFERENCES public2.tree_profiles(id);
+ALTER TABLE ONLY public2.schemata
+    ADD CONSTRAINT schemata_endpoint_fk FOREIGN KEY (endpoint_id) REFERENCES public2.endpoints(id) ON DELETE CASCADE;
 
 
 --
@@ -3284,24 +3119,10 @@ GRANT SELECT ON TABLE public2.schemata TO rdfro;
 
 
 --
--- Name: TABLE schemata_to_endpoints; Type: ACL; Schema: public2; Owner: rdf
---
-
-GRANT SELECT ON TABLE public2.schemata_to_endpoints TO rdfro;
-
-
---
 -- Name: TABLE tree_profiles; Type: ACL; Schema: public2; Owner: rdf
 --
 
 GRANT SELECT ON TABLE public2.tree_profiles TO rdfro;
-
-
---
--- Name: TABLE v_configurations; Type: ACL; Schema: public2; Owner: rdf
---
-
-GRANT SELECT ON TABLE public2.v_configurations TO rdfro;
 
 
 --
