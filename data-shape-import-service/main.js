@@ -37,7 +37,7 @@ const checkSchemaExists = async schemaName => {
 
 const dropSchema = async schemaName => {
     const confirm = await question(`Data schema ${schemaName} will be deleted and replaced by a new version. Are you sure (y/N)?`);
-    if (confirm.toLowerCase() !== 'y') return false;
+    if (!['y', 'yes'].includes(confirm.toLowerCase())) return false;
 
     console.log(`Dropping old schema ${schemaName}...`);
     try {

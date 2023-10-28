@@ -511,8 +511,7 @@ CREATE TABLE empty.parameters (
     textvalue text,
     jsonvalue jsonb,
     comment text,
-    id integer NOT NULL,
-    deprecated boolean DEFAULT false NOT NULL
+    id integer NOT NULL
 );
 
 
