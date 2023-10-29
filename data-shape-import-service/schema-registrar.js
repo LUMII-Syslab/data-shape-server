@@ -1,66 +1,54 @@
 const debug = require('debug')('registry')
 const col = require('ansi-colors')
 
+const { v4: uuidv4 } = require('uuid');
+
 const { DB_CONFIG, db } = require('./config');
 
 const registrySchema = process.env.REGISTRY_SCHEMA || 'public';
 const overrideExistingRegistry = (process.env.OVERRIDE_REGISTRY || '').toLowerCase() === 'true' 
         || (process.env.OVERRIDE_EXISTING || '').toLowerCase() === 'true';
 
-const checkRegistryEntriesExist = async schemaName => {
+const checkDisplayNameExists = async schemaDisplayName => {
     let exists = false;
-    const checkRegistry = await db.any(`select * from ${registrySchema}.schemata where db_schema_name = $1`, [schemaName]);
+    const checkRegistry = await db.any(`select * from ${registrySchema}.schemata where display_name = $1`, [schemaDisplayName]);
     if (checkRegistry.length > 0) {
-        console.log(`Registry entry for schema ${col.green(schemaName)} already exists`)
-        exists = true;
-    }
-    const checkRegistry2 = await db.any(`select * from ${registrySchema}.schemata_to_endpoints where display_name = $1`, [schemaName]);
-    if (checkRegistry2.length > 0) {
-        console.log(`Registry entry with display name ${col.green(schemaName)} already exists`)
+        console.log(`Registry entry with display name ${col.green(schemaDisplayName)} already exists`)
         exists = true;
     }
     return exists;
 }
 
-const dropRegistryEntries = async schemaName => {
-    try {
-        await db.none(`delete from ${registrySchema}.schemata where db_schema_name = $1;`, [ schemaName ]);
-        await db.none(`delete from ${registrySchema}.schemata_to_endpoints where display_name = $1;`, [ schemaName ]);
-        return true;
-    } catch (err) {
-        console.error(err);
-        return false;
+const findUnusedDisplayNameFor = async baseDisplayName => {
+    for (let suffix of ['_1', '_2', '_3']) {
+        let candidate = `${baseDisplayName}${suffix}`;
+        let exists = await checkDisplayNameExists(candidate);
+        if (!exists) return candidate;
     }
+    return uuidv4();
 }
 
 const registerImportedSchema = async (params) => {
 
-    const { 
-        schema_name, 
+    let { 
+        db_schema_name, 
         display_name_default, 
-        description,
+        schema_description,
+
         endpoint_url,
         named_graph,
         endpoint_public_url,
         endpoint_type, 
     } = params;
 
-    const registryEntriesExist = await checkRegistryEntriesExist(schema_name);
-
-    if (registryEntriesExist && !overrideExistingRegistry) {
-        console.error(`registry entries for the schema ${schema_name} already exist, overriding is not permitted, exiting`);
-        process.exit(1);
+    const displayNameExists = await checkDisplayNameExists(display_name_default);
+    if (displayNameExists) {
+        console.error(`Registry entry with display name ${col.green(display_name_default)} already exists`);
+        display_name_default = await findUnusedDisplayNameFor(display_name_default);
+        console.log(`Display name ${display_name_default} will be used instead`);
     }
  
     try {
-        let defaultTreeProfileName;
-        try {
-            defaultTreeProfileName = (await db.one(`SELECT id FROM ${registrySchema}.tree_profiles WHERE is_default`, [])).profile_name;
-        } catch {
-            console.error(`could not read the default tree profile name; using default`);
-            defaultTreeProfileName = 'default';
-        }
-
         const ENDPOINT_SQL = `INSERT INTO ${registrySchema}.endpoints 
             (sparql_url, public_url, named_graph, endpoint_type) 
             VALUES ($1, $2, $3, $4) 
@@ -83,10 +71,10 @@ const registerImportedSchema = async (params) => {
             DO UPDATE
             SET db_schema_name = $2, description = $3, endpoint_id = $4, is_active = $5, is_default_for_endpoint = $6`;
         
-            await db.one(SCHEMA_SQL, [
+            await db.none(SCHEMA_SQL, [
             display_name_default,
-            schema_name,
-            description,
+            db_schema_name,
+            schema_description,
             endpoint_id,
             true,
             true,
@@ -96,7 +84,7 @@ const registerImportedSchema = async (params) => {
         console.error(err);
     }
 
-    console.log(`The new schema "${col.yellow(schema_name)}" has been added to the schema registry`);
+    console.log(`The new schema "${col.yellow(display_name_default)} (${col.green(db_schema_name)})" has been added to the schema registry`);
 }
 
 module.exports = {

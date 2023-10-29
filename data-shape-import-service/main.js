@@ -11,7 +11,7 @@ const INPUT_FILE = process.env.INPUT_FILE;
 
 const registrySchema = process.env.REGISTRY_SCHEMA || 'public';
 
-const overrideExistingSchema = (process.env.OVERRIDE_SCHEMA || '').toLowerCase() === 'true' 
+const overrideExistingSchema = (process.env.OVERRIDE_DB_SCHEMA || '').toLowerCase() === 'true' 
         || (process.env.OVERRIDE_EXISTING || '').toLowerCase() === 'true';
 
 const EMPTY_SCHEMA = 'empty'
@@ -36,7 +36,8 @@ const checkSchemaExists = async schemaName => {
 }
 
 const dropSchema = async schemaName => {
-    const confirm = await question(`Data schema ${schemaName} will be deleted and replaced by a new version. Are you sure (y/N)?`);
+    console.log(`Data schema ${schemaName} will be deleted and replaced with a new version`);
+    const confirm = await question('Are you sure (y/N)?');
     if (!['y', 'yes'].includes(confirm.toLowerCase())) return false;
 
     console.log(`Dropping old schema ${schemaName}...`);
@@ -70,18 +71,28 @@ const doImport = async () => {
     }
 
     if (zxMode) {
-        $.shell = '/bin/zsh'
-
-        // await $`pwd`
-        // await $`echo $PATH`
-        echo('checking psql ...')
-        await $`psql -V`
-        echo('checking pg_dump ...')
-        await $`pg_dump -V`
+        try {
+            echo('checking psql ...')
+            await $`psql -V`
+            echo('psql OK')
+        } catch (err) {
+            console.error(err);
+            console.error('psql could not be found; exiting');
+            process.exit(1);
+        }
+        try {
+            echo('checking pg_dump ...')
+            await $`pg_dump -V`
+            echo('pg_dump OK')
+        } catch (err) {
+            console.error(err);
+            console.error('pg_dump could not be found; exiting');
+            process.exit(1);
+        }
     }
 
     if (!schemaName) {
-        console.error('schema name not provided, exiting');
+        console.error('Schema name not provided, exiting');
         process.exit(1);
     }
     if (schemaName === 'empty') {
@@ -93,29 +104,29 @@ const doImport = async () => {
         process.exit(1);
     }
 
-    const schemaExists = await checkSchemaExists(schemaName);
+    const dbSchemaExists = await checkSchemaExists(schemaName);
     if (zxMode) {
-        if (schemaExists) {
+        if (dbSchemaExists) {
             if (overrideExistingSchema) {
                 let dropped = await dropSchema(schemaName);
                 if (!dropped) {
-                    console.error('Schema could not be dropped; exiting');
+                    console.error(`Existing schema ${col.red(schemaName)} could not be dropped; exiting`);
                     process.exit(1);
                 }
             } else {
-                console.error(`db schema ${schemaName} already exists, overriding is not permitted, exiting`);
-                process.exit(1)
+                console.error(`DB schema ${schemaName} already exists, overriding is not permitted, exiting`);
+                process.exit(1);
             }
         }
         try {
-            await createSchema(schemaName)
+            await createSchema(schemaName);
         } catch(err) {
-            console.error('schema could not be created; exiting')
+            console.error(`Schema ${schemaName} could not be created; exiting`)
             process.exit(1)
         }
     } else {
         // manual mode; assuming that an empty target schema already has been set up
-        if (!schemaExists) {
+        if (!dbSchemaExists) {
             console.error('In the manual mode, an empty schema has to be set up before import');
             process.exit(1);
         }
@@ -134,7 +145,7 @@ const doImport = async () => {
     try {
         effectiveParams = await importFromJSON(data);
     } catch(err) {
-        console.error('error while importing data from JSON to db schema');
+        console.error('Error while importing data from JSON to DB schema');
         console.error(err);
         process.exit(1);
     }
