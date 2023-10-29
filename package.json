@@ -21,6 +21,7 @@
         "progress": "^2.0.3",
         "sparql-http-client": "^2.4.2",
         "sparql-result-converter": "^3.0.1",
-        "sparqljson-to-tree": "^2.1.0"
+        "sparqljson-to-tree": "^2.1.0",
+        "uuid": "^9.0.1"
     }
 }
