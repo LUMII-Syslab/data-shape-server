@@ -11,6 +11,7 @@ const dbSchema = process.env.DB_SCHEMA;
 const INPUT_FILE = process.env.INPUT_FILE;
 const registrySchema = process.env.REGISTRY_SCHEMA || 'public';
 
+const IMPORTER_VERSION = '2023-10-29';
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -786,7 +787,7 @@ const addOneParameter = async (param_name, param_value) => {
                 (name, jsonvalue)
                 VALUES ($1, $2)
                 ON CONFLICT ON CONSTRAINT parameters_name_key
-                DO UPDATE SET name = $1, jsonvalue = $2
+                DO UPDATE SET jsonvalue = $2
             `,
                 [
                     name,
@@ -802,7 +803,7 @@ const addOneParameter = async (param_name, param_value) => {
                 (name, jsonvalue)
                 VALUES ($1, $2)
                 ON CONFLICT ON CONSTRAINT parameters_name_key
-                DO UPDATE SET name = $1, jsonvalue = $2
+                DO UPDATE SET jsonvalue = $2
             `,
                 [
                     name,
@@ -817,7 +818,7 @@ const addOneParameter = async (param_name, param_value) => {
             (name, textvalue)
             VALUES ($1, $2)
             ON CONFLICT ON CONSTRAINT parameters_name_key
-            DO UPDATE SET name = $1, textvalue = $2
+            DO UPDATE SET textvalue = $2
         `,
             [
                 name,
@@ -830,18 +831,30 @@ const addOneParameter = async (param_name, param_value) => {
 
 }
 
+const findDefaultTreeProfileName = async () => {
+    try {
+        let defaultTreeProfileName = (await db.one(`SELECT id FROM ${registrySchema}.tree_profiles WHERE is_default`, [])).profile_name;
+        return defaultTreeProfileName;
+    } catch {
+        console.error(`could not read the default tree profile name; using default`);
+        return 'default';
+    }
+}
+
 const addParameters = async (params) => {
     const parameters = {
         display_name_default: process.env.SCHEMA_DISPLAY_NAME ?? process.env.DB_SCHEMA,
-        schema_name: process.env.DB_SCHEMA,
-        description: process.env.SCHEMA_DESCRIPTION,
+        db_schema_name: process.env.DB_SCHEMA,
+        schema_description: process.env.SCHEMA_DESCRIPTION,
         endpoint_url: process.env.SPARQL_URL ?? params.endpointUrl,
         named_graph: process.env.NAMED_GRAPH ?? params.graphName,
         endpoint_public_url: process.env.PUBLIC_URL,
         schema_kind: process.env.SCHEMA_KIND || 'default',
         endpoint_type: process.env.ENDPOINT_TYPE || 'generic',
-        schema_extracting_details: params,
+        tree_profile_name: await findDefaultTreeProfileName(),
+        schema_extraction_details: params,
         schema_import_datetime: new Date(),
+        // schema_importer_version: IMPORTER_VERSION,
     }
 
     for (let key in parameters) {
