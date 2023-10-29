@@ -313,3 +313,12 @@ cython_debug/
 # Support for Project snippet scope
 
 # End of https://www.toptal.com/developers/gitignore/api/node,python,visualstudiocode
+
+
+### VisualStudioCode ###
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
