@@ -51,7 +51,7 @@ const addFullNames = (r, params) => {
 
 const getClassifiers = async (schema, params) => {
 	let r = { data: [], complete: false };
-	if ( params.main.has_classification_property ) {
+	if ( params.main.has_classification_adornment ) {
 		const sql = `select * from ${schema}.v_properties_ns where is_classifier = true LIMIT $1`;
 		r = await util.getSchemaData(sql, params);		
 	}

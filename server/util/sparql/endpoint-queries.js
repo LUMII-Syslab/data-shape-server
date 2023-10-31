@@ -59,6 +59,11 @@ const getIndividualPattern =  async (schema, params, classIri = null) => {
 	// TODO Šie būs datubāzē, varētu būt ari klasei specifisks
 	let prop;
 	let individualPattern = {};  // Ir tādi vienkāršie, kuriem nav nekā.
+	const db_individualPattern = await db.any(`SELECT * from ${schema}.parameters where name = 'instance_name_pattern'`);
+	if ( db_individualPattern[0].jsonvalue != null)
+		individualPattern = db_individualPattern[0].jsonvalue;
+
+	/*
 	if (util.getSchemaType(params) == 'wikidata')  
 		individualPattern = {label: {property:'rdfs:label', lang:'en'}, description:{property:'schema:description', lang:'en'}};
 	if (util.getSchemaType(params) == 'nobel_prizes')  
@@ -67,6 +72,7 @@ const getIndividualPattern =  async (schema, params, classIri = null) => {
 		individualPattern = {label: {property:'skos:prefLabel'}};
 	if (util.getSchemaType(params) == 'dbpedia') 	
 		individualPattern = {ns: ['dbc','dbr']};	
+	*/
 		
 	if (individualPattern.label !== undefined && individualPattern.label !== null) {
 		prop = await util.getPropertyByName(individualPattern.label.property, schema, params);
