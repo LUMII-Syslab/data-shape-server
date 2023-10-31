@@ -1,6 +1,3 @@
-$.prefix = '';
-$.shell = 'C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe';
-
 const debug = require('debug')('main')
 const col = require('ansi-colors')
 
@@ -74,9 +71,15 @@ const doImport = async () => {
     }
 
     if (zxMode) {
+
+        if (os.type() === 'Windows_NT') {
+            $.prefix = '';
+            $.shell = 'Powershell';
+        }
+
         try {
             echo('checking psql ...')
-            await $`{psql -V}`
+            await $`psql -V`
             echo('psql OK')
         } catch (err) {
             console.error(err);
@@ -85,7 +88,7 @@ const doImport = async () => {
         }
         try {
             echo('checking pg_dump ...')
-            await $`{pg_dump -V}`
+            await $`pg_dump -V`
             echo('pg_dump OK')
         } catch (err) {
             console.error(err);
