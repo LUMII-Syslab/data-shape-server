@@ -1,3 +1,6 @@
+$.prefix = '';
+$.shell = 'C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe';
+
 const debug = require('debug')('main')
 const col = require('ansi-colors')
 
@@ -52,13 +55,13 @@ const dropSchema = async schemaName => {
 
 const createSchema = async schemaName => {
     // dump empty to file
-    await $`pg_dump -h ${DB_CONFIG.host} -p ${DB_CONFIG.port} -U ${DB_CONFIG.user} -n empty ${DB_CONFIG.database} > ${EMPTY_SCHEMA}.sql`;
-
+    await $`pg_dump -E UTF8 -h ${DB_CONFIG.host} -p ${DB_CONFIG.port} -U ${DB_CONFIG.user} -n empty -f ${EMPTY_SCHEMA}.sql -d ${DB_CONFIG.database} `;
+	
     // rename empty to schemaName
-    await $`psql -h ${DB_CONFIG.host} -p ${DB_CONFIG.port} -U ${DB_CONFIG.user} ${DB_CONFIG.database} -c "alter schema ${EMPTY_SCHEMA} rename to ${schemaName}"`
-
-    // reload empty from file
-    await $`psql -h ${DB_CONFIG.host} -p ${DB_CONFIG.port} -U ${DB_CONFIG.user} ${DB_CONFIG.database} < ${EMPTY_SCHEMA}.sql`;
+    await $`psql -h ${DB_CONFIG.host} -p ${DB_CONFIG.port} -U ${DB_CONFIG.user} -d ${DB_CONFIG.database} -c "alter schema ${EMPTY_SCHEMA} rename to ${schemaName}"`
+	
+	// reload empty from file
+    await $`psql -h ${DB_CONFIG.host} -p ${DB_CONFIG.port} -U ${DB_CONFIG.user} -f ${EMPTY_SCHEMA}.sql -d ${DB_CONFIG.database}`;
 }
 
 const doImport = async () => {
@@ -73,7 +76,7 @@ const doImport = async () => {
     if (zxMode) {
         try {
             echo('checking psql ...')
-            await $`psql -V`
+            await $`{psql -V}`
             echo('psql OK')
         } catch (err) {
             console.error(err);
@@ -82,7 +85,7 @@ const doImport = async () => {
         }
         try {
             echo('checking pg_dump ...')
-            await $`pg_dump -V`
+            await $`{pg_dump -V}`
             echo('pg_dump OK')
         } catch (err) {
             console.error(err);
