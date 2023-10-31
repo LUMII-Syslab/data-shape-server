@@ -52,7 +52,8 @@ const registerImportedSchema = async (params) => {
         const ENDPOINT_SQL = `INSERT INTO ${registrySchema}.endpoints 
             (sparql_url, public_url, named_graph, endpoint_type) 
             VALUES ($1, $2, $3, $4) 
-            ON CONFLICT ON CONSTRAINT endpoints_sparql_graph_unique
+            -- ON CONFLICT ON CONSTRAINT endpoints_sparql_graph_unique
+            ON CONFLICT (sparql_url, named_graph)
             DO UPDATE 
             SET public_url = $2, endpoint_type = $4
             RETURNING id`;
