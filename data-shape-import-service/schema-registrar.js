@@ -41,13 +41,6 @@ const registerImportedSchema = async (params) => {
         endpoint_type, 
     } = params;
 
-    const displayNameExists = await checkDisplayNameExists(display_name_default);
-    if (displayNameExists) {
-        console.error(`Registry entry with display name ${col.green(display_name_default)} already exists`);
-        display_name_default = await findUnusedDisplayNameFor(display_name_default);
-        console.log(`Display name ${display_name_default} will be used instead`);
-    }
- 
     try {
         const ENDPOINT_SQL = `INSERT INTO ${registrySchema}.endpoints 
             (sparql_url, public_url, named_graph, endpoint_type) 
@@ -65,6 +58,25 @@ const registerImportedSchema = async (params) => {
             endpoint_type,
         ])).id;
 
+        // check if a suitable schemata entry already exists
+        const CHECK_SCHEMA_SQL = `SELECT * FROM ${registrySchema}.schemata WHERE display_name = $1 AND db_schema_name = $2 AND endpoint_id = $3`;
+        const probe = await db.any(CHECK_SCHEMA_SQL, [
+            display_name_default,
+            db_schema_name,
+            endpoint_id,            
+        ]);
+        if (probe.length > 0) {
+            console.log(`A reusable entry for (${display_name_default}, ${db_schema_name}, endpoint_id) exists; skip creating new one`);
+            return;
+        }
+
+        const displayNameExists = await checkDisplayNameExists(display_name_default);
+        if (displayNameExists) {
+            console.error(`Registry entry with display name ${col.green(display_name_default)} already exists`);
+            display_name_default = await findUnusedDisplayNameFor(display_name_default);
+            console.log(`Display name ${display_name_default} will be used instead`);
+        }
+    
         const SCHEMA_SQL = `INSERT INTO ${registrySchema}.schemata 
             (display_name, db_schema_name, description, endpoint_id, is_active, is_default_for_endpoint) 
             VALUES ($1, $2, $3, $4, $5, $6)
@@ -82,10 +94,11 @@ const registerImportedSchema = async (params) => {
         ]);
 
     } catch (err) {
+        console.error('error while registering the new schema in the registry');
         console.error(err);
     }
 
-    console.log(`The new schema "${col.yellow(display_name_default)} (${col.green(db_schema_name)})" has been added to the schema registry`);
+    console.log(`\nThe new schema "${col.yellow(display_name_default)} (${col.green(db_schema_name)})" has been added to the schema registry`);
 }
 
 module.exports = {
