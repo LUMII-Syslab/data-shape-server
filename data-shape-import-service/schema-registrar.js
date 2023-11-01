@@ -29,7 +29,6 @@ const findUnusedDisplayNameFor = async baseDisplayName => {
 }
 
 const registerImportedSchema = async (params) => {
-
     let { 
         db_schema_name, 
         display_name_default, 
@@ -46,7 +45,7 @@ const registerImportedSchema = async (params) => {
             (sparql_url, public_url, named_graph, endpoint_type) 
             VALUES ($1, $2, $3, $4) 
             -- ON CONFLICT ON CONSTRAINT endpoints_sparql_graph_unique
-            ON CONFLICT (sparql_url, named_graph)
+            ON CONFLICT (coalesce(sparql_url, '@@'), coalesce(named_graph, '@@'))
             DO UPDATE 
             SET public_url = $2, endpoint_type = $4
             RETURNING id`;
@@ -66,7 +65,7 @@ const registerImportedSchema = async (params) => {
             endpoint_id,            
         ]);
         if (probe.length > 0) {
-            console.log(`A reusable entry for (${display_name_default}, ${db_schema_name}, endpoint_id) exists; skip creating new one`);
+            console.log(`A reusable entry for (${display_name_default}, ${db_schema_name}, endpoint_id) exists; skip creating a new one`);
             return;
         }
 

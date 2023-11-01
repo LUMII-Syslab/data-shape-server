@@ -3073,24 +3073,10 @@ ALTER TABLE ONLY public2.tree_profiles
 
 
 --
--- Name: blabla; Type: INDEX; Schema: public2; Owner: rdf
+-- Name: idx_endpoints_url_graph; Type: INDEX; Schema: public2; Owner: rdf
 --
 
-CREATE UNIQUE INDEX blabla ON public2.endpoints USING btree (COALESCE(sparql_url, '@@'::text), COALESCE(named_graph, '@@'::text));
-
-
---
--- Name: endpoints_sparql_graph_unique; Type: INDEX; Schema: public2; Owner: rdf
---
-
-CREATE UNIQUE INDEX endpoints_sparql_graph_unique ON public2.endpoints USING btree (sparql_url, named_graph);
-
-
---
--- Name: endpoints_sparql_unique; Type: INDEX; Schema: public2; Owner: rdf
---
-
-CREATE UNIQUE INDEX endpoints_sparql_unique ON public2.endpoints USING btree (sparql_url) WHERE (named_graph IS NULL);
+CREATE UNIQUE INDEX idx_endpoints_url_graph ON public2.endpoints USING btree (COALESCE(sparql_url, '@@'::text), COALESCE(named_graph, '@@'::text));
 
 
 --
