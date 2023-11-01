@@ -29,25 +29,31 @@ const get_KNOWN_DATA = async () => {
 const get_KNOWN_DATA2 = async () => {
 	const r = await db.any(`SELECT * from public2.v_configurations where is_active = true`);
 	const tree_profiles = await db.any(`SELECT * from public2.tree_profiles`);
+	var result = [];
 	for ( var db_info of r) {
-		var sql2  = `SELECT * from ${db_info.db_schema_name}.parameters`;
-		var r2 = await db.any(sql2);
-		if ( r2.filter(function(p){ return p.name == 'show_instance_tab';})[0].jsonvalue == true )
-			db_info.hide_instances = false;
-		else
-			db_info.hide_instances = true;
-		var tree_profile_name = r2.filter(function(p){ return p.name == 'tree_profile_name';})[0].textvalue;
-		db_info.profile_data = tree_profiles.filter(function(t){ return t.profile_name == tree_profile_name;})[0].data;
-		db_info.schema_name = r2.filter(function(p){ return p.name == 'schema_kind';})[0].textvalue;
-		db_info.direct_class_role = r2.filter(function(p){ return p.name == 'direct_class_role';})[0].textvalue;
-		db_info.indirect_class_role = r2.filter(function(p){ return p.name == 'indirect_class_role';})[0].textvalue;
-		db_info.use_pp_rels = r2.filter(function(p){ return p.name == 'use_pp_rels';})[0].jsonvalue;
-		if ( r2.filter(function(p){ return p.name == 'instance_lookup_mode';})[0].textvalue == 'table')
-			db_info.has_instance_table = true;
-		else
-			db_info.has_instance_table = false;
+		var r0 = await db.any(`SELECT COUNT(*) FROM information_schema."tables" where table_schema = '${db_info.db_schema_name}'`);
+		if ( r0[0].count > 0) {
+			var r2 = await db.any(`SELECT * from ${db_info.db_schema_name}.parameters`);
+		
+			if ( r2.filter(function(p){ return p.name == 'show_instance_tab';})[0].jsonvalue == true )
+				db_info.hide_instances = false;
+			else
+				db_info.hide_instances = true;
+			var tree_profile_name = r2.filter(function(p){ return p.name == 'tree_profile_name';})[0].textvalue;
+			db_info.profile_data = tree_profiles.filter(function(t){ return t.profile_name == tree_profile_name;})[0].data;
+			db_info.schema_name = r2.filter(function(p){ return p.name == 'schema_kind';})[0].textvalue;
+			db_info.direct_class_role = r2.filter(function(p){ return p.name == 'direct_class_role';})[0].textvalue;
+			db_info.indirect_class_role = r2.filter(function(p){ return p.name == 'indirect_class_role';})[0].textvalue;
+			db_info.use_pp_rels = r2.filter(function(p){ return p.name == 'use_pp_rels';})[0].jsonvalue;
+			if ( r2.filter(function(p){ return p.name == 'instance_lookup_mode';})[0].textvalue == 'table')
+				db_info.has_instance_table = true;
+			else
+				db_info.has_instance_table = false;
+			
+			result.push(db_info);
+		} 
 	}
-	return r;
+	return result;
 	//const kd = KNOWN_DATA;
 	//return kd;
 }
@@ -263,7 +269,7 @@ const checkEndpoint = async (params, schema, KNOWN_DATA) => {
 		params = setTypeStrings(params, s.direct_class_role, s.indirect_class_role);
 	else 
 		params = setTypeStrings(params, 'rdf:type', '');
-	
+
 	let col_info = await db.any(`SELECT count(*) FROM information_schema."columns"  where table_schema = '${schema}' and table_name = 'classes' and column_name = 'classification_property'`);
 	if ( col_info[0].count > 0) 
 		params.main.has_classification_property = true;
