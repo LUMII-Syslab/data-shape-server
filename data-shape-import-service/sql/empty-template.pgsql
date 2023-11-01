@@ -33,10 +33,10 @@ COMMENT ON SCHEMA empty IS 'schema for rdf endpoint meta info; v0.1';
 
 
 --
--- Name: tapprox(integer); Type: FUNCTION; Schema: empty; Owner: rdf
+-- Name: tapprox(bigint); Type: FUNCTION; Schema: empty; Owner: rdf
 --
 
-CREATE FUNCTION empty.tapprox(integer) RETURNS text
+CREATE FUNCTION empty.tapprox(bigint) RETURNS text
     LANGUAGE sql IMMUTABLE STRICT
     AS $_$
 select concat(
@@ -44,13 +44,13 @@ select concat(
 case cc when 5 then 'P' when 4 then 'T' when 3 then 'G' 
 	   	when 2 then 'M' when 1 then 'K' when 0 then '' else '' end) as ee
 from
-(select nn, cc, (c-cc*3)::integer as lsize, pp*(pow(10,c-cc*3)::integer) as ll from
+(select nn, cc, (c-cc*3)::bigint as lsize, pp*(pow(10,c-cc*3)::bigint) as ll from
 (select nn, round((nn/pow(10,c))::decimal,2) as pp, floor(c/3) as cc, c from
 (select case $1 when 0 then 0 else floor(log10($1)) end as c, $1 as nn) bb) aa) bb
 $_$;
 
 
-ALTER FUNCTION empty.tapprox(integer) OWNER TO rdf;
+ALTER FUNCTION empty.tapprox(bigint) OWNER TO rdf;
 
 SET default_tablespace = '';
 
@@ -110,7 +110,7 @@ ALTER TABLE empty.annot_types ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 CREATE TABLE empty.classes (
     id integer NOT NULL,
     iri text NOT NULL,
-    cnt integer,
+    cnt bigint,
     data jsonb,
     props_in_schema boolean DEFAULT false NOT NULL,
     ns_id integer,
@@ -145,15 +145,15 @@ CREATE TABLE empty.cp_rels (
     type_id integer NOT NULL,
     cnt bigint,
     data jsonb,
-    object_cnt integer,
-    data_cnt_calc integer GENERATED ALWAYS AS (GREATEST((cnt - object_cnt), (0)::bigint)) STORED,
+    object_cnt bigint,
+    data_cnt_calc bigint GENERATED ALWAYS AS (GREATEST((cnt - object_cnt), (0)::bigint)) STORED,
     max_cardinality integer,
     min_cardinality integer,
     cover_set_index integer,
     add_link_slots integer DEFAULT 1 NOT NULL,
     details_level integer DEFAULT 0 NOT NULL,
     sub_cover_complete boolean DEFAULT false NOT NULL,
-    data_cnt integer,
+    data_cnt bigint,
     principal_class_id integer
 );
 
@@ -167,21 +167,21 @@ ALTER TABLE empty.cp_rels OWNER TO rdf;
 CREATE TABLE empty.properties (
     id integer NOT NULL,
     iri text NOT NULL,
-    cnt integer,
+    cnt bigint,
     data jsonb,
     ns_id integer,
     display_name text,
     local_name text,
     is_unique boolean DEFAULT false NOT NULL,
-    object_cnt integer,
-    data_cnt_calc integer GENERATED ALWAYS AS (GREATEST((cnt - object_cnt), 0)) STORED,
+    object_cnt bigint,
+    data_cnt_calc bigint GENERATED ALWAYS AS (GREATEST((cnt - object_cnt), 0)) STORED,
     max_cardinality integer,
     inverse_max_cardinality integer,
     source_cover_complete boolean DEFAULT false NOT NULL,
     target_cover_complete boolean DEFAULT false NOT NULL,
     domain_class_id integer,
     range_class_id integer,
-    data_cnt integer,
+    data_cnt bigint,
     classes_in_schema boolean DEFAULT true NOT NULL,
     is_classifier boolean DEFAULT false,
     use_in_class boolean,
@@ -360,7 +360,7 @@ CREATE TABLE empty.cpc_rels (
     id integer NOT NULL,
     cp_rel_id integer NOT NULL,
     other_class_id integer NOT NULL,
-    cnt integer,
+    cnt bigint,
     data jsonb,
     cover_set_index integer
 );
@@ -390,7 +390,7 @@ CREATE TABLE empty.cpd_rels (
     id integer NOT NULL,
     cp_rel_id integer NOT NULL,
     datatype_id integer NOT NULL,
-    cnt integer,
+    cnt bigint,
     data jsonb
 );
 
@@ -539,7 +539,7 @@ CREATE TABLE empty.pd_rels (
     id integer NOT NULL,
     property_id integer NOT NULL,
     datatype_id integer NOT NULL,
-    cnt integer,
+    cnt bigint,
     data jsonb
 );
 
@@ -888,7 +888,7 @@ CREATE VIEW empty.v_cp_rels AS
     r.add_link_slots,
     r.details_level,
     r.sub_cover_complete,
-    empty.tapprox((r.cnt)::integer) AS cnt_x,
+    empty.tapprox((r.cnt)::bigint) AS cnt_x,
     empty.tapprox(r.object_cnt) AS object_cnt_x,
     empty.tapprox(r.data_cnt_calc) AS data_cnt_x,
     c.iri AS class_iri,
@@ -1076,7 +1076,7 @@ CREATE VIEW empty.v_pp_rels_names AS
     r.data,
     p1.iri AS iri1,
     p2.iri AS iri2,
-    empty.tapprox((r.cnt)::integer) AS cnt_x
+    empty.tapprox((r.cnt)::bigint) AS cnt_x
    FROM empty.pp_rels r,
     empty.properties p1,
     empty.properties p2
@@ -1462,27 +1462,27 @@ COPY empty.ns (id, name, value, priority, is_local, basic_order_level) FROM stdi
 -- Data for Name: parameters; Type: TABLE DATA; Schema: empty; Owner: rdf
 --
 
-COPY empty.parameters (order_inx, name, textvalue, jsonvalue, comment, id, deprecated) FROM stdin;
-30	endpoint_url	\N	\N	Default endpoint URL for visual environment projects using this schema (can be overridden in induvidual project settings).	3	f
-40	named_graph	\N	\N	Default named graph for visual environment projects using this schema.	4	f
-60	direct_class_role	\N	\N	Default property to be used for instance-to-class relationship. Leave empty in the most typical case of the property being rdf:type.	5	f
-70	indirect_class_role	\N	\N	Fill in, if an indirect class membership is to be used in the environment, along with the direct membership (normally leave empty).	6	f
-120	hide_instances	\N	\N	Hide instance tab in the entity lookup pane in the visual environment	7	f
-160	use_pp_rels	\N	\N	Use the property-property relationships from the data schema in the query auto-completion (the property-property relationships must be retrieved from the data and stored in the pp_rels table).	9	f
-210	instance_name_pattern	\N	\N	Default pattern for instance name presentation in visual query fields. Work in progress. Can be overriden on individual class level. Leave empty to present instances by their URIs.	10	f
-110	tree_profile	\N	\N	A custom configuration of the entity lookup pane tree (copy the initial value from the parameters of a similar schema)	11	f
-50	endpoint_type	\N	\N	Type of the endpoint (GENERIC, VIRTUOSO, JENA, BLAZEGRAPH), associated by default with the schema (can be overridden in a project).	12	f
-999	tree_profile_name	\N	\N	Look up public tree profile by this name (mutually exclusive with local tree_profile)	14	f
-999	schema_kind	\N	\N	one of: default, dbpedia, wikidata, ...	13	f
-10	schema_name	\N	\N	Name of the schema by which it is to be known in the visual query environment (must be unique).	1	t
-20	schema_description	\N	\N	Description of the schema	2	f
-999	show_instance_tab	\N	\N	atbilst not hide_instances	15	f
-999	endpoint_public_url	\N	\N	human readable web site of the endpoint, if available	16	f
-999	schema_extracting_details	\N	\N	json with parameters used in schema extraction	17	f
-999	schema_import_datetime	\N	\N	\N	18	f
-130	use_instance_table	\N	\N	Mark, if a dedicated instance table is installed within the data schema (requires a custom solution).	8	t
-999	instance_lookup_mode	\N	\N	table - use instances table, default - use data endpoint	19	f
-999	display_name_default	\N	\N	\N	20	f
+COPY empty.parameters (order_inx, name, textvalue, jsonvalue, comment, id) FROM stdin;
+30	endpoint_url	\N	\N	Default endpoint URL for visual environment projects using this schema (can be overridden in induvidual project settings).	3
+40	named_graph	\N	\N	Default named graph for visual environment projects using this schema.	4
+60	direct_class_role	\N	\N	Default property to be used for instance-to-class relationship. Leave empty in the most typical case of the property being rdf:type.	5
+70	indirect_class_role	\N	\N	Fill in, if an indirect class membership is to be used in the environment, along with the direct membership (normally leave empty).	6
+120	hide_instances	\N	\N	Hide instance tab in the entity lookup pane in the visual environment	7
+160	use_pp_rels	\N	\N	Use the property-property relationships from the data schema in the query auto-completion (the property-property relationships must be retrieved from the data and stored in the pp_rels table).	9
+210	instance_name_pattern	\N	\N	Default pattern for instance name presentation in visual query fields. Work in progress. Can be overriden on individual class level. Leave empty to present instances by their URIs.	10
+110	tree_profile	\N	\N	A custom configuration of the entity lookup pane tree (copy the initial value from the parameters of a similar schema)	11
+50	endpoint_type	\N	\N	Type of the endpoint (GENERIC, VIRTUOSO, JENA, BLAZEGRAPH), associated by default with the schema (can be overridden in a project).	12
+999	tree_profile_name	\N	\N	Look up public tree profile by this name (mutually exclusive with local tree_profile)	14
+999	schema_kind	\N	\N	one of: default, dbpedia, wikidata, ...	13
+10	schema_name	\N	\N	Name of the schema by which it is to be known in the visual query environment (must be unique).	1
+20	schema_description	\N	\N	Description of the schema	2
+999	show_instance_tab	\N	\N	atbilst not hide_instances	15
+999	endpoint_public_url	\N	\N	human readable web site of the endpoint, if available	16
+999	schema_extracting_details	\N	\N	json with parameters used in schema extraction	17
+999	schema_import_datetime	\N	\N	\N	18
+130	use_instance_table	\N	\N	Mark, if a dedicated instance table is installed within the data schema (requires a custom solution).	8
+999	instance_lookup_mode	\N	\N	table - use instances table, default - use data endpoint	19
+999	display_name_default	\N	\N	\N	20
 \.
 
 
