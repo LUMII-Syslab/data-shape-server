@@ -54,6 +54,11 @@ const getAbbrFromTheWeb = async prefix => {
     return null;
 }
 
+const getAbbrFromPublic = async prefix => {
+    let r = await db.any(`select * from public.ns_prefixes where prefix = $1 order by id`, [ prefix ]);
+    if (r.length > 0) return r[0].abbr;
+}
+
 const resolveNsPrefix = async (prefix, abbr = null) => {
     if (NS_PREFIX_TO_ID.has(prefix)) {
         return NS_PREFIX_TO_ID.get(prefix);
@@ -62,6 +67,9 @@ const resolveNsPrefix = async (prefix, abbr = null) => {
         let resolvedAbbr = abbr;
         if (!resolvedAbbr) {
             resolvedAbbr = await getAbbrFromTheWeb(prefix);
+        }
+        if (!resolvedAbbr) {
+            resolvedAbbr = await getAbbrFromPublic(prefix);
         }
         if (!resolvedAbbr) {
             resolvedAbbr = generateAbbr(prefix);
