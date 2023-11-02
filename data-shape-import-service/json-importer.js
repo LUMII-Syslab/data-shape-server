@@ -11,14 +11,29 @@ const dbSchema = process.env.DB_SCHEMA;
 const INPUT_FILE = process.env.INPUT_FILE;
 const registrySchema = process.env.REGISTRY_SCHEMA || 'public';
 
-const IMPORTER_VERSION = '2023-10-29';
+const IMPORTER_VERSION = '2023-11-02';
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 let auto_ns_counter = 1;
 
-const NS_PREFIX_TO_ID = new Map(); // prefix --> ns_id
-const NS_ID_TO_PREFIX = new Map(); // ns_id --> prefix
+const NS_VALUE_TO_ID = new Map(); // prefix --> ns_id
+const NS_ID_TO_VALUE = new Map(); // ns_id --> prefix
+
+const NS_NAME_TO_ID = new Map(); // abbr --> ns_id
+const NS_ID_TO_NAME = new Map(); // ns_id -> abbr
+
+const NS_NAME_TO_VALUE = new Map(); // abbr --> prefix
+const NS_VALUE_TO_NAME = new Map(); // prefix --> abbr
+
+const rememberPrefix = (id, name, value) => {
+    NS_VALUE_TO_ID.set(value, id);
+    NS_VALUE_TO_NAME.set(value, name);
+    NS_ID_TO_VALUE.set(id, value);
+    NS_ID_TO_NAME.set(id, name);
+    NS_NAME_TO_ID.set(name, id);
+    NS_NAME_TO_VALUE.set(name, value);
+}
 
 const generateAbbr = prefix => {
     const P1 = /http:\/\/www\.w3\.org\/2002\/(\d+)\/owl#/;
@@ -60,8 +75,8 @@ const getAbbrFromPublic = async prefix => {
 }
 
 const resolveNsPrefix = async (prefix, abbr = null) => {
-    if (NS_PREFIX_TO_ID.has(prefix)) {
-        return NS_PREFIX_TO_ID.get(prefix);
+    if (NS_VALUE_TO_ID.has(prefix)) {
+        return NS_VALUE_TO_ID.get(prefix);
     }
     try {
         let resolvedAbbr = abbr;
@@ -82,11 +97,7 @@ const resolveNsPrefix = async (prefix, abbr = null) => {
             resolvedAbbr
         ])).id;
 
-        NS_PREFIX_TO_ID.set(prefix, id);
-        NS_ABBR_TO_ID.set(resolvedAbbr, id);
-        NS_ID_TO_ABBR.set(id, resolvedAbbr);
-        NS_ID_TO_PREFIX.set(id, prefix);
-        NS_ABBR_TO_PREFIX.set(resolvedAbbr, prefix);
+        rememberPrefix(id, resolvedAbbr, prefix);
 
         return id;
 
@@ -115,10 +126,6 @@ const getLocalName = iri => {
     return localName;
 }
 
-const NS_ABBR_TO_ID = new Map(); // abbr --> ns_id
-const NS_ID_TO_ABBR = new Map(); // ns_id -> abbr
-const NS_ABBR_TO_PREFIX = new Map(); // abbr --> prefix
-
 const DATATYPES_BY_IRI = new Map(); // iri -> datatype_id
 const DATATYPES_BY_SHORT_IRI = new Map(); // abbr:localName -> datatype_id
 
@@ -141,14 +148,14 @@ const addDatatypeByShortIri = async shortIri => {
     }
 
     let [ abbr, localName ] = parts;
-    let prefix = NS_ABBR_TO_PREFIX.get(abbr);
+    let prefix = NS_NAME_TO_VALUE.get(abbr);
 
     if (!prefix) {
         console.error(`Unknown short prefix: ${abbr}`);
         return null;
     }
 
-    let ns_id = NS_ABBR_TO_ID.get(abbr);
+    let ns_id = NS_NAME_TO_ID.get(abbr);
     let iri = `${prefix}${localName}`;
 
     return await addDatatype(iri, ns_id, localName, abbr);
@@ -161,14 +168,14 @@ const addDatatypeByIri = async iri => {
     }
 
     let [ prefix, localName ] = splitIri(iri);
-    let ns_id = NS_PREFIX_TO_ID.get(prefix);
+    let ns_id = NS_VALUE_TO_ID.get(prefix);
 
     if (!ns_id) {
         console.log(`namespace not found for the prefix '${col.yellow(prefix)}'`);
         return null;
     }
 
-    let abbr = NS_ID_TO_ABBR.get(ns_id);
+    let abbr = NS_ID_TO_NAME.get(ns_id);
 
     return await addDatatype(iri, ns_id, localName, abbr);
 }
@@ -730,53 +737,69 @@ const getPropertyId = iri => {
     return id;
 }
 
-const addPrefixShortcut = async (namespace, shortcut) => {
+const setDefaultNS = async prefixValue => {
+    await db.none(`UPDATE ${dbSchema}.ns SET is_local = false`);
+    let localId = (await db.one(`INSERT INTO ${dbSchema}.ns (name, value, is_local) VALUES ('', $1, true)
+        ON CONFLICT ON CONSTRAINT ns_value_key 
+        DO UPDATE SET name = '', value = $1, is_local = true
+        RETURNING id`, [ prefixValue ])).id;
+    rememberPrefix(localId, '', prefixValue);
+}
+
+const addPrefixShortcut = async (prefixValue, prefixName) => {
     // namespace: "https://creativecommons.org/ns#""
     // shortcut: "cc" (vai "cc:") vai ":"
 
-    if (!shortcut) {
-        console.error(`Missing ns alias`);
+    if (!prefixName) {
+        console.error(`Missing prefix name`);
         return;
     }
-    if (!namespace) {
-        console.error(`Missing namespace`);
+    if (!prefixValue) {
+        console.error(`Missing prefix value`);
         return;
     }
 
-    if (!/^(\w[a-z0-9]*)?:?$/.test(shortcut)) {
-        console.error(`Bad ns alias ${shortcut}`);
+    if (!/^(\w[a-z0-9]*)?:?$/.test(prefixName)) {
+        console.error(`Bad prefix name ${prefixName}`);
         return;
     }
 
     try {
-        let is_local = shortcut === ':';
-        let name = shortcut;
-
-        if (is_local) {
-            await db.none(`UPDATE ${dbSchema}.ns SET is_local = false;`);
-            // name = '_local';
-            name = '';
-        } else if (shortcut.endsWith(':')) {
-            name = shortcut.slice(0, shortcut.length - 1);
+        if (prefixName === ':') {
+            await setDefaultNS(prefixValue);
+            return;
+        }
+        
+        let normalizedName = prefixName;
+        if (prefixName.endsWith(':')) {
+            normalizedName = prefixName.slice(0, prefixName.length - 1);
         }
 
-        let id = (await db.one(`INSERT INTO ${dbSchema}.ns
-            (name, value, is_local)
-            VALUES ($1, $2, $3)
-            ON CONFLICT ON CONSTRAINT ns_value_key DO UPDATE SET name = $1, is_local = $3
-            RETURNING *`,
-            // ON CONFLICT ON CONSTRAINT ns_name_key DO UPDATE SET is_local = $3`,
-        [
-            name,
-            namespace,
-            is_local,
-        ])).id;
+        let idName = NS_NAME_TO_ID.get(normalizedName);
+        let idValue = NS_VALUE_TO_ID.get(prefixValue);
 
-        NS_PREFIX_TO_ID.set(namespace, id);
-        NS_ID_TO_PREFIX.set(id, namespace);
-        NS_ABBR_TO_ID.set(name, id);
-        NS_ID_TO_ABBR.set(id, name);
-        NS_ABBR_TO_PREFIX.set(name, namespace);
+        if (idName && idValue) {
+            if (idName === idValue) {
+                // nothing to do
+            } else {
+                // delete idName, update idValue
+                await db.none(`delete from ${dbSchema}.ns where id = $1`, [ idName ]);
+                await db.none(`update ${dbSchema}.ns set name = $1, is_local = false where id = $2`, [ normalizedName, idValue ]);
+                rememberPrefix(idValue, normalizedName, prefixValue);
+            }
+        } else if (idName && !idValue) {
+            // update idName set idValue
+            await db.none(`update ${dbSchema}.ns set name = $1, is_local = false where id = $2`, [ normalizedName, idName ]);
+            rememberPrefix(idName, normalizedName, prefixValue);
+        } else if (!idName && idValue) {
+            // update idValue set idName
+            await db.none(`update ${dbSchema}.ns set name = $1, is_local = false where id = $2`, [ normalizedName, idValue ]);
+            rememberPrefix(idValue, normalizedName, prefixValue);
+        } else { // not name, not value
+            // insert idName, idValue
+            let newId = (await db.one(`insert into ${dbSchema}.ns (name, value, is_local) values ($1, $2, false) returning id`, [ normalizedName, prefixValue ])).id;
+            rememberPrefix(newId, normalizedName, prefixValue);
+        }
 
     } catch(err) {
         console.error(err);
@@ -878,11 +901,7 @@ const init = async () => {
         const nsData = await db.many(`SELECT * FROM ${dbSchema}.ns`);
         console.log(`${col.yellow(nsData.length)} ns entries loaded`);
         for (let row of nsData) {
-            NS_PREFIX_TO_ID.set(row.value, row.id);
-            NS_ABBR_TO_ID.set(row.name, row.id);
-            NS_ID_TO_ABBR.set(row.id, row.name);
-            NS_ID_TO_PREFIX.set(row.id, row.value);
-            NS_ABBR_TO_PREFIX.set(row.name, row.value);
+            rememberPrefix(row.id, row.name, row.value);
         }
 
         const atData = await db.many(`SELECT * FROM ${dbSchema}.annot_types`);
