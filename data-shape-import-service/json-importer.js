@@ -854,7 +854,7 @@ const addParameters = async (params) => {
         tree_profile_name: await findDefaultTreeProfileName(),
         schema_extraction_details: params,
         schema_import_datetime: new Date(),
-        // schema_importer_version: IMPORTER_VERSION,
+        schema_importer_version: IMPORTER_VERSION,
     }
 
     for (let key in parameters) {
