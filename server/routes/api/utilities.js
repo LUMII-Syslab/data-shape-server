@@ -27,8 +27,8 @@ const get_KNOWN_DATA = async () => {
 }
 
 const get_KNOWN_DATA2 = async () => {
-	const r = await db.any(`SELECT * from public2.v_configurations where is_active = true`);
-	const tree_profiles = await db.any(`SELECT * from public2.tree_profiles`);
+	const r = await db.any(`SELECT * from public.v_configurations where is_active = true`);
+	const tree_profiles = await db.any(`SELECT * from public.tree_profiles`);
 	var result = [];
 	for ( var db_info of r) {
 		var r0 = await db.any(`SELECT COUNT(*) FROM information_schema."tables" where table_schema = '${db_info.db_schema_name}'`);
