@@ -11,7 +11,7 @@ const dbSchema = process.env.DB_SCHEMA;
 const INPUT_FILE = process.env.INPUT_FILE;
 const registrySchema = process.env.REGISTRY_SCHEMA || 'public';
 
-const IMPORTER_VERSION = '2023-11-02';
+const IMPORTER_VERSION = '2023-11-03';
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -896,6 +896,24 @@ const addParameters = async (params) => {
     return parameters;
 }
 
+const printStats = async () => {
+    try {
+        const TABLES = [ 'classes', 'properties', 'datatypes', 'cc_rels', 'cp_rels', 'pd_rels', 'pp_rels', 'cpd_rels', 'cpc_rels', 'ns', 'class_annots', 'property_annots' ];
+        let stats = {}
+        for (let tn of TABLES) {
+            let n = Number.parseInt((await db.one(`select count(*) from ${dbSchema}.${tn}`)).count, 10);
+            stats[tn] = n;
+        }
+
+        console.log(col.blue('\n=== Imported schema stats ==='));
+        console.log(JSON.stringify(stats, null, 2));
+    
+    } catch (err) {
+        console.error('error obtaining schema stats');
+        console.error(err);
+    }
+}
+
 const init = async () => {
     try {
         const nsData = await db.many(`SELECT * FROM ${dbSchema}.ns`);
@@ -992,6 +1010,9 @@ const importFromJSON = async data => {
         : {}
 
     const effectiveParams = await addParameters(jsonParams);
+
+    await printStats();
+
     return effectiveParams;
 }
 
