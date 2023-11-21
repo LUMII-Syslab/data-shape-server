@@ -267,7 +267,7 @@ const checkEndpoint = async (params, schema, KNOWN_DATA) => {
 		if (s !== undefined) 
 			params = setEndpointUrl(params, s);
 	}
-	if (s !== undefined) 
+	if (s !== undefined && s.direct_class_role !== undefined) 
 		params = setTypeStrings(params, s.direct_class_role, s.indirect_class_role);
 	else 
 		params = setTypeStrings(params, 'rdf:type', '');
