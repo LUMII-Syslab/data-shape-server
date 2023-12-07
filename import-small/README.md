@@ -1,51 +1,40 @@
 # Getting Started
 
-## Initial setup for the database
+This folder contains scripts to import the RDF endpoint schemata retrieval results produced by [OBIS-SchemaExtractor](https://github.com/LUMII-Syslab/OBIS-SchemaExtractor).
 
-- Obtain the Schema Server database initialization script from [here](sql/public.pgsql). This dump already contains the schema `public` which serves as a schema register for this database.
+## Steps before the first import
 
-- Choose the name for your database, e.g., `dss` and create the database.
+- Set up your DSS according the instructions [here](../db-templates/).
 
-```
-createdb dss
-```
+- Obtain a JSON file containing the shape info extracted from the endpoint (see [OBIS-SchemaExtractor](https://github.com/LUMII-Syslab/OBIS-SchemaExtractor)).
 
-- create the role `rdf` which will own the db objects
+- Choose the name (alias) to be used for the endpoint schema inside the DSS (it must be unique).
+  
+## Requirements for the import script
 
-- load the public schema executing the command:
-
-```
-psql dss < public.pgsql
-```
-
-## Obtain the data to be imported
-
-- obtain a JSON file containing the shape info extracted from the endpoint (see [OBIS-SchemaExtractor](https://github.com/LUMII-Syslab/OBIS-SchemaExtractor)).
-
-## Import the first schema
-
-The data shape import service has the following prerequisites:
-
-- Access to the [Data Shape Server (DSS)](https://github.com/LUMII-Syslab/data-shape-server) database, containing:
-  - an initialized schema registry (usually in the DB schema `public`)
-  - an empty schema template as the DB schema `empty`
-
-
-
-- Obtain the Schema Server schema template from [here](sql/empty_template.pgsql).
-
-- Choose the name for your schema, e.g., `myendpoint`.
-
-- Execute the following commands:
+- Ensure that `node.js` is installed in version ≥ 16,
+- Obtain the database connection information for the DSS database,
+- To install the packages required by the import script, run from the command line:
 
 ```
-psql dss < empty_template.pgsql
-psql -c "alter schema empty rename to myendpoint" dss
+npm install
 ```
 
-You can repeat these commands if you need to import another schema,
+## Import of the endpoint data
 
-- create an environment file (copy `sample.env` to `.env`) and configure the following variables inside the `.env` file:
+### Automatic and manual modes for the import script
+
+The import script can be used in two modes:
+
+- automatic mode, where the script handles both the database configuration and the import from the JSON file, and
+- manual mode, where the script will handle only the import from JSON, and the user is responsible for providing a recipient DB schema.
+
+### The import configuration file 
+
+In both modes, the import options have to be provided via an `env` file.
+
+Create an environment file (copy `sample.env` to `.env`) and configure the following variables inside the `.env` file:
+
   - `DB_URL` – connection string to the Data Shape Server PostgreSQL database,
   - `DB_SCHEMA` – name of the db schema (e.g., `myendpoint`) where the shapes should be imported into
   - `INPUT_FILE` – name of the JSON file with the extracted information (see previous section).
@@ -58,11 +47,35 @@ You can repeat these commands if you need to import another schema,
   - `REGISTRY_SCHEMA` – name of the DB schema which stores the schemate registry (optional, defaults to `public`)
   - `OVERRIDE_DB_SCHEMA` – name of the DB schema which stores the schemate registry (optional, defaults to `public`)
 
-- ensure that `node.js` version ≥ 16 is installed
+By default the import script will look for the environment file named `.env`. 
 
-- run `npm install` from the command line to install the prerequisites
+It is also possible to use a named `env` file (e.g., `myendpoint.env`), providing its name as the environment variable `ENV_NAME` (e.g., `ENV_NAME=myendpoint npm run auto`).
 
-- run `node work.js` from the command line to start the import
+### Starting the import in automatic mode
+
+To start the import in automatic mode, enter the following command:
+
+```
+npm run auto
+```
+
+### Importing in the manual mode
+
+Before importing in the manual mode, ensure that the recipient schema contains a clone of the schema `empty`. 
+
+For example, assuming that the name of your DSS database is `dss`, and that the name for your schema is `myendpoint`, issue the following commands:
+
+```
+psql dss < empty_template.pgsql
+psql -c "alter schema empty rename to myendpoint" dss
+```
+
+When the recipient schema is created, you can run the import script 
+
+```
+npm run manual
+```
+
 
 ## Meta-parameters for environment tuning
 

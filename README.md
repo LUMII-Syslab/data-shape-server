@@ -12,12 +12,20 @@ The Data Shape Server is used in the context of ViziQuer tool (https://github.co
 
 ## Getting started
 
-Steps to start the data shape server locally:
+Steps to start the data shape server locally, using an existing DSS database:
 
 - `cd server`
 - run `npm ci` once to install the DSS dependencies
 - create `.env` file from `sample.env` and enter there the DB connection string and the port number the DSS app will be listening to
 - run `npm run dev` to start DSS in development mode or `npm start` to start DSS in production mode 
+
+## Setting up a new DSS database
+
+To set up a new DSS database, please follow the steps from [here](./db-templates/).
+
+When the database is created, import at least one schema, following the steps from [here](./import-small/).
+
+Then you can proceed as in the section `Getting started`.
 
 ## Acknowledgements
 

@@ -3,7 +3,7 @@ const col = require('ansi-colors')
 
 const { v4: uuidv4 } = require('uuid');
 
-const { DB_CONFIG, db } = require('./config');
+const { DB_CONFIG, db } = require('../config');
 
 const registrySchema = process.env.REGISTRY_SCHEMA || 'public';
 const overrideExistingRegistry = (process.env.OVERRIDE_REGISTRY || '').toLowerCase() === 'true' 

@@ -5,7 +5,7 @@ const col = require('ansi-colors')
 
 const { CC_REL_TYPE, CP_REL_TYPE, PP_REL_TYPE } = require('./type-constants')
 
-const { DB_CONFIG, db } = require('./config');
+const { DB_CONFIG, db } = require('../config');
 
 const dbSchema = process.env.DB_SCHEMA;
 const INPUT_FILE = process.env.INPUT_FILE;

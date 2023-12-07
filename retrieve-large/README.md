@@ -1,9 +1,6 @@
-# data-shape-retrieval-services
-Data shape retrieval services for large RDF endpoints
+This folder contains scripts for data schemata retrieving from large RDF endpoints where the generic approach fails.
 
-## data-shape-import-service
-
-Modules for import of the schema retrieval results produced by [OBIS-SchemaExtractor](https://github.com/LUMII-Syslab/OBIS-SchemaExtractor).
+Currently, wikidata and dbpedia endpoints are supported.
 
 ## common
 

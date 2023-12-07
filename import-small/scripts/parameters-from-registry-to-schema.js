@@ -1,7 +1,7 @@
 const debug = require('debug')('registry')
 const col = require('ansi-colors')
 
-const { DB_CONFIG, db } = require('./config');
+const { DB_CONFIG, db } = require('../config');
 
 const registrySchema = process.env.REGISTRY_SCHEMA || 'public';
 

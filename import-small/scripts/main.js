@@ -4,7 +4,7 @@ const col = require('ansi-colors')
 const { importFromJSON } = require('./json-importer');
 const { registerImportedSchema } = require('./schema-registrar');
 
-const { DB_CONFIG, db } = require('./config');
+const { DB_CONFIG, db } = require('../config');
 
 const schemaName = process.env.DB_SCHEMA;
 const INPUT_FILE = process.env.INPUT_FILE;
