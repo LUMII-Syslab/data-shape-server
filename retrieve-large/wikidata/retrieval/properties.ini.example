@@ -1,0 +1,11 @@
+[postgreSqlConnection]
+host=localhost
+database=postgres
+user=postgres
+password=password
+
+[databaseSchema]
+schema=sample
+
+[logLevel]
+level=DEBUG
