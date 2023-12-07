@@ -24,6 +24,14 @@ psql dss < public.pgsql
 
 ## Import the first schema
 
+The data shape import service has the following prerequisites:
+
+- Access to the [Data Shape Server (DSS)](https://github.com/LUMII-Syslab/data-shape-server) database, containing:
+  - an initialized schema registry (usually in the DB schema `public`)
+  - an empty schema template as the DB schema `empty`
+
+
+
 - Obtain the Schema Server schema template from [here](sql/empty_template.pgsql).
 
 - Choose the name for your schema, e.g., `myendpoint`.
@@ -46,6 +54,9 @@ You can repeat these commands if you need to import another schema,
   - `SPARQL_URL` – URL for the SPARQL requests to the endpoint
   - `NAMED_GRAPH` – named graph (optional)
   - `PUBLIC_URL` – public web site for the endpoint (optional)
+  - 
+  - `REGISTRY_SCHEMA` – name of the DB schema which stores the schemate registry (optional, defaults to `public`)
+  - `OVERRIDE_DB_SCHEMA` – name of the DB schema which stores the schemate registry (optional, defaults to `public`)
 
 - ensure that `node.js` version ≥ 16 is installed
 
