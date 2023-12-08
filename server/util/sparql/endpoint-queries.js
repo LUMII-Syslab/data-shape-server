@@ -1,5 +1,6 @@
 const debug = require('debug')('dss:sparql')
 const SparqlClient = require('sparql-http-client/ParsingClient')
+const c = require('ansi-colors')
 
 const util = require('../../routes/api/utilities')
 const db = require('../../routes/api/db')
