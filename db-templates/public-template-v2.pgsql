@@ -17,19 +17,20 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 --
--- Name: public2; Type: SCHEMA; Schema: -; Owner: rdf
+-- Name: public; Type: SCHEMA; Schema: -; Owner: rdf
 --
 
-CREATE SCHEMA public2;
+DROP SCHEMA IF EXISTS public CASCADE;
 
+CREATE SCHEMA IF NOT EXISTS public;
 
-ALTER SCHEMA public2 OWNER TO rdf;
+ALTER SCHEMA public OWNER TO rdf;
 
 --
--- Name: SCHEMA public2; Type: COMMENT; Schema: -; Owner: rdf
+-- Name: SCHEMA public; Type: COMMENT; Schema: -; Owner: rdf
 --
 
-COMMENT ON SCHEMA public2 IS 'standard public schema';
+COMMENT ON SCHEMA public IS 'standard public schema';
 
 
 SET default_tablespace = '';
@@ -37,10 +38,10 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
--- Name: endpoints; Type: TABLE; Schema: public2; Owner: rdf
+-- Name: endpoints; Type: TABLE; Schema: public; Owner: rdf
 --
 
-CREATE TABLE public2.endpoints (
+CREATE TABLE public.endpoints (
     id integer NOT NULL,
     sparql_url text,
     public_url text,
@@ -49,14 +50,14 @@ CREATE TABLE public2.endpoints (
 );
 
 
-ALTER TABLE public2.endpoints OWNER TO rdf;
+ALTER TABLE public.endpoints OWNER TO rdf;
 
 --
--- Name: endpoints_id_seq; Type: SEQUENCE; Schema: public2; Owner: rdf
+-- Name: endpoints_id_seq; Type: SEQUENCE; Schema: public; Owner: rdf
 --
 
-ALTER TABLE public2.endpoints ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
-    SEQUENCE NAME public2.endpoints_id_seq
+ALTER TABLE public.endpoints ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.endpoints_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -66,31 +67,31 @@ ALTER TABLE public2.endpoints ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
--- Name: ns_prefixes; Type: TABLE; Schema: public2; Owner: rdf
+-- Name: ns_prefixes; Type: TABLE; Schema: public; Owner: rdf
 --
 
-CREATE TABLE public2.ns_prefixes (
+CREATE TABLE public.ns_prefixes (
     id integer NOT NULL,
     abbr text NOT NULL,
     prefix text NOT NULL
 );
 
 
-ALTER TABLE public2.ns_prefixes OWNER TO rdf;
+ALTER TABLE public.ns_prefixes OWNER TO rdf;
 
 --
--- Name: TABLE ns_prefixes; Type: COMMENT; Schema: public2; Owner: rdf
+-- Name: TABLE ns_prefixes; Type: COMMENT; Schema: public; Owner: rdf
 --
 
-COMMENT ON TABLE public2.ns_prefixes IS 'saīsinājumi un prefiksi no vietnes prefix.cc';
+COMMENT ON TABLE public.ns_prefixes IS 'saīsinājumi un prefiksi no vietnes prefix.cc';
 
 
 --
--- Name: ns_prefixes_id_seq; Type: SEQUENCE; Schema: public2; Owner: rdf
+-- Name: ns_prefixes_id_seq; Type: SEQUENCE; Schema: public; Owner: rdf
 --
 
-ALTER TABLE public2.ns_prefixes ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
-    SEQUENCE NAME public2.ns_prefixes_id_seq
+ALTER TABLE public.ns_prefixes ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.ns_prefixes_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -100,10 +101,10 @@ ALTER TABLE public2.ns_prefixes ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY
 
 
 --
--- Name: schemata; Type: TABLE; Schema: public2; Owner: rdf
+-- Name: schemata; Type: TABLE; Schema: public; Owner: rdf
 --
 
-CREATE TABLE public2.schemata (
+CREATE TABLE public.schemata (
     id integer NOT NULL,
     display_name text,
     db_schema_name text,
@@ -114,14 +115,14 @@ CREATE TABLE public2.schemata (
 );
 
 
-ALTER TABLE public2.schemata OWNER TO rdf;
+ALTER TABLE public.schemata OWNER TO rdf;
 
 --
--- Name: schemata_id_seq; Type: SEQUENCE; Schema: public2; Owner: rdf
+-- Name: schemata_id_seq; Type: SEQUENCE; Schema: public; Owner: rdf
 --
 
-ALTER TABLE public2.schemata ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
-    SEQUENCE NAME public2.schemata_id_seq
+ALTER TABLE public.schemata ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.schemata_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -131,10 +132,10 @@ ALTER TABLE public2.schemata ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
--- Name: tree_profiles; Type: TABLE; Schema: public2; Owner: rdf
+-- Name: tree_profiles; Type: TABLE; Schema: public; Owner: rdf
 --
 
-CREATE TABLE public2.tree_profiles (
+CREATE TABLE public.tree_profiles (
     id integer NOT NULL,
     profile_name text NOT NULL,
     data jsonb,
@@ -142,14 +143,14 @@ CREATE TABLE public2.tree_profiles (
 );
 
 
-ALTER TABLE public2.tree_profiles OWNER TO rdf;
+ALTER TABLE public.tree_profiles OWNER TO rdf;
 
 --
--- Name: tree_profile_id_seq; Type: SEQUENCE; Schema: public2; Owner: rdf
+-- Name: tree_profile_id_seq; Type: SEQUENCE; Schema: public; Owner: rdf
 --
 
-ALTER TABLE public2.tree_profiles ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
-    SEQUENCE NAME public2.tree_profile_id_seq
+ALTER TABLE public.tree_profiles ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.tree_profile_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -159,18 +160,18 @@ ALTER TABLE public2.tree_profiles ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTI
 
 
 --
--- Data for Name: endpoints; Type: TABLE DATA; Schema: public2; Owner: rdf
+-- Data for Name: endpoints; Type: TABLE DATA; Schema: public; Owner: rdf
 --
 
-COPY public2.endpoints (id, sparql_url, public_url, named_graph, endpoint_type) FROM stdin;
+COPY public.endpoints (id, sparql_url, public_url, named_graph, endpoint_type) FROM stdin;
 \.
 
 
 --
--- Data for Name: ns_prefixes; Type: TABLE DATA; Schema: public2; Owner: rdf
+-- Data for Name: ns_prefixes; Type: TABLE DATA; Schema: public; Owner: rdf
 --
 
-COPY public2.ns_prefixes (id, abbr, prefix) FROM stdin;
+COPY public.ns_prefixes (id, abbr, prefix) FROM stdin;
 1	madsrdf	http://www.loc.gov/mads/rdf/v1#
 2	bflc	http://id.loc.gov/ontologies/bflc/
 3	rdf	http://www.w3.org/1999/02/22-rdf-syntax-ns#
@@ -2977,18 +2978,18 @@ COPY public2.ns_prefixes (id, abbr, prefix) FROM stdin;
 
 
 --
--- Data for Name: schemata; Type: TABLE DATA; Schema: public2; Owner: rdf
+-- Data for Name: schemata; Type: TABLE DATA; Schema: public; Owner: rdf
 --
 
-COPY public2.schemata (id, display_name, db_schema_name, description, endpoint_id, is_active, is_default_for_endpoint) FROM stdin;
+COPY public.schemata (id, display_name, db_schema_name, description, endpoint_id, is_active, is_default_for_endpoint) FROM stdin;
 \.
 
 
 --
--- Data for Name: tree_profiles; Type: TABLE DATA; Schema: public2; Owner: rdf
+-- Data for Name: tree_profiles; Type: TABLE DATA; Schema: public; Owner: rdf
 --
 
-COPY public2.tree_profiles (id, profile_name, data, is_default) FROM stdin;
+COPY public.tree_profiles (id, profile_name, data, is_default) FROM stdin;
 1	default	{"ns": [], "schema": "any"}	t
 2	dbpedia	{"ns": [{"name": "dbo", "type": "in", "caption": "Only from dbo:", "checked": true}, {"name": "yago", "type": "notIn", "caption": "Exclude yago:", "checked": false}], "schema": "dbpedia"}	f
 3	dbpediaL	{"ns": [{"name": "dbo", "type": "in", "caption": "Only from dbo:", "checked": false}, {"name": "yago", "type": "notIn", "caption": "Exclude yago:", "checked": false}], "schema": "any"}	f
@@ -2997,138 +2998,138 @@ COPY public2.tree_profiles (id, profile_name, data, is_default) FROM stdin;
 
 
 --
--- Name: endpoints_id_seq; Type: SEQUENCE SET; Schema: public2; Owner: rdf
+-- Name: endpoints_id_seq; Type: SEQUENCE SET; Schema: public; Owner: rdf
 --
 
-SELECT pg_catalog.setval('public2.endpoints_id_seq', 1, false);
-
-
---
--- Name: ns_prefixes_id_seq; Type: SEQUENCE SET; Schema: public2; Owner: rdf
---
-
-SELECT pg_catalog.setval('public2.ns_prefixes_id_seq', 2802, true);
+SELECT pg_catalog.setval('public.endpoints_id_seq', 1, false);
 
 
 --
--- Name: schemata_id_seq; Type: SEQUENCE SET; Schema: public2; Owner: rdf
+-- Name: ns_prefixes_id_seq; Type: SEQUENCE SET; Schema: public; Owner: rdf
 --
 
-SELECT pg_catalog.setval('public2.schemata_id_seq', 1, false);
-
-
---
--- Name: tree_profile_id_seq; Type: SEQUENCE SET; Schema: public2; Owner: rdf
---
-
-SELECT pg_catalog.setval('public2.tree_profile_id_seq', 4, true);
+SELECT pg_catalog.setval('public.ns_prefixes_id_seq', 2802, true);
 
 
 --
--- Name: endpoints endpoints_pkey; Type: CONSTRAINT; Schema: public2; Owner: rdf
+-- Name: schemata_id_seq; Type: SEQUENCE SET; Schema: public; Owner: rdf
 --
 
-ALTER TABLE ONLY public2.endpoints
+SELECT pg_catalog.setval('public.schemata_id_seq', 1, false);
+
+
+--
+-- Name: tree_profile_id_seq; Type: SEQUENCE SET; Schema: public; Owner: rdf
+--
+
+SELECT pg_catalog.setval('public.tree_profile_id_seq', 4, true);
+
+
+--
+-- Name: endpoints endpoints_pkey; Type: CONSTRAINT; Schema: public; Owner: rdf
+--
+
+ALTER TABLE ONLY public.endpoints
     ADD CONSTRAINT endpoints_pkey PRIMARY KEY (id);
 
 
 --
--- Name: ns_prefixes ns_prefixes_pkey; Type: CONSTRAINT; Schema: public2; Owner: rdf
+-- Name: ns_prefixes ns_prefixes_pkey; Type: CONSTRAINT; Schema: public; Owner: rdf
 --
 
-ALTER TABLE ONLY public2.ns_prefixes
+ALTER TABLE ONLY public.ns_prefixes
     ADD CONSTRAINT ns_prefixes_pkey PRIMARY KEY (id);
 
 
 --
--- Name: schemata schemata_display_name_unique; Type: CONSTRAINT; Schema: public2; Owner: rdf
+-- Name: schemata schemata_display_name_unique; Type: CONSTRAINT; Schema: public; Owner: rdf
 --
 
-ALTER TABLE ONLY public2.schemata
+ALTER TABLE ONLY public.schemata
     ADD CONSTRAINT schemata_display_name_unique UNIQUE (display_name);
 
 
 --
--- Name: schemata schemata_pkey; Type: CONSTRAINT; Schema: public2; Owner: rdf
+-- Name: schemata schemata_pkey; Type: CONSTRAINT; Schema: public; Owner: rdf
 --
 
-ALTER TABLE ONLY public2.schemata
+ALTER TABLE ONLY public.schemata
     ADD CONSTRAINT schemata_pkey PRIMARY KEY (id);
 
 
 --
--- Name: tree_profiles tree_profile_pkey; Type: CONSTRAINT; Schema: public2; Owner: rdf
+-- Name: tree_profiles tree_profile_pkey; Type: CONSTRAINT; Schema: public; Owner: rdf
 --
 
-ALTER TABLE ONLY public2.tree_profiles
+ALTER TABLE ONLY public.tree_profiles
     ADD CONSTRAINT tree_profile_pkey PRIMARY KEY (id);
 
 
 --
--- Name: tree_profiles tree_profiles_name_unique; Type: CONSTRAINT; Schema: public2; Owner: rdf
+-- Name: tree_profiles tree_profiles_name_unique; Type: CONSTRAINT; Schema: public; Owner: rdf
 --
 
-ALTER TABLE ONLY public2.tree_profiles
+ALTER TABLE ONLY public.tree_profiles
     ADD CONSTRAINT tree_profiles_name_unique UNIQUE (profile_name);
 
 
 --
--- Name: idx_endpoints_url_graph; Type: INDEX; Schema: public2; Owner: rdf
+-- Name: idx_endpoints_url_graph; Type: INDEX; Schema: public; Owner: rdf
 --
 
-CREATE UNIQUE INDEX idx_endpoints_url_graph ON public2.endpoints USING btree (COALESCE(sparql_url, '@@'::text), COALESCE(named_graph, '@@'::text));
-
-
---
--- Name: schemata schemata_endpoint_fk; Type: FK CONSTRAINT; Schema: public2; Owner: rdf
---
-
-ALTER TABLE ONLY public2.schemata
-    ADD CONSTRAINT schemata_endpoint_fk FOREIGN KEY (endpoint_id) REFERENCES public2.endpoints(id) ON DELETE CASCADE;
+CREATE UNIQUE INDEX idx_endpoints_url_graph ON public.endpoints USING btree (COALESCE(sparql_url, '@@'::text), COALESCE(named_graph, '@@'::text));
 
 
 --
--- Name: SCHEMA public2; Type: ACL; Schema: -; Owner: rdf
+-- Name: schemata schemata_endpoint_fk; Type: FK CONSTRAINT; Schema: public; Owner: rdf
 --
 
-GRANT ALL ON SCHEMA public2 TO PUBLIC;
-GRANT USAGE ON SCHEMA public2 TO rdfgroup;
-GRANT USAGE ON SCHEMA public2 TO rdfro;
-
-
---
--- Name: TABLE endpoints; Type: ACL; Schema: public2; Owner: rdf
---
-
-GRANT SELECT ON TABLE public2.endpoints TO rdfro;
+ALTER TABLE ONLY public.schemata
+    ADD CONSTRAINT schemata_endpoint_fk FOREIGN KEY (endpoint_id) REFERENCES public.endpoints(id) ON DELETE CASCADE;
 
 
 --
--- Name: TABLE ns_prefixes; Type: ACL; Schema: public2; Owner: rdf
+-- Name: SCHEMA public; Type: ACL; Schema: -; Owner: rdf
 --
 
-GRANT SELECT ON TABLE public2.ns_prefixes TO rdfro;
-
-
---
--- Name: TABLE schemata; Type: ACL; Schema: public2; Owner: rdf
---
-
-GRANT SELECT ON TABLE public2.schemata TO rdfro;
+GRANT ALL ON SCHEMA public TO PUBLIC;
+GRANT USAGE ON SCHEMA public TO rdfgroup;
+GRANT USAGE ON SCHEMA public TO rdfro;
 
 
 --
--- Name: TABLE tree_profiles; Type: ACL; Schema: public2; Owner: rdf
+-- Name: TABLE endpoints; Type: ACL; Schema: public; Owner: rdf
 --
 
-GRANT SELECT ON TABLE public2.tree_profiles TO rdfro;
+GRANT SELECT ON TABLE public.endpoints TO rdfro;
 
 
 --
--- Name: DEFAULT PRIVILEGES FOR TABLES; Type: DEFAULT ACL; Schema: public2; Owner: postgres
+-- Name: TABLE ns_prefixes; Type: ACL; Schema: public; Owner: rdf
 --
 
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public2 GRANT SELECT ON TABLES  TO rdfro;
+GRANT SELECT ON TABLE public.ns_prefixes TO rdfro;
+
+
+--
+-- Name: TABLE schemata; Type: ACL; Schema: public; Owner: rdf
+--
+
+GRANT SELECT ON TABLE public.schemata TO rdfro;
+
+
+--
+-- Name: TABLE tree_profiles; Type: ACL; Schema: public; Owner: rdf
+--
+
+GRANT SELECT ON TABLE public.tree_profiles TO rdfro;
+
+
+--
+-- Name: DEFAULT PRIVILEGES FOR TABLES; Type: DEFAULT ACL; Schema: public; Owner: postgres
+--
+
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT SELECT ON TABLES  TO rdfro;
 
 
 --
