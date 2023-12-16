@@ -35,17 +35,17 @@ In both modes, the import options have to be provided via an `env` file.
 
 Create an environment file (copy `sample.env` to `.env`) and configure the following variables inside the `.env` file:
 
+  - `INPUT_FILE` – name of the JSON file with the extracted information (see previous section).
   - `DB_URL` – connection string to the Data Shape Server PostgreSQL database,
   - `DB_SCHEMA` – name of the db schema (e.g., `myendpoint`) where the shapes should be imported into
-  - `INPUT_FILE` – name of the JSON file with the extracted information (see previous section).
-  - `SCHEMA_NAME` – profile for UI organization; use the same string, as for `DB_SCHEMA`, if not instructed otherwise
   - `SCHEMA_DISPLAY_NAME` – schema name for the UI (appears in a dropdown list of available schemas)
   - `SPARQL_URL` – URL for the SPARQL requests to the endpoint
+  - `SCHEMA_KIND` – kind of the schema (dbpedia, wikidata, europeana, ...)
   - `NAMED_GRAPH` – named graph (optional)
   - `PUBLIC_URL` – public web site for the endpoint (optional)
   - 
   - `REGISTRY_SCHEMA` – name of the DB schema which stores the schemate registry (optional, defaults to `public`)
-  - `OVERRIDE_DB_SCHEMA` – name of the DB schema which stores the schemate registry (optional, defaults to `public`)
+  - `OVERRIDE_DB_SCHEMA` – should the importer replace existing db schema (if exists) (optional, defaults to `false`)
 
 By default the import script will look for the environment file named `.env`. 
 
