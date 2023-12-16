@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const debug = require('debug')('dss:index')
+const c = require('ansi-colors')
+
 const util = require('./utilities')
 
 const db = require('./db')
