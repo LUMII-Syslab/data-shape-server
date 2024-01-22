@@ -888,6 +888,11 @@ const addParameters = async (params) => {
         schema_importer_version: IMPORTER_VERSION,
     }
 
+    const pp_rels_count = Number.parseInt((await db.one(`SELECT COUNT(*) FROM ${dbSchema}.pp_rels`)).count, 10);
+    if (pp_rels_count > 0) {
+        parameters.use_pp_rels = true;
+    }
+
     for (let key in parameters) {
         console.log(`Adding parameter ${col.yellow(key)} with value ${col.yellow(parameters[key])}`);
         await addOneParameter(key, parameters[key]);
