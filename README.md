@@ -3,11 +3,12 @@
 ## About
 
 The Data Shape Server serves a stored knowledge graph schema information (e.g., the classes, the properties and their connections) to a client that can use it, e.g., in autocompletion of SPARQL queries over the data set with the corresponding schema.
+
 The Data Shape Server is used in the context of ViziQuer tool (https://github.com/LUMII-Syslab/viziquer) to support auto-completion of visual queries over RDF databases.
 
 ## Requirements
 
-- `node.js` installation [Link](https://nodejs.org/en/), version >= 18
+- `node.js` installation [Link](https://nodejs.org/en/), version ≥ 18
 - access to the `PostgreSQL` database containing the data schema information (the meta information about the endpoint to be queried).
 
 ## Getting started
@@ -23,7 +24,7 @@ Steps to start the data shape server locally, using an existing DSS database:
 
 To set up a new DSS database, please follow the steps from [here](./db-templates/).
 
-When the database is created, import at least one schema, following the steps from [here](./import-small/).
+When the database is created, import at least one schema, following the steps from [here](./import-generic/).
 
 Then you can proceed as in the section `Getting started`.
 
