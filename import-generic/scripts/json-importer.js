@@ -377,13 +377,13 @@ const getClassId = iri => {
 
 const PROPS = new Map(); // iri -> property_id
 const addProperty = async p => {
-    // fullName: "http://dbpedia.org/property/julPrecipitationDays"
     // ?localName: "julPrecipitationDays"
     // ?namespace: "http://dbpedia.org/property/"
+    // fullName: "http://dbpedia.org/property/julPrecipitationDays"
+    // maxCardinality: 1, -1 -> max_cardinality
     // tripleCount: 1 -> cnt
     // dataTripleCount: 1 -> data_cnt
     // objectTripleCount: 0 -> object_cnt
-    // maxCardinality: 1, -1 -> max_cardinality
     // maxInverseCardinality: -1 -> inverse_max_cardinality
     // closedDomain: true
     // closedRange: true
@@ -442,8 +442,7 @@ const addProperty = async p => {
     //      isPrincipal: true
     //      importanceIndex: 1
     //      DataTypes[]
-    //          dataType: "rdf:langString"
-    //          tripleCount: 33
+    //          ...
     let property_domain_class_id;
     if (p.SourceClasses) {
         for (const srcClass of p.SourceClasses) {
@@ -493,19 +492,24 @@ const addProperty = async p => {
                 console.error(err);
             }
 
+            //      DataTypes[]
+            //          dataType: "rdf:langString"
+            //          tripleCount: 33
+            //          tripleCountBase: 1
             if (srcClass.DataTypes) {
                 for (const dtr of srcClass.DataTypes) {
                     try {
                         await addDatatypeByShortIri(dtr.dataType);
                         let datatype_id = resolveDatatypeByShortIri(dtr.dataType);
 
-                        await db.none(`INSERT INTO ${dbSchema}.cpd_rels (cp_rel_id, datatype_id, cnt)
-                            VALUES ($1, $2, $3)
+                        await db.none(`INSERT INTO ${dbSchema}.cpd_rels (cp_rel_id, datatype_id, cnt, cnt_base)
+                            VALUES ($1, $2, $3, $4)
                             ON CONFLICT ON CONSTRAINT cpd_rels_cp_rel_id_datatype_id_key DO NOTHING`,
                         [
                             cp_rel_id,
                             datatype_id,
                             dtr.tripleCount,
+                            dtr.tripleCountBase,
                         ]);
 
                     } catch(err) {
