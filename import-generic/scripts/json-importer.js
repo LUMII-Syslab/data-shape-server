@@ -216,6 +216,8 @@ const addClass = async c => {
     // c.Labels: [] // ?? pagaidām vienmēr tukšs []
     // c.isLiteral: true
 
+    /// ?c.incomingTripleCount: 453
+    /// ?c.propertiesInSchema: true
     /// ?c.IntersectionClasses: [ "https://swapi.co/vocabulary/Character" ]
 
     // if (CLASSES.has(c.fullName)) {
@@ -230,8 +232,8 @@ const addClass = async c => {
     let class_id;
     try {
         class_id = (await db.one(`INSERT INTO ${dbSchema}.classes (iri, local_name, display_name, ns_id, cnt, props_in_schema,
-            classification_property, is_literal, datatype_id)
-            VALUES ($1, $2, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+            classification_property, is_literal, datatype_id, in_cnt)
+            VALUES ($1, $2, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
         [
             c.fullName,
             c.localName,
@@ -240,7 +242,8 @@ const addClass = async c => {
             props_in_schema,
             c.classificationProperty,
             c.isLiteral,
-            datatype_id
+            datatype_id,
+            c.incomingTripleCount,
         ])).id;
         CLASSES.set(c.fullName, class_id);
 
