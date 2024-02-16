@@ -387,6 +387,12 @@ const addProperty = async p => {
     // maxInverseCardinality: -1 -> inverse_max_cardinality
     // closedDomain: true
     // closedRange: true
+    // SourceClasses[]:
+    //   ...
+    // TargetClasses[]:
+    //   ...
+    // DataTypes[]:
+    //  ...
     let ns_id = await resolveNsPrefix(p.namespace);
 
     let domain_class_id = null;
@@ -696,7 +702,12 @@ const addProperty = async p => {
 }
 
 const addPropertyPairs = async p => {
-    // Followers[], IncomingProperties[], OutgoingProperties[]
+    // Followers[], 
+    //  ...
+    // IncomingProperties[], 
+    //  ...
+    // OutgoingProperties[]
+    //  ...
 
     // p.Followers[]
     //   "propertyName": "http://dbpedia.org/property/date",
@@ -744,18 +755,23 @@ const addPropertyPairs = async p => {
         }
     }
 
+    //  propertyName: "http://www.w3.org/ns/dcat#theme",
+    //  tripleCount: 4,
+    //  tripleCountBase: 2
+
     if (p.OutgoingProperties) {
         for (let pair of p.OutgoingProperties) {
             if (pair.tripleCount === 0) continue;
             let other_prop_id = getPropertyId(pair.propertyName)
             if (other_prop_id) {
                 try {
-                    await db.none(`INSERT INTO ${dbSchema}.pp_rels (property_1_id, property_2_id, type_id, cnt)
-                        VALUES ($1, $2, 2, $3)`,
+                    await db.none(`INSERT INTO ${dbSchema}.pp_rels (property_1_id, property_2_id, type_id, cnt, cnt_base)
+                        VALUES ($1, $2, 2, $3, $4)`,
                     [
                         this_prop_id,
                         other_prop_id,
                         pair.tripleCount,
+                        pair.tripleCountBase,
                     ]);
                 } catch(err) {
                     console.error(err);
