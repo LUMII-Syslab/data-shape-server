@@ -434,6 +434,7 @@ const addProperty = async p => {
     // p.SourceClasses[] -> cp_rels(2=outgoing)
     //      classFullName: "http://dbpedia.org/class/yago/YagoLegalActorGeo" -> resolve to class_id
     //      tripleCount: 33 -> cnt
+    //      tripleCountBase: 3 -> cnt_base
     //      dataTripleCount: 33 -> data_cnt
     //      objectTripleCount: 0 -> object_cnt
     //      minCardinality: 0 -> min_cardinality
@@ -470,14 +471,16 @@ const addProperty = async p => {
                     cover_set_index,
                     details_level,
                     sub_cover_complete,
-                    principal_class_id)
+                    principal_class_id,
+                    cnt_base)
                 VALUES ($1, $2, $3,
                     $4, $5, $6,
                     $7, $8,
                     $9,
                     $10,
                     $11,
-                    $12) RETURNING id`,
+                    $12,
+                    $13) RETURNING id`,
                 [
                     class_id, property_id, CP_REL_TYPE.OUTGOING,
                     srcClass.tripleCount, srcClass.objectTripleCount, srcClass.dataTripleCount,
@@ -486,6 +489,7 @@ const addProperty = async p => {
                     p.ClassPairs ? 2 : 0,
                     srcClass.closedRange || false,
                     principalTargetClassId,
+                    srcClass.tripleCountBase,
                 ])).id;
 
             } catch(err) {
