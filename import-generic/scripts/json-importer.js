@@ -710,8 +710,9 @@ const addPropertyPairs = async p => {
     //  ...
 
     // p.Followers[]
-    //   "propertyName": "http://dbpedia.org/property/date",
-    //   "tripleCount": 0
+    //  propertyName: "http://dbpedia.org/property/date",
+    //  tripleCount: 0
+    //  tripleCountBase": 3
 
     const this_prop_id = getPropertyId(p.fullName);
 
@@ -721,12 +722,13 @@ const addPropertyPairs = async p => {
             let other_prop_id = getPropertyId(pair.propertyName)
             if (other_prop_id) {
                 try {
-                    await db.none(`INSERT INTO ${dbSchema}.pp_rels (property_1_id, property_2_id, type_id, cnt)
-                        VALUES ($1, $2, 1, $3)`,
+                    await db.none(`INSERT INTO ${dbSchema}.pp_rels (property_1_id, property_2_id, type_id, cnt, cnt_base)
+                        VALUES ($1, $2, 1, $3, $4)`,
                     [
                         this_prop_id,
                         other_prop_id,
                         pair.tripleCount,
+                        pair.tripleCountBase,
                     ]);
                 } catch(err) {
                     console.error(err);
