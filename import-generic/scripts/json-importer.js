@@ -789,6 +789,101 @@ const addPropertyPairs = async p => {
 
 }
 
+const postProcessingAfterImport = async (params) => {
+    console.log('Post processing imported schema');
+    console.log('Import parameters:', params);
+
+    try {
+        const sql1 = `update ${dbSchema}.classes
+            set classification_property_id = p.id
+            from ${dbSchema}.properties p where p.iri = classification_property`;
+        await db.none(sql1);
+    
+
+        // Šeit #1 un #2 ir true, ja propertija ir visas spiegošnas parametros iekš principalClassificationProperties 
+        //   vai classificationPropertiesWithConnectionsOnly, pretējā gadījumā #1 un #2 ir false.
+
+        const specialPropIRIs = new Set();
+        for (let p of params.principalClassificationProperties ?? []) {
+            specialPropIRIs.add(p);
+        }
+        for (let p of params.classificationPropertiesWithConnectionsOnly ?? []) {
+            specialPropIRIs.add(p)
+        }
+        console.log(specialPropIRIs);
+        // const specialPropIds = [];
+        // for (let p of specialPropIRIs) {
+        //     let id = (await db.one(`select id from ${dbSchema}.properties where iri = $1`, [ p ])).id;
+        //     specialPropIds.push(id);
+        // }
+        // console.log(specialPropIds);
+
+        // vispirms visiem atbilstošajiem uz false
+        const sql2a = `update ${dbSchema}.properties
+        set is_classifier = true,
+            use_in_class = false,
+            values_have_cp = false
+        where id in (select classification_property_id from ${dbSchema}.classes)`;
+        await db.none(sql2a);
+
+        // un tad dažiem vēl vairāk atbilstošajiem nomainām uz true
+        for (const specialPropIRI of specialPropIRIs) {
+            const sql2b = `update ${dbSchema}.properties
+            set is_classifier = true,
+                use_in_class = true,
+                values_have_cp = true
+            where id in (select classification_property_id from ${dbSchema}.classes)
+                and iri = $1`;
+            await db.none(sql2b, [ specialPropIRI ]);
+    
+        }
+
+
+        // Šeit #3 ir iri galvenajai (pirmajai) klasifikācijas propertijai, meklējot vispirms pa 
+        //  principalClassificationProperties un tad ja neatrod, tad pa classificationPropertiesWithConnectionsOnly 
+        //  (simpleClassificationProperties nebūtu jāskatās);
+        //
+        // katrā no šīm grupām: ja ir rdf:type, tad ņem to; ja rdf:type nav, bet ir cita(s), tad ņem no saraksta pirmo.
+
+        const RDF_TYPE = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type';
+        let n3iri;
+        const p1 = params.principalClassificationProperties ?? [];
+        if (p1.length > 0) {
+            if (p1.includes(RDF_TYPE)) {
+                n3iri = RDF_TYPE;
+            } else {
+                n3iri = p[0];
+            }
+        }
+
+        // ko darīt, ja n3iri joprojām nav?
+        if (!n3iri) {
+            n3iri = RDF_TYPE;
+        }
+
+        const sql3 = `update ${dbSchema}.properties
+            set classif_prefix = local_name
+            where id in (select classification_property_id from ${dbSchema}.classes) 
+                and not (iri = $1)`;
+        await db.none(sql3, [ n3iri ]);
+
+
+        const sql4 = `update ${dbSchema}.classes
+            set classification_adornment = p.classif_prefix
+            from ${dbSchema}.properties p 
+            where p.id = classification_property_id
+                and p.classif_prefix is not null`;
+
+        await db.none(sql4);
+
+    
+    } catch(err) {
+        console.error('Error while post processing imported schema');
+        console.error(err);
+    }
+
+}
+
 const getPropertyId = iri => {
     let id = PROPS.get(iri);
     if (!id) {
@@ -1075,6 +1170,8 @@ const importFromJSON = async data => {
         : {}
 
     const effectiveParams = await addParameters(jsonParams);
+
+    await postProcessingAfterImport(jsonParams);
 
     await printStats();
 
