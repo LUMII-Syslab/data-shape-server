@@ -381,10 +381,10 @@ const addProperty = async p => {
     // ?namespace: "http://dbpedia.org/property/"
     // fullName: "http://dbpedia.org/property/julPrecipitationDays"
     // maxCardinality: 1, -1 -> max_cardinality
+    // maxInverseCardinality: -1 -> inverse_max_cardinality
     // tripleCount: 1 -> cnt
     // dataTripleCount: 1 -> data_cnt
     // objectTripleCount: 0 -> object_cnt
-    // maxInverseCardinality: -1 -> inverse_max_cardinality
     // closedDomain: true
     // closedRange: true
     // SourceClasses[]:
@@ -462,8 +462,8 @@ const addProperty = async p => {
             if (p.ClassPairs) {
                 for (const pair of p.ClassPairs) {
                     if (pair.SourceClass !== srcClass.classFullName) continue;
-                    if (pair.TargetClass.isPrincipalTarget) {
-                        principalTargetClassId = getClassId(pair.TargetClass.classFullName);
+                    if (pair.isPrincipalTarget) {
+                        principalTargetClassId = getClassId(pair.TargetClass);
                     }
                 }
             }
@@ -589,8 +589,8 @@ const addProperty = async p => {
             if (p.ClassPairs) {
                 for (const pair of p.ClassPairs) {
                     if (pair.TargetClass !== targetClass.classFullName) continue;
-                    if (pair.SourceClass.isPrincipalSource) {
-                        principalSourceClassId = getClassId(pair.SourceClass.classFullName);
+                    if (pair.isPrincipalSource) {
+                        principalSourceClassId = getClassId(pair.SourceClass);
                     }
                 }
             }
