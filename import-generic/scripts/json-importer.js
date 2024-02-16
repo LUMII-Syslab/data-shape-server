@@ -671,18 +671,20 @@ const addProperty = async p => {
     // p.DataTypes[]
     //      dataType: "xsd:string"
     //      tripleCount: 1013999
+    //      tripleCountBase: 2
     if (p.DataTypes) {
         for (const dtr of p.DataTypes) {
             try {
                 await addDatatypeByShortIri(dtr.dataType)
                 let datatype_id = resolveDatatypeByShortIri(dtr.dataType)
-                await db.none(`INSERT INTO ${dbSchema}.pd_rels (property_id, datatype_id, cnt)
-                    VALUES ($1, $2, $3)
+                await db.none(`INSERT INTO ${dbSchema}.pd_rels (property_id, datatype_id, cnt, cnt_base)
+                    VALUES ($1, $2, $3, $4)
                     ON CONFLICT ON CONSTRAINT pd_rels_property_id_datatype_id_key DO NOTHING`,
                 [
                     property_id,
                     datatype_id,
                     dtr.tripleCount,
+                    dtr.tripleCountBase,
                 ]);
             } catch (err) {
                 console.error(err);
