@@ -565,6 +565,7 @@ const addProperty = async p => {
     // p.TargetClasses[] -> cp_rels(1=incoming)
     //      classFullName: "http://www.europeana.eu/schemas/edm/WebResource" -> resolve to class_id
     //      tripleCount: 1 -> cnt
+    //      tripleCountBase: 3 -> cnt_base
     //      closedDomain: true
     //      isPrincipal: true
     //      importanceIndex: 1
@@ -597,14 +598,16 @@ const addProperty = async p => {
                     cover_set_index,
                     details_level,
                     sub_cover_complete,
-                    principal_class_id)
+                    principal_class_id,
+                    cnt_base)
                 VALUES ($1, $2, $3,
                     $4, $4,
                     $5, $6,
                     $7,
                     $8,
                     $9,
-                    $10)
+                    $10,
+                    $11)
                 RETURNING id`,
                 [
                     class_id, property_id, CP_REL_TYPE.INCOMING,
@@ -614,6 +617,7 @@ const addProperty = async p => {
                     p.ClassPairs ? 2 : 0,
                     targetClass.closedDomain || false,
                     principalSourceClassId,
+                    targetClass.tripleCountBase,
                 ])).id;
 
             } catch(err) {
