@@ -216,6 +216,8 @@ const addClass = async c => {
     // c.Labels: [] // ?? pagaidām vienmēr tukšs []
     // c.isLiteral: true
 
+    /// ?c.IntersectionClasses: [ "https://swapi.co/vocabulary/Character" ]
+
     // if (CLASSES.has(c.fullName)) {
     //     return CLASSES.get(c.fullName)
     // }
@@ -265,6 +267,24 @@ const addClassSuperclasses = async c => {
             }
         }
     }
+
+    if (c.IntersectionClasses && c.IntersectionClasses.length > 0) {
+        let class_id = getClassId(c.fullName);
+        for (const ic of c.IntersectionClasses) {
+            let ic_id = getClassId(ic);
+            try {
+                await db.none(`INSERT INTO ${dbSchema}.cc_rels (class_1_id, class_2_id, type_id) VALUES ($1, $2, 3)`, [
+                    class_id,
+                    ic_id,
+                ]);
+
+            } catch(err) {
+                console.error(err);
+            }
+        }
+
+    }
+
 }
 
 const ANNOT_TYPES = new Map(); // iri -> annot_type_id
