@@ -231,6 +231,19 @@ const getPublicNamespaces = async () => {
 }
 // **************************************************************************************************************
 const xx_getClassListExt = async (schema, params) => {
+	function roundCount(cnt) {
+		if ( cnt == '' || cnt == 0) {
+			return '';
+		} 
+		else {
+			cnt = Number(cnt);
+		if ( cnt < 10000)
+				return cnt;
+			else
+				return cnt.toPrecision(2).replace("+", "");				
+		}
+	}
+
 	let r;
 	let rr;
 	let ca = '';
@@ -243,6 +256,7 @@ const xx_getClassListExt = async (schema, params) => {
 	const cc_rels = r.data;
 	
 	let ii = 1;
+	let in_props = '';
 	for (var c of rr.data) {
 		c.order = ii;
 		if (c.is_local)
@@ -250,13 +264,18 @@ const xx_getClassListExt = async (schema, params) => {
 		else
 			c.is_local = 0;
 			
-		// Paņemu drusku vājākus kaimiņus, kuri varētu arī kaimiņi nesanākt (vairs nepaņemu)	
+
 //		sql = `select distinct(class_id) from ${schema}.cp_rels where type_id = 2  and class_id <> ${c.id} and property_id  in
 //( select property_id from ${schema}.cp_rels where class_id = ${c.id} and type_id = 1 )`;
-		sql = `select distinct(class_id) from ${schema}.cp_rels where type_id = 2 and cover_set_index > 0 and class_id <> ${c.id} and property_id  in
-( select property_id from ${schema}.cp_rels where class_id = ${c.id} and type_id = 1 and cover_set_index > 0)`;
+		//*** Kaimiņus vispār vairs neņemam
+		//***sql = `select distinct(class_id) from ${schema}.cp_rels where type_id = 2 and cover_set_index > 0 and class_id <> ${c.id} and property_id  in
+		//***	( select property_id from ${schema}.cp_rels where class_id = ${c.id} and type_id = 1 and cover_set_index > 0)`;
+		//***r =  await util.getSchemaData(sql, params, false);
+		//***c.c = r.data.map( v => { return v.class_id});
+		sql = `select sum(object_cnt) from ${schema}.cp_rels where type_id = 1 and class_id = ${c.id}`;
 		r =  await util.getSchemaData(sql, params, false);
-		c.c = r.data.map( v => { return v.class_id});
+		in_props = (r.data[0].sum == null) ? '' : ` in_props-${roundCount(Number(r.data[0].sum))}`; 
+		c.in_props = (r.data[0].sum == null) ? 0 : Number(r.data[0].sum); 
 		
 		c.s = [c.id];
 		if ( cc_rels.length > 0 ) {
@@ -267,21 +286,24 @@ const xx_getClassListExt = async (schema, params) => {
 				c.s = [...new Set([...c.s, ...cc_rels.filter(function(s){ return c.s.includes(s.class_1_id)}).map( v => { return v.class_2_id})])];
 			}
 		}
+		c.display_name = `${c.full_name} ( cnt-${roundCount(c.cnt)} ${in_props})`;
+		c.selected = 0;
 		ii = ii + 1;
 	}
 
-	for (var c of rr.data) {
-		for (var cc of c.c) {
-			let cx = rr.data.filter(function(n){ return n.id == cc});
-			if ( !cx[0].c.includes(c.id) )
-				cx[0].c.push(c.id);			
-		}
-	}
+	//***for (var c of rr.data) {
+	//***	for (var cc of c.c) {
+	//***		let cx = rr.data.filter(function(n){ return n.id == cc});
+	//***		if ( !cx[0].c.includes(c.id) )
+	//***			cx[0].c.push(c.id);			
+	//***	}
+	//***}
 	
-	for (var c of rr.data) {
-		c.display_name = `${c.full_name} ( cnt-${c.cnt_x} N-${c.c.length} )`;
-		c.selected = 0;
-	}	
+	//***for (var c of rr.data) {
+	//***	//***c.display_name = `${c.full_name} ( cnt-${c.cnt_x} N-${c.c.length} )`;
+	//***	c.display_name = `${c.full_name} ( cnt-${c.cnt_x} )`;
+	//***	c.selected = 0;
+	//***}	
 	
 	//concat(prefix,':',display_name, ' (', cnt_x, ')' )
 	rr.data = rr.data.sort(function(a,b){ return b.cnt-a.cnt;})
@@ -346,14 +368,18 @@ const xx_getClassListInfo = async (schema, params) => {
 	for (var c of rr.data) {
 		c.s = [c.id];
 		c.b = [c.id];
+		c.s0 = [];
+		c.b0 = [];
 		if ( cc_rels.length > 0 ) {
 			let len = 1;
 			c.s = [...new Set([...c.s, ...cc_rels.filter(function(s){ return c.s.includes(s.class_1_id)}).map( v => { return v.class_2_id})])];
+			c.s0 = cc_rels.filter(function(s){ return s.class_1_id == c.id; }).map( v => { return v.class_2_id});
 			while ( len < c.s.length) {
 				len = c.s.length;
 				c.s = [...new Set([...c.s, ...cc_rels.filter(function(s){ return c.s.includes(s.class_1_id)}).map( v => { return v.class_2_id})])];
 			}
 			c.b = [...new Set([...c.b, ...cc_rels.filter(function(s){ return c.b.includes(s.class_2_id)}).map( v => { return v.class_1_id})])];
+			c.b0 = cc_rels.filter(function(s){ return s.class_2_id == c.id; }).map( v => { return v.class_1_id});
 			while ( len < c.b.length) {
 				len = c.b.length;
 				c.b = [...new Set([...c.b, ...cc_rels.filter(function(s){ return c.b.includes(s.class_2_id)}).map( v => { return v.class_1_id})])];
@@ -371,7 +397,8 @@ const xx_getCCInfo = async (schema, params) => {
     return r;
 }
 const xx_getCPCInfo = async (schema, params) => {
-	const sql = `select * from ${schema}.cpc_rels`;
+	//const sql = `select * from ${schema}.cpc_rels`;
+	const sql = `select cpc.*, class_id, property_id, type_id from ${schema}.cpc_rels cpc, ${schema}.cp_rels cp where cpc.cp_rel_id = cp.id and cp.cover_set_index > 0`;
 	const r = await util.getSchemaData(sql, params);
     return r;
 }
