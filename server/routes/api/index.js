@@ -15,6 +15,7 @@ const {
 	xx_getClassList,
 	xx_getClassListExt,
 	xx_getPropList,
+	xx_getPropList2,
 	xx_getClassListInfo,
 	xx_getClassInfo,
 	xx_getClassInfoAtr,
@@ -307,6 +308,9 @@ router.post('/ontologies/:ont/:fn', wrapAsync(async (req, res, next) => {
 		}
 		if ( fn === 'xx_getPropList') {
 			r = await xx_getPropList(schema, params);
+		}
+		if ( fn === 'xx_getPropList2') {
+			r = await xx_getPropList2(schema, params);
 		}
 		if ( fn === 'xx_getClassListInfo') {
 			r = await xx_getClassListInfo(schema, params);

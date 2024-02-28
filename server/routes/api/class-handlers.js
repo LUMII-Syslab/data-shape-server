@@ -251,12 +251,11 @@ const xx_getClassListExt = async (schema, params) => {
 	let sql = `select id, display_name, prefix, is_local, cnt, cnt_x ${ca} from ${schema}.v_classes_ns_main order by is_local desc, prefix, cnt desc LIMIT $1`;
 	rr =  await util.getSchemaData(sql, params);
 	rr = addFullNames(rr, params);
-	sql = `select * from ${schema}.cc_rels`;
+	sql = `select * from ${schema}.cc_rels where type_id = 1 or type_id = 2`;
 	r =  await util.getSchemaData(sql, params, false);
 	const cc_rels = r.data;
 	
 	let ii = 1;
-	let in_props = '';
 	for (var c of rr.data) {
 		c.order = ii;
 		if (c.is_local)
@@ -274,8 +273,9 @@ const xx_getClassListExt = async (schema, params) => {
 		//***c.c = r.data.map( v => { return v.class_id});
 		sql = `select sum(object_cnt) from ${schema}.cp_rels where type_id = 1 and class_id = ${c.id}`;
 		r =  await util.getSchemaData(sql, params, false);
-		in_props = (r.data[0].sum == null) ? '' : ` in_props-${roundCount(Number(r.data[0].sum))}`; 
-		c.in_props = (r.data[0].sum == null) ? 0 : Number(r.data[0].sum); 
+		const in_props = (r.data[0].sum == null) ? '' : ` in_props-${roundCount(Number(r.data[0].sum))}`; 
+		c.in_props = (r.data[0].sum == null) ? 0 : Number(r.data[0].sum);
+		c.cnt_sum = c.cnt + Math.round(Math.pow(c.in_props, 5/6)); 
 		
 		c.s = [c.id];
 		if ( cc_rels.length > 0 ) {
@@ -286,8 +286,8 @@ const xx_getClassListExt = async (schema, params) => {
 				c.s = [...new Set([...c.s, ...cc_rels.filter(function(s){ return c.s.includes(s.class_1_id)}).map( v => { return v.class_2_id})])];
 			}
 		}
-		c.display_name = `${c.full_name} ( cnt-${roundCount(c.cnt)} ${in_props})`;
-		c.selected = 0;
+		c.display_name = `${c.full_name} (weight-${roundCount(c.cnt_sum)} cnt-${roundCount(c.cnt)} ${in_props})`;
+		c.sel = 0;
 		ii = ii + 1;
 	}
 
@@ -306,8 +306,8 @@ const xx_getClassListExt = async (schema, params) => {
 	//***}	
 	
 	//concat(prefix,':',display_name, ' (', cnt_x, ')' )
-	rr.data = rr.data.sort(function(a,b){ return b.cnt-a.cnt;})
-	
+	rr.data = rr.data.sort(function(a,b){ return b.cnt_sum-a.cnt_sum;});
+
 	return rr;
 }
 const xx_getPropList = async (schema, params) => {
@@ -345,8 +345,42 @@ const xx_getPropList = async (schema, params) => {
 
     return r;
 }
+const xx_getPropList2 = async (schema, params) => {
+	// TODO pagaidām ir noņemta ns filtra iespēja, remSmall arī vairs nebūs
+	function roundCount(cnt) {
+		if ( cnt == '' || cnt == 0) {
+			return '';
+		} 
+		else {
+			cnt = Number(cnt);
+		if ( cnt < 10000)
+				return cnt;
+			else
+				return cnt.toPrecision(2).replace("+", "");				
+		}
+	}
+
+	const sql = `select id, display_name, prefix, cnt, object_cnt, data_cnt, max_cardinality, inverse_max_cardinality, domain_class_id, range_class_id,
+	(select count(*) from ${schema}.cp_rels where property_id = vpn.id and cover_set_index > 0 and type_id = 2) as type_2,
+	(select count(*) from ${schema}.cp_rels where property_id = vpn.id and cover_set_index > 0 and type_id = 1) as type_1	
+	from ${schema}.v_properties_ns vpn where id in (select distinct(property_id) from ${schema}.cp_rels where class_id in (${params.main.c_list})) order by cnt desc`;
+	
+	let r = await util.getSchemaData(sql, params);
+	
+	for (var c of r.data) {
+		if ( c.cnt == c.object_cnt )
+			c.p_name = `${c.prefix}:${c.display_name} (cnt-${roundCount(c.cnt)}, object property ${c.type_2}-${c.type_1})`;
+		else if ( c.cnt == c.data_cnt )
+			c.p_name = `${c.prefix}:${c.display_name} (cnt-${roundCount(c.cnt)}, data property )`;
+		else
+			c.p_name = `${c.prefix}:${c.display_name} (cnt-${roundCount(c.cnt)}, property ${c.type_2}-${c.type_1})`;
+		
+	}
+
+    return r;
+}
 const xx_getClassListInfo = async (schema, params) => {
-	let sql = `select * from ${schema}.cc_rels where class_1_id in (${params.main.c_list}) and class_2_id in (${params.main.c_list})`;
+	let sql = `select * from ${schema}.cc_rels where class_1_id in (${params.main.c_list}) and class_2_id in (${params.main.c_list}) and ( type_id = 1 or type_id = 2 )`;
 	let rr =  await util.getSchemaData(sql, params, false);
 	const cc_rels = rr.data;
 	let cp = '';
@@ -357,7 +391,7 @@ const xx_getClassListInfo = async (schema, params) => {
 	if ( params.main.has_classification_adornment )	
 		cp = `${cp} classification_adornment,`;
 		
-		sql = `select id, prefix, display_name, cnt_x, cnt, ${cp}
+		sql = `select id, prefix, display_name, cnt_x, cnt, ${cp} is_local,
 	(select count(*) from ${schema}.cp_rels cr where class_id = vcnm.id and type_id = 2 and data_cnt > 0) as data_prop,
 	(select count(*) from ${schema}.cp_rels cr where class_id = vcnm.id and type_id = 2 and object_cnt > 0) as obj_prop
 	from ${schema}.v_classes_ns_main vcnm where id in (${params.main.c_list})`;
@@ -370,6 +404,12 @@ const xx_getClassListInfo = async (schema, params) => {
 		c.b = [c.id];
 		c.s0 = [];
 		c.b0 = [];
+		
+		sql = `select sum(object_cnt) from ${schema}.cp_rels where type_id = 1 and class_id = ${c.id}`;
+		r =  await util.getSchemaData(sql, params, false);
+		c.in_props = (r.data[0].sum == null) ? 0 : Number(r.data[0].sum);
+		c.cnt_sum = c.cnt + Math.round(Math.pow(c.in_props, 5/6)); 
+
 		if ( cc_rels.length > 0 ) {
 			let len = 1;
 			c.s = [...new Set([...c.s, ...cc_rels.filter(function(s){ return c.s.includes(s.class_1_id)}).map( v => { return v.class_2_id})])];
@@ -387,11 +427,11 @@ const xx_getClassListInfo = async (schema, params) => {
 		}
 	}
 
-    return rr;
+	return rr;
 }
 const xx_getCCInfo = async (schema, params) => {
 
-	const sql = `select class_1_id, class_2_id from ${schema}.cc_rels where class_1_id in (${params.main.c_list}) and class_2_id in (${params.main.c_list})`;
+	const sql = `select class_1_id, class_2_id from ${schema}.cc_rels  where ( type_id = 1 or type_id = 2 ) and class_1_id in (${params.main.c_list}) and class_2_id in (${params.main.c_list})`;
 	const r = await util.getSchemaData(sql, params);
 
     return r;
@@ -449,6 +489,7 @@ module.exports = {
 	getTreeClasses,
 	xx_getClassListExt,
 	xx_getPropList,
+	xx_getPropList2,
 	xx_getClassListInfo,
 	xx_getCCInfo,
 	xx_getCPCInfo,
