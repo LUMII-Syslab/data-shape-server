@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 14.9 (Ubuntu 14.9-0ubuntu0.22.04.1)
+-- Dumped from database version 14.5
 -- Dumped by pg_dump version 15.0
 
 SET statement_timeout = 0;
@@ -17,23 +17,39 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 --
--- Name: empty; Type: SCHEMA; Schema: -; Owner: rdf
+-- Name: empty; Type: SCHEMA; Schema: -; Owner: -
 --
 
 CREATE SCHEMA empty;
 
 
-ALTER SCHEMA empty OWNER TO rdf;
-
 --
--- Name: SCHEMA empty; Type: COMMENT; Schema: -; Owner: rdf
+-- Name: SCHEMA empty; Type: COMMENT; Schema: -; Owner: -
 --
 
 COMMENT ON SCHEMA empty IS 'schema for rdf endpoint meta info; v0.1';
 
 
 --
--- Name: tapprox(bigint); Type: FUNCTION; Schema: empty; Owner: rdf
+-- Name: tapprox(integer); Type: FUNCTION; Schema: empty; Owner: -
+--
+
+CREATE FUNCTION empty.tapprox(integer) RETURNS text
+    LANGUAGE sql IMMUTABLE STRICT
+    AS $_$
+select concat(
+	case cc when 0 then nn::text else round(ll::decimal,2-lsize)::text end,
+case cc when 5 then 'P' when 4 then 'T' when 3 then 'G' 
+	   	when 2 then 'M' when 1 then 'K' when 0 then '' else '' end) as ee
+from
+(select nn, cc, (c-cc*3)::integer as lsize, pp*(pow(10,c-cc*3)::integer) as ll from
+(select nn, round((nn/pow(10,c))::decimal,2) as pp, floor(c/3) as cc, c from
+(select case $1 when 0 then 0 else floor(log10($1)) end as c, $1 as nn) bb) aa) bb
+$_$;
+
+
+--
+-- Name: tapprox(bigint); Type: FUNCTION; Schema: empty; Owner: -
 --
 
 CREATE FUNCTION empty.tapprox(bigint) RETURNS text
@@ -44,20 +60,18 @@ select concat(
 case cc when 5 then 'P' when 4 then 'T' when 3 then 'G' 
 	   	when 2 then 'M' when 1 then 'K' when 0 then '' else '' end) as ee
 from
-(select nn, cc, (c-cc*3)::bigint as lsize, pp*(pow(10,c-cc*3)::bigint) as ll from
+(select nn, cc, (c-cc*3)::integer as lsize, pp*(pow(10,c-cc*3)::integer) as ll from
 (select nn, round((nn/pow(10,c))::decimal,2) as pp, floor(c/3) as cc, c from
 (select case $1 when 0 then 0 else floor(log10($1)) end as c, $1 as nn) bb) aa) bb
 $_$;
 
-
-ALTER FUNCTION empty.tapprox(bigint) OWNER TO rdf;
 
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
 
 --
--- Name: _h_classes; Type: TABLE; Schema: empty; Owner: rdf
+-- Name: _h_classes; Type: TABLE; Schema: empty; Owner: -
 --
 
 CREATE TABLE empty._h_classes (
@@ -66,17 +80,15 @@ CREATE TABLE empty._h_classes (
 );
 
 
-ALTER TABLE empty._h_classes OWNER TO rdf;
-
 --
--- Name: TABLE _h_classes; Type: COMMENT; Schema: empty; Owner: rdf
+-- Name: TABLE _h_classes; Type: COMMENT; Schema: empty; Owner: -
 --
 
 COMMENT ON TABLE empty._h_classes IS '-- Helper table for large subclass id computation';
 
 
 --
--- Name: annot_types; Type: TABLE; Schema: empty; Owner: rdf
+-- Name: annot_types; Type: TABLE; Schema: empty; Owner: -
 --
 
 CREATE TABLE empty.annot_types (
@@ -87,10 +99,8 @@ CREATE TABLE empty.annot_types (
 );
 
 
-ALTER TABLE empty.annot_types OWNER TO rdf;
-
 --
--- Name: annot_types_id_seq; Type: SEQUENCE; Schema: empty; Owner: rdf
+-- Name: annot_types_id_seq; Type: SEQUENCE; Schema: empty; Owner: -
 --
 
 ALTER TABLE empty.annot_types ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
@@ -104,7 +114,7 @@ ALTER TABLE empty.annot_types ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
--- Name: classes; Type: TABLE; Schema: empty; Owner: rdf
+-- Name: classes; Type: TABLE; Schema: empty; Owner: -
 --
 
 CREATE TABLE empty.classes (
@@ -128,14 +138,20 @@ CREATE TABLE empty.classes (
     hide_in_main boolean DEFAULT false,
     principal_super_class_id integer,
     self_cp_rels boolean DEFAULT true,
-    cp_ask_endpoint boolean DEFAULT false
+    cp_ask_endpoint boolean DEFAULT false,
+    in_cnt bigint
 );
 
 
-ALTER TABLE empty.classes OWNER TO rdf;
+--
+-- Name: COLUMN classes.in_cnt; Type: COMMENT; Schema: empty; Owner: -
+--
+
+COMMENT ON COLUMN empty.classes.in_cnt IS 'Incoming link count';
+
 
 --
--- Name: cp_rels; Type: TABLE; Schema: empty; Owner: rdf
+-- Name: cp_rels; Type: TABLE; Schema: empty; Owner: -
 --
 
 CREATE TABLE empty.cp_rels (
@@ -147,21 +163,20 @@ CREATE TABLE empty.cp_rels (
     data jsonb,
     object_cnt bigint,
     data_cnt_calc bigint GENERATED ALWAYS AS (GREATEST((cnt - object_cnt), (0)::bigint)) STORED,
-    max_cardinality integer,
-    min_cardinality integer,
+    max_cardinality bigint,
+    min_cardinality bigint,
     cover_set_index integer,
     add_link_slots integer DEFAULT 1 NOT NULL,
     details_level integer DEFAULT 0 NOT NULL,
     sub_cover_complete boolean DEFAULT false NOT NULL,
     data_cnt bigint,
-    principal_class_id integer
+    principal_class_id integer,
+    cnt_base bigint
 );
 
 
-ALTER TABLE empty.cp_rels OWNER TO rdf;
-
 --
--- Name: properties; Type: TABLE; Schema: empty; Owner: rdf
+-- Name: properties; Type: TABLE; Schema: empty; Owner: -
 --
 
 CREATE TABLE empty.properties (
@@ -174,9 +189,9 @@ CREATE TABLE empty.properties (
     local_name text,
     is_unique boolean DEFAULT false NOT NULL,
     object_cnt bigint,
-    data_cnt_calc bigint GENERATED ALWAYS AS (GREATEST((cnt - object_cnt), 0)) STORED,
-    max_cardinality integer,
-    inverse_max_cardinality integer,
+    data_cnt_calc bigint GENERATED ALWAYS AS (GREATEST((cnt - object_cnt), (0)::bigint)) STORED,
+    max_cardinality bigint,
+    inverse_max_cardinality bigint,
     source_cover_complete boolean DEFAULT false NOT NULL,
     target_cover_complete boolean DEFAULT false NOT NULL,
     domain_class_id integer,
@@ -193,10 +208,8 @@ CREATE TABLE empty.properties (
 );
 
 
-ALTER TABLE empty.properties OWNER TO rdf;
-
 --
--- Name: c_links; Type: VIEW; Schema: empty; Owner: rdf
+-- Name: c_links; Type: VIEW; Schema: empty; Owner: -
 --
 
 CREATE VIEW empty.c_links AS
@@ -211,10 +224,8 @@ CREATE VIEW empty.c_links AS
   WHERE ((cp1.type_id = 1) AND (cp2.type_id = 2));
 
 
-ALTER TABLE empty.c_links OWNER TO rdf;
-
 --
--- Name: cc_rel_types; Type: TABLE; Schema: empty; Owner: rdf
+-- Name: cc_rel_types; Type: TABLE; Schema: empty; Owner: -
 --
 
 CREATE TABLE empty.cc_rel_types (
@@ -223,10 +234,8 @@ CREATE TABLE empty.cc_rel_types (
 );
 
 
-ALTER TABLE empty.cc_rel_types OWNER TO rdf;
-
 --
--- Name: cc_rel_types_id_seq; Type: SEQUENCE; Schema: empty; Owner: rdf
+-- Name: cc_rel_types_id_seq; Type: SEQUENCE; Schema: empty; Owner: -
 --
 
 ALTER TABLE empty.cc_rel_types ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
@@ -240,7 +249,7 @@ ALTER TABLE empty.cc_rel_types ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY 
 
 
 --
--- Name: cc_rels; Type: TABLE; Schema: empty; Owner: rdf
+-- Name: cc_rels; Type: TABLE; Schema: empty; Owner: -
 --
 
 CREATE TABLE empty.cc_rels (
@@ -253,10 +262,8 @@ CREATE TABLE empty.cc_rels (
 );
 
 
-ALTER TABLE empty.cc_rels OWNER TO rdf;
-
 --
--- Name: cc_rels_id_seq; Type: SEQUENCE; Schema: empty; Owner: rdf
+-- Name: cc_rels_id_seq; Type: SEQUENCE; Schema: empty; Owner: -
 --
 
 ALTER TABLE empty.cc_rels ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
@@ -270,7 +277,7 @@ ALTER TABLE empty.cc_rels ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
--- Name: class_annots; Type: TABLE; Schema: empty; Owner: rdf
+-- Name: class_annots; Type: TABLE; Schema: empty; Owner: -
 --
 
 CREATE TABLE empty.class_annots (
@@ -282,10 +289,8 @@ CREATE TABLE empty.class_annots (
 );
 
 
-ALTER TABLE empty.class_annots OWNER TO rdf;
-
 --
--- Name: class_annots_id_seq; Type: SEQUENCE; Schema: empty; Owner: rdf
+-- Name: class_annots_id_seq; Type: SEQUENCE; Schema: empty; Owner: -
 --
 
 ALTER TABLE empty.class_annots ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
@@ -299,7 +304,7 @@ ALTER TABLE empty.class_annots ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY 
 
 
 --
--- Name: classes_id_seq; Type: SEQUENCE; Schema: empty; Owner: rdf
+-- Name: classes_id_seq; Type: SEQUENCE; Schema: empty; Owner: -
 --
 
 ALTER TABLE empty.classes ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
@@ -313,7 +318,7 @@ ALTER TABLE empty.classes ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
--- Name: cp_rel_types; Type: TABLE; Schema: empty; Owner: rdf
+-- Name: cp_rel_types; Type: TABLE; Schema: empty; Owner: -
 --
 
 CREATE TABLE empty.cp_rel_types (
@@ -322,10 +327,8 @@ CREATE TABLE empty.cp_rel_types (
 );
 
 
-ALTER TABLE empty.cp_rel_types OWNER TO rdf;
-
 --
--- Name: cp_rel_types_id_seq; Type: SEQUENCE; Schema: empty; Owner: rdf
+-- Name: cp_rel_types_id_seq; Type: SEQUENCE; Schema: empty; Owner: -
 --
 
 ALTER TABLE empty.cp_rel_types ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
@@ -339,7 +342,7 @@ ALTER TABLE empty.cp_rel_types ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY 
 
 
 --
--- Name: cp_rels_id_seq; Type: SEQUENCE; Schema: empty; Owner: rdf
+-- Name: cp_rels_id_seq; Type: SEQUENCE; Schema: empty; Owner: -
 --
 
 ALTER TABLE empty.cp_rels ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
@@ -353,7 +356,7 @@ ALTER TABLE empty.cp_rels ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
--- Name: cpc_rels; Type: TABLE; Schema: empty; Owner: rdf
+-- Name: cpc_rels; Type: TABLE; Schema: empty; Owner: -
 --
 
 CREATE TABLE empty.cpc_rels (
@@ -362,14 +365,13 @@ CREATE TABLE empty.cpc_rels (
     other_class_id integer NOT NULL,
     cnt bigint,
     data jsonb,
-    cover_set_index integer
+    cover_set_index integer,
+    cnt_base bigint
 );
 
 
-ALTER TABLE empty.cpc_rels OWNER TO rdf;
-
 --
--- Name: cpc_rels_id_seq; Type: SEQUENCE; Schema: empty; Owner: rdf
+-- Name: cpc_rels_id_seq; Type: SEQUENCE; Schema: empty; Owner: -
 --
 
 ALTER TABLE empty.cpc_rels ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
@@ -383,7 +385,7 @@ ALTER TABLE empty.cpc_rels ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
--- Name: cpd_rels; Type: TABLE; Schema: empty; Owner: rdf
+-- Name: cpd_rels; Type: TABLE; Schema: empty; Owner: -
 --
 
 CREATE TABLE empty.cpd_rels (
@@ -391,14 +393,13 @@ CREATE TABLE empty.cpd_rels (
     cp_rel_id integer NOT NULL,
     datatype_id integer NOT NULL,
     cnt bigint,
-    data jsonb
+    data jsonb,
+    cnt_base bigint
 );
 
 
-ALTER TABLE empty.cpd_rels OWNER TO rdf;
-
 --
--- Name: cpd_rels_id_seq; Type: SEQUENCE; Schema: empty; Owner: rdf
+-- Name: cpd_rels_id_seq; Type: SEQUENCE; Schema: empty; Owner: -
 --
 
 ALTER TABLE empty.cpd_rels ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
@@ -412,7 +413,7 @@ ALTER TABLE empty.cpd_rels ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
--- Name: datatypes; Type: TABLE; Schema: empty; Owner: rdf
+-- Name: datatypes; Type: TABLE; Schema: empty; Owner: -
 --
 
 CREATE TABLE empty.datatypes (
@@ -423,10 +424,8 @@ CREATE TABLE empty.datatypes (
 );
 
 
-ALTER TABLE empty.datatypes OWNER TO rdf;
-
 --
--- Name: datatypes_id_seq; Type: SEQUENCE; Schema: empty; Owner: rdf
+-- Name: datatypes_id_seq; Type: SEQUENCE; Schema: empty; Owner: -
 --
 
 ALTER TABLE empty.datatypes ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
@@ -440,7 +439,7 @@ ALTER TABLE empty.datatypes ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
--- Name: instances; Type: TABLE; Schema: empty; Owner: rdf
+-- Name: instances; Type: TABLE; Schema: empty; Owner: -
 --
 
 CREATE TABLE empty.instances (
@@ -455,10 +454,8 @@ CREATE TABLE empty.instances (
 );
 
 
-ALTER TABLE empty.instances OWNER TO rdf;
-
 --
--- Name: instances_id_seq; Type: SEQUENCE; Schema: empty; Owner: rdf
+-- Name: instances_id_seq; Type: SEQUENCE; Schema: empty; Owner: -
 --
 
 ALTER TABLE empty.instances ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
@@ -472,7 +469,7 @@ ALTER TABLE empty.instances ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
--- Name: ns; Type: TABLE; Schema: empty; Owner: rdf
+-- Name: ns; Type: TABLE; Schema: empty; Owner: -
 --
 
 CREATE TABLE empty.ns (
@@ -485,10 +482,8 @@ CREATE TABLE empty.ns (
 );
 
 
-ALTER TABLE empty.ns OWNER TO rdf;
-
 --
--- Name: ns_id_seq; Type: SEQUENCE; Schema: empty; Owner: rdf
+-- Name: ns_id_seq; Type: SEQUENCE; Schema: empty; Owner: -
 --
 
 ALTER TABLE empty.ns ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
@@ -502,7 +497,7 @@ ALTER TABLE empty.ns ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
--- Name: parameters; Type: TABLE; Schema: empty; Owner: rdf
+-- Name: parameters; Type: TABLE; Schema: empty; Owner: -
 --
 
 CREATE TABLE empty.parameters (
@@ -515,10 +510,8 @@ CREATE TABLE empty.parameters (
 );
 
 
-ALTER TABLE empty.parameters OWNER TO rdf;
-
 --
--- Name: parameters_id_seq; Type: SEQUENCE; Schema: empty; Owner: rdf
+-- Name: parameters_id_seq; Type: SEQUENCE; Schema: empty; Owner: -
 --
 
 ALTER TABLE empty.parameters ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
@@ -532,7 +525,7 @@ ALTER TABLE empty.parameters ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
--- Name: pd_rels; Type: TABLE; Schema: empty; Owner: rdf
+-- Name: pd_rels; Type: TABLE; Schema: empty; Owner: -
 --
 
 CREATE TABLE empty.pd_rels (
@@ -540,14 +533,13 @@ CREATE TABLE empty.pd_rels (
     property_id integer NOT NULL,
     datatype_id integer NOT NULL,
     cnt bigint,
-    data jsonb
+    data jsonb,
+    cnt_base bigint
 );
 
 
-ALTER TABLE empty.pd_rels OWNER TO rdf;
-
 --
--- Name: pd_rels_id_seq; Type: SEQUENCE; Schema: empty; Owner: rdf
+-- Name: pd_rels_id_seq; Type: SEQUENCE; Schema: empty; Owner: -
 --
 
 ALTER TABLE empty.pd_rels ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
@@ -561,7 +553,7 @@ ALTER TABLE empty.pd_rels ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
--- Name: pp_rel_types; Type: TABLE; Schema: empty; Owner: rdf
+-- Name: pp_rel_types; Type: TABLE; Schema: empty; Owner: -
 --
 
 CREATE TABLE empty.pp_rel_types (
@@ -570,10 +562,8 @@ CREATE TABLE empty.pp_rel_types (
 );
 
 
-ALTER TABLE empty.pp_rel_types OWNER TO rdf;
-
 --
--- Name: pp_rel_types_id_seq; Type: SEQUENCE; Schema: empty; Owner: rdf
+-- Name: pp_rel_types_id_seq; Type: SEQUENCE; Schema: empty; Owner: -
 --
 
 ALTER TABLE empty.pp_rel_types ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
@@ -587,7 +577,7 @@ ALTER TABLE empty.pp_rel_types ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY 
 
 
 --
--- Name: pp_rels; Type: TABLE; Schema: empty; Owner: rdf
+-- Name: pp_rels; Type: TABLE; Schema: empty; Owner: -
 --
 
 CREATE TABLE empty.pp_rels (
@@ -596,14 +586,13 @@ CREATE TABLE empty.pp_rels (
     property_2_id integer NOT NULL,
     type_id integer NOT NULL,
     cnt bigint,
-    data jsonb
+    data jsonb,
+    cnt_base bigint
 );
 
 
-ALTER TABLE empty.pp_rels OWNER TO rdf;
-
 --
--- Name: pp_rels_id_seq; Type: SEQUENCE; Schema: empty; Owner: rdf
+-- Name: pp_rels_id_seq; Type: SEQUENCE; Schema: empty; Owner: -
 --
 
 ALTER TABLE empty.pp_rels ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
@@ -617,7 +606,7 @@ ALTER TABLE empty.pp_rels ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
--- Name: properties_id_seq; Type: SEQUENCE; Schema: empty; Owner: rdf
+-- Name: properties_id_seq; Type: SEQUENCE; Schema: empty; Owner: -
 --
 
 ALTER TABLE empty.properties ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
@@ -631,7 +620,7 @@ ALTER TABLE empty.properties ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
--- Name: property_annots; Type: TABLE; Schema: empty; Owner: rdf
+-- Name: property_annots; Type: TABLE; Schema: empty; Owner: -
 --
 
 CREATE TABLE empty.property_annots (
@@ -643,10 +632,8 @@ CREATE TABLE empty.property_annots (
 );
 
 
-ALTER TABLE empty.property_annots OWNER TO rdf;
-
 --
--- Name: property_annots_id_seq; Type: SEQUENCE; Schema: empty; Owner: rdf
+-- Name: property_annots_id_seq; Type: SEQUENCE; Schema: empty; Owner: -
 --
 
 ALTER TABLE empty.property_annots ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
@@ -660,7 +647,7 @@ ALTER TABLE empty.property_annots ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTI
 
 
 --
--- Name: v_cc_rels; Type: VIEW; Schema: empty; Owner: rdf
+-- Name: v_cc_rels; Type: VIEW; Schema: empty; Owner: -
 --
 
 CREATE VIEW empty.v_cc_rels AS
@@ -680,10 +667,8 @@ CREATE VIEW empty.v_cc_rels AS
   WHERE ((r.class_1_id = c1.id) AND (r.class_2_id = c2.id));
 
 
-ALTER TABLE empty.v_cc_rels OWNER TO rdf;
-
 --
--- Name: v_classes_ns; Type: VIEW; Schema: empty; Owner: rdf
+-- Name: v_classes_ns; Type: VIEW; Schema: empty; Owner: -
 --
 
 CREATE VIEW empty.v_classes_ns AS
@@ -710,15 +695,14 @@ CREATE VIEW empty.v_classes_ns AS
     c.hide_in_main,
     c.principal_super_class_id,
     c.self_cp_rels,
-    c.cp_ask_endpoint
+    c.cp_ask_endpoint,
+    c.in_cnt
    FROM (empty.classes c
      LEFT JOIN empty.ns n ON ((c.ns_id = n.id)));
 
 
-ALTER TABLE empty.v_classes_ns OWNER TO rdf;
-
 --
--- Name: v_classes_ns_main; Type: VIEW; Schema: empty; Owner: rdf
+-- Name: v_classes_ns_main; Type: VIEW; Schema: empty; Owner: -
 --
 
 CREATE VIEW empty.v_classes_ns_main AS
@@ -745,17 +729,16 @@ CREATE VIEW empty.v_classes_ns_main AS
     v.hide_in_main,
     v.principal_super_class_id,
     v.self_cp_rels,
-    v.cp_ask_endpoint
+    v.cp_ask_endpoint,
+    v.in_cnt
    FROM empty.v_classes_ns v
   WHERE (NOT (EXISTS ( SELECT cc_rels.id
            FROM empty.cc_rels
           WHERE ((cc_rels.class_1_id = v.id) AND (cc_rels.type_id = 2)))));
 
 
-ALTER TABLE empty.v_classes_ns_main OWNER TO rdf;
-
 --
--- Name: v_classes_ns_plus; Type: VIEW; Schema: empty; Owner: rdf
+-- Name: v_classes_ns_plus; Type: VIEW; Schema: empty; Owner: -
 --
 
 CREATE VIEW empty.v_classes_ns_plus AS
@@ -788,15 +771,14 @@ CREATE VIEW empty.v_classes_ns_plus AS
     c.hide_in_main,
     c.principal_super_class_id,
     c.self_cp_rels,
-    c.cp_ask_endpoint
+    c.cp_ask_endpoint,
+    c.in_cnt
    FROM (empty.classes c
      LEFT JOIN empty.ns n ON ((c.ns_id = n.id)));
 
 
-ALTER TABLE empty.v_classes_ns_plus OWNER TO rdf;
-
 --
--- Name: v_classes_ns_main_plus; Type: VIEW; Schema: empty; Owner: rdf
+-- Name: v_classes_ns_main_plus; Type: VIEW; Schema: empty; Owner: -
 --
 
 CREATE VIEW empty.v_classes_ns_main_plus AS
@@ -824,7 +806,8 @@ CREATE VIEW empty.v_classes_ns_main_plus AS
     v.hide_in_main,
     v.principal_super_class_id,
     v.self_cp_rels,
-    v.cp_ask_endpoint
+    v.cp_ask_endpoint,
+    v.in_cnt
    FROM empty.v_classes_ns_plus v
   WHERE (NOT (EXISTS ( SELECT r.id,
             r.class_1_id,
@@ -836,10 +819,8 @@ CREATE VIEW empty.v_classes_ns_main_plus AS
           WHERE ((r.class_1_id = v.id) AND (r.type_id = 2)))));
 
 
-ALTER TABLE empty.v_classes_ns_main_plus OWNER TO rdf;
-
 --
--- Name: v_classes_ns_main_v01; Type: VIEW; Schema: empty; Owner: rdf
+-- Name: v_classes_ns_main_v01; Type: VIEW; Schema: empty; Owner: -
 --
 
 CREATE VIEW empty.v_classes_ns_main_v01 AS
@@ -861,16 +842,15 @@ CREATE VIEW empty.v_classes_ns_main_v01 AS
     v.is_unique,
     v.namestring,
     v.cnt_x,
-    v.is_local
+    v.is_local,
+    v.in_cnt
    FROM (empty.v_classes_ns v
      LEFT JOIN empty.cc_rels r ON (((r.class_1_id = v.id) AND (r.type_id = 2))))
   WHERE (r.class_2_id IS NULL);
 
 
-ALTER TABLE empty.v_classes_ns_main_v01 OWNER TO rdf;
-
 --
--- Name: v_cp_rels; Type: VIEW; Schema: empty; Owner: rdf
+-- Name: v_cp_rels; Type: VIEW; Schema: empty; Owner: -
 --
 
 CREATE VIEW empty.v_cp_rels AS
@@ -888,9 +868,14 @@ CREATE VIEW empty.v_cp_rels AS
     r.add_link_slots,
     r.details_level,
     r.sub_cover_complete,
-    empty.tapprox((r.cnt)::bigint) AS cnt_x,
+    empty.tapprox((r.cnt)::integer) AS cnt_x,
     empty.tapprox(r.object_cnt) AS object_cnt_x,
     empty.tapprox(r.data_cnt_calc) AS data_cnt_x,
+    r.cnt_base,
+        CASE
+            WHEN (COALESCE(r.cnt_base, (0)::bigint) = 0) THEN r.cnt
+            ELSE ((((r.cnt / r.cnt_base) * c.cnt))::integer)::bigint
+        END AS cnt_estimate,
     c.iri AS class_iri,
     c.classification_property_id AS class_cprop_id,
     c.classification_property AS class_cprop,
@@ -903,10 +888,8 @@ CREATE VIEW empty.v_cp_rels AS
   WHERE ((r.class_id = c.id) AND (r.property_id = p.id));
 
 
-ALTER TABLE empty.v_cp_rels OWNER TO rdf;
-
 --
--- Name: v_cp_rels_card; Type: VIEW; Schema: empty; Owner: rdf
+-- Name: v_cp_rels_card; Type: VIEW; Schema: empty; Owner: -
 --
 
 CREATE VIEW empty.v_cp_rels_card AS
@@ -929,17 +912,15 @@ CREATE VIEW empty.v_cp_rels_card AS
         CASE r.type_id
             WHEN 2 THEN p.max_cardinality
             ELSE p.inverse_max_cardinality
-        END, '-1'::integer) AS x_max_cardinality,
+        END, '-1'::bigint) AS x_max_cardinality,
     r.principal_class_id
    FROM empty.cp_rels r,
     empty.properties p
   WHERE (r.property_id = p.id);
 
 
-ALTER TABLE empty.v_cp_rels_card OWNER TO rdf;
-
 --
--- Name: v_properties_ns; Type: VIEW; Schema: empty; Owner: rdf
+-- Name: v_properties_ns; Type: VIEW; Schema: empty; Owner: -
 --
 
 CREATE VIEW empty.v_properties_ns AS
@@ -973,20 +954,18 @@ CREATE VIEW empty.v_properties_ns AS
     n.basic_order_level,
         CASE
             WHEN (p.max_cardinality IS NOT NULL) THEN p.max_cardinality
-            ELSE '-1'::integer
+            ELSE '-1'::bigint
         END AS max_cardinality,
         CASE
             WHEN (p.inverse_max_cardinality IS NOT NULL) THEN p.inverse_max_cardinality
-            ELSE '-1'::integer
+            ELSE '-1'::bigint
         END AS inverse_max_cardinality
    FROM (empty.properties p
      LEFT JOIN empty.ns n ON ((p.ns_id = n.id)));
 
 
-ALTER TABLE empty.v_properties_ns OWNER TO rdf;
-
 --
--- Name: v_cp_sources_single; Type: VIEW; Schema: empty; Owner: rdf
+-- Name: v_cp_sources_single; Type: VIEW; Schema: empty; Owner: -
 --
 
 CREATE VIEW empty.v_cp_sources_single AS
@@ -1022,10 +1001,8 @@ CREATE VIEW empty.v_cp_sources_single AS
   WHERE (r.type_id = 1);
 
 
-ALTER TABLE empty.v_cp_sources_single OWNER TO rdf;
-
 --
--- Name: v_cp_targets_single; Type: VIEW; Schema: empty; Owner: rdf
+-- Name: v_cp_targets_single; Type: VIEW; Schema: empty; Owner: -
 --
 
 CREATE VIEW empty.v_cp_targets_single AS
@@ -1061,10 +1038,8 @@ CREATE VIEW empty.v_cp_targets_single AS
   WHERE (r.type_id = 2);
 
 
-ALTER TABLE empty.v_cp_targets_single OWNER TO rdf;
-
 --
--- Name: v_pp_rels_names; Type: VIEW; Schema: empty; Owner: rdf
+-- Name: v_pp_rels_names; Type: VIEW; Schema: empty; Owner: -
 --
 
 CREATE VIEW empty.v_pp_rels_names AS
@@ -1076,17 +1051,15 @@ CREATE VIEW empty.v_pp_rels_names AS
     r.data,
     p1.iri AS iri1,
     p2.iri AS iri2,
-    empty.tapprox((r.cnt)::bigint) AS cnt_x
+    empty.tapprox((r.cnt)::integer) AS cnt_x
    FROM empty.pp_rels r,
     empty.properties p1,
     empty.properties p2
   WHERE ((r.property_1_id = p1.id) AND (r.property_2_id = p2.id));
 
 
-ALTER TABLE empty.v_pp_rels_names OWNER TO rdf;
-
 --
--- Name: v_properties_sources; Type: VIEW; Schema: empty; Owner: rdf
+-- Name: v_properties_sources; Type: VIEW; Schema: empty; Owner: -
 --
 
 CREATE VIEW empty.v_properties_sources AS
@@ -1148,10 +1121,8 @@ CREATE VIEW empty.v_properties_sources AS
           WHERE ((r.class_id = c_1.id) AND (r.type_id = 2))) c ON (((v.id = c.property_id) AND (c.cover_set_index > 0) AND (v.target_cover_complete = true))));
 
 
-ALTER TABLE empty.v_properties_sources OWNER TO rdf;
-
 --
--- Name: v_properties_sources_single; Type: VIEW; Schema: empty; Owner: rdf
+-- Name: v_properties_sources_single; Type: VIEW; Schema: empty; Owner: -
 --
 
 CREATE VIEW empty.v_properties_sources_single AS
@@ -1192,10 +1163,8 @@ CREATE VIEW empty.v_properties_sources_single AS
      LEFT JOIN empty.v_classes_ns c ON ((v.domain_class_id = c.id)));
 
 
-ALTER TABLE empty.v_properties_sources_single OWNER TO rdf;
-
 --
--- Name: v_properties_targets; Type: VIEW; Schema: empty; Owner: rdf
+-- Name: v_properties_targets; Type: VIEW; Schema: empty; Owner: -
 --
 
 CREATE VIEW empty.v_properties_targets AS
@@ -1257,10 +1226,8 @@ CREATE VIEW empty.v_properties_targets AS
           WHERE ((r.class_id = c_1.id) AND (r.type_id = 1))) c ON (((v.id = c.property_id) AND (c.cover_set_index > 0) AND (v.target_cover_complete = true))));
 
 
-ALTER TABLE empty.v_properties_targets OWNER TO rdf;
-
 --
--- Name: v_properties_targets_single; Type: VIEW; Schema: empty; Owner: rdf
+-- Name: v_properties_targets_single; Type: VIEW; Schema: empty; Owner: -
 --
 
 CREATE VIEW empty.v_properties_targets_single AS
@@ -1301,10 +1268,8 @@ CREATE VIEW empty.v_properties_targets_single AS
      LEFT JOIN empty.v_classes_ns c ON ((v.range_class_id = c.id)));
 
 
-ALTER TABLE empty.v_properties_targets_single OWNER TO rdf;
-
 --
--- Data for Name: _h_classes; Type: TABLE DATA; Schema: empty; Owner: rdf
+-- Data for Name: _h_classes; Type: TABLE DATA; Schema: empty; Owner: -
 --
 
 COPY empty._h_classes (a, b) FROM stdin;
@@ -1312,7 +1277,7 @@ COPY empty._h_classes (a, b) FROM stdin;
 
 
 --
--- Data for Name: annot_types; Type: TABLE DATA; Schema: empty; Owner: rdf
+-- Data for Name: annot_types; Type: TABLE DATA; Schema: empty; Owner: -
 --
 
 COPY empty.annot_types (id, iri, ns_id, local_name) FROM stdin;
@@ -1325,17 +1290,18 @@ COPY empty.annot_types (id, iri, ns_id, local_name) FROM stdin;
 
 
 --
--- Data for Name: cc_rel_types; Type: TABLE DATA; Schema: empty; Owner: rdf
+-- Data for Name: cc_rel_types; Type: TABLE DATA; Schema: empty; Owner: -
 --
 
 COPY empty.cc_rel_types (id, name) FROM stdin;
 1	sub_class_of
 2	equivalent_class
+3	intersecting_class
 \.
 
 
 --
--- Data for Name: cc_rels; Type: TABLE DATA; Schema: empty; Owner: rdf
+-- Data for Name: cc_rels; Type: TABLE DATA; Schema: empty; Owner: -
 --
 
 COPY empty.cc_rels (id, class_1_id, class_2_id, type_id, cnt, data) FROM stdin;
@@ -1343,7 +1309,7 @@ COPY empty.cc_rels (id, class_1_id, class_2_id, type_id, cnt, data) FROM stdin;
 
 
 --
--- Data for Name: class_annots; Type: TABLE DATA; Schema: empty; Owner: rdf
+-- Data for Name: class_annots; Type: TABLE DATA; Schema: empty; Owner: -
 --
 
 COPY empty.class_annots (id, class_id, type_id, annotation, language_code) FROM stdin;
@@ -1351,15 +1317,15 @@ COPY empty.class_annots (id, class_id, type_id, annotation, language_code) FROM 
 
 
 --
--- Data for Name: classes; Type: TABLE DATA; Schema: empty; Owner: rdf
+-- Data for Name: classes; Type: TABLE DATA; Schema: empty; Owner: -
 --
 
-COPY empty.classes (id, iri, cnt, data, props_in_schema, ns_id, local_name, display_name, classification_property_id, classification_property, classification_adornment, is_literal, datatype_id, instance_name_pattern, indirect_members, is_unique, large_superclass_id, hide_in_main, principal_super_class_id, self_cp_rels, cp_ask_endpoint) FROM stdin;
+COPY empty.classes (id, iri, cnt, data, props_in_schema, ns_id, local_name, display_name, classification_property_id, classification_property, classification_adornment, is_literal, datatype_id, instance_name_pattern, indirect_members, is_unique, large_superclass_id, hide_in_main, principal_super_class_id, self_cp_rels, cp_ask_endpoint, in_cnt) FROM stdin;
 \.
 
 
 --
--- Data for Name: cp_rel_types; Type: TABLE DATA; Schema: empty; Owner: rdf
+-- Data for Name: cp_rel_types; Type: TABLE DATA; Schema: empty; Owner: -
 --
 
 COPY empty.cp_rel_types (id, name) FROM stdin;
@@ -1371,31 +1337,31 @@ COPY empty.cp_rel_types (id, name) FROM stdin;
 
 
 --
--- Data for Name: cp_rels; Type: TABLE DATA; Schema: empty; Owner: rdf
+-- Data for Name: cp_rels; Type: TABLE DATA; Schema: empty; Owner: -
 --
 
-COPY empty.cp_rels (id, class_id, property_id, type_id, cnt, data, object_cnt, max_cardinality, min_cardinality, cover_set_index, add_link_slots, details_level, sub_cover_complete, data_cnt, principal_class_id) FROM stdin;
+COPY empty.cp_rels (id, class_id, property_id, type_id, cnt, data, object_cnt, max_cardinality, min_cardinality, cover_set_index, add_link_slots, details_level, sub_cover_complete, data_cnt, principal_class_id, cnt_base) FROM stdin;
 \.
 
 
 --
--- Data for Name: cpc_rels; Type: TABLE DATA; Schema: empty; Owner: rdf
+-- Data for Name: cpc_rels; Type: TABLE DATA; Schema: empty; Owner: -
 --
 
-COPY empty.cpc_rels (id, cp_rel_id, other_class_id, cnt, data, cover_set_index) FROM stdin;
+COPY empty.cpc_rels (id, cp_rel_id, other_class_id, cnt, data, cover_set_index, cnt_base) FROM stdin;
 \.
 
 
 --
--- Data for Name: cpd_rels; Type: TABLE DATA; Schema: empty; Owner: rdf
+-- Data for Name: cpd_rels; Type: TABLE DATA; Schema: empty; Owner: -
 --
 
-COPY empty.cpd_rels (id, cp_rel_id, datatype_id, cnt, data) FROM stdin;
+COPY empty.cpd_rels (id, cp_rel_id, datatype_id, cnt, data, cnt_base) FROM stdin;
 \.
 
 
 --
--- Data for Name: datatypes; Type: TABLE DATA; Schema: empty; Owner: rdf
+-- Data for Name: datatypes; Type: TABLE DATA; Schema: empty; Owner: -
 --
 
 COPY empty.datatypes (id, iri, ns_id, local_name) FROM stdin;
@@ -1403,7 +1369,7 @@ COPY empty.datatypes (id, iri, ns_id, local_name) FROM stdin;
 
 
 --
--- Data for Name: instances; Type: TABLE DATA; Schema: empty; Owner: rdf
+-- Data for Name: instances; Type: TABLE DATA; Schema: empty; Owner: -
 --
 
 COPY empty.instances (id, iri, ns_id, local_name, local_name_lowercase, class_id, class_iri) FROM stdin;
@@ -1411,7 +1377,7 @@ COPY empty.instances (id, iri, ns_id, local_name, local_name_lowercase, class_id
 
 
 --
--- Data for Name: ns; Type: TABLE DATA; Schema: empty; Owner: rdf
+-- Data for Name: ns; Type: TABLE DATA; Schema: empty; Owner: -
 --
 
 COPY empty.ns (id, name, value, priority, is_local, basic_order_level) FROM stdin;
@@ -1455,47 +1421,47 @@ COPY empty.ns (id, name, value, priority, is_local, basic_order_level) FROM stdi
 38	sioc	http://rdfs.org/sioc/ns#	0	f	0
 39	vcard	http://www.w3.org/2006/vcard/ns#	0	f	0
 40	obo	http://purl.obolibrary.org/obo/	0	f	0
+68	bif	http://www.openlinksw.com/schemas/bif#	0	f	0
 \.
 
 
 --
--- Data for Name: parameters; Type: TABLE DATA; Schema: empty; Owner: rdf
+-- Data for Name: parameters; Type: TABLE DATA; Schema: empty; Owner: -
 --
 
 COPY empty.parameters (order_inx, name, textvalue, jsonvalue, comment, id) FROM stdin;
 30	endpoint_url	\N	\N	Default endpoint URL for visual environment projects using this schema (can be overridden in induvidual project settings).	3
 40	named_graph	\N	\N	Default named graph for visual environment projects using this schema.	4
-60	direct_class_role	\N	\N	Default property to be used for instance-to-class relationship. Leave empty in the most typical case of the property being rdf:type.	5
-70	indirect_class_role	\N	\N	Fill in, if an indirect class membership is to be used in the environment, along with the direct membership (normally leave empty).	6
-120	hide_instances	\N	\N	Hide instance tab in the entity lookup pane in the visual environment	7
-160	use_pp_rels	\N	\N	Use the property-property relationships from the data schema in the query auto-completion (the property-property relationships must be retrieved from the data and stored in the pp_rels table).	9
 210	instance_name_pattern	\N	\N	Default pattern for instance name presentation in visual query fields. Work in progress. Can be overriden on individual class level. Leave empty to present instances by their URIs.	10
-110	tree_profile	\N	\N	A custom configuration of the entity lookup pane tree (copy the initial value from the parameters of a similar schema)	11
+330	use_instance_table	\N	\N	Mark, if a dedicated instance table is installed within the data schema (requires a custom solution).	8
+240	use_pp_rels	\N	\N	Use the property-property relationships from the data schema in the query auto-completion (the property-property relationships must be retrieved from the data and stored in the pp_rels table).	9
+230	instance_lookup_mode	\N	\N	table - use instances table, default - use data endpoint	19
+250	direct_class_role	\N	\N	Default property to be used for instance-to-class relationship. Leave empty in the most typical case of the property being rdf:type.	5
+260	indirect_class_role	\N	\N	Fill in, if an indirect class membership is to be used in the environment, along with the direct membership (normally leave empty).	6
+20	schema_description	\N	\N	Description of the schema.	2
+100	tree_profile_name	\N	\N	Look up public tree profile by this name (mutually exclusive with local tree_profile).	14
+110	tree_profile	\N	\N	A custom configuration of the entity lookup pane tree (copy the initial value from the parameters of a similar schema).	11
+200	schema_kind	\N	\N	One of: default, dbpedia, wikidata, ... .	13
+220	show_instance_tab	\N	\N	Show instance tab in the entity lookup pane in the visual environment.	15
+500	schema_extraction_details	\N	\N	JSON with parameters used in schema extraction.	17
+510	schema_import_datetime	\N	\N	Date and time when the schema has been imported from extracted JSON data.	18
+90	db_schema_name	\N	\N	Name of the schema by which it is to be known in the visual query environment (must be unique).	1
+10	display_name_default	\N	\N	Recommended display name to be used in schema registry.	20
+60	endpoint_public_url	\N	\N	Human readable web site of the endpoint, if available.	16
 50	endpoint_type	\N	\N	Type of the endpoint (GENERIC, VIRTUOSO, JENA, BLAZEGRAPH), associated by default with the schema (can be overridden in a project).	12
-999	tree_profile_name	\N	\N	Look up public tree profile by this name (mutually exclusive with local tree_profile)	14
-999	schema_kind	\N	\N	one of: default, dbpedia, wikidata, ...	13
-10	schema_name	\N	\N	Name of the schema by which it is to be known in the visual query environment (must be unique).	1
-20	schema_description	\N	\N	Description of the schema	2
-999	show_instance_tab	\N	\N	atbilst not hide_instances	15
-999	endpoint_public_url	\N	\N	human readable web site of the endpoint, if available	16
-999	schema_extracting_details	\N	\N	json with parameters used in schema extraction	17
-999	schema_import_datetime	\N	\N	\N	18
-130	use_instance_table	\N	\N	Mark, if a dedicated instance table is installed within the data schema (requires a custom solution).	8
-999	instance_lookup_mode	\N	\N	table - use instances table, default - use data endpoint	19
-999	display_name_default	\N	\N	\N	20
 \.
 
 
 --
--- Data for Name: pd_rels; Type: TABLE DATA; Schema: empty; Owner: rdf
+-- Data for Name: pd_rels; Type: TABLE DATA; Schema: empty; Owner: -
 --
 
-COPY empty.pd_rels (id, property_id, datatype_id, cnt, data) FROM stdin;
+COPY empty.pd_rels (id, property_id, datatype_id, cnt, data, cnt_base) FROM stdin;
 \.
 
 
 --
--- Data for Name: pp_rel_types; Type: TABLE DATA; Schema: empty; Owner: rdf
+-- Data for Name: pp_rel_types; Type: TABLE DATA; Schema: empty; Owner: -
 --
 
 COPY empty.pp_rel_types (id, name) FROM stdin;
@@ -1507,15 +1473,15 @@ COPY empty.pp_rel_types (id, name) FROM stdin;
 
 
 --
--- Data for Name: pp_rels; Type: TABLE DATA; Schema: empty; Owner: rdf
+-- Data for Name: pp_rels; Type: TABLE DATA; Schema: empty; Owner: -
 --
 
-COPY empty.pp_rels (id, property_1_id, property_2_id, type_id, cnt, data) FROM stdin;
+COPY empty.pp_rels (id, property_1_id, property_2_id, type_id, cnt, data, cnt_base) FROM stdin;
 \.
 
 
 --
--- Data for Name: properties; Type: TABLE DATA; Schema: empty; Owner: rdf
+-- Data for Name: properties; Type: TABLE DATA; Schema: empty; Owner: -
 --
 
 COPY empty.properties (id, iri, cnt, data, ns_id, display_name, local_name, is_unique, object_cnt, max_cardinality, inverse_max_cardinality, source_cover_complete, target_cover_complete, domain_class_id, range_class_id, data_cnt, classes_in_schema, is_classifier, use_in_class, classif_prefix, values_have_cp, props_in_schema, pp_ask_endpoint, pc_ask_endpoint) FROM stdin;
@@ -1523,7 +1489,7 @@ COPY empty.properties (id, iri, cnt, data, ns_id, display_name, local_name, is_u
 
 
 --
--- Data for Name: property_annots; Type: TABLE DATA; Schema: empty; Owner: rdf
+-- Data for Name: property_annots; Type: TABLE DATA; Schema: empty; Owner: -
 --
 
 COPY empty.property_annots (id, property_id, type_id, annotation, language_code) FROM stdin;
@@ -1531,133 +1497,133 @@ COPY empty.property_annots (id, property_id, type_id, annotation, language_code)
 
 
 --
--- Name: annot_types_id_seq; Type: SEQUENCE SET; Schema: empty; Owner: rdf
+-- Name: annot_types_id_seq; Type: SEQUENCE SET; Schema: empty; Owner: -
 --
 
 SELECT pg_catalog.setval('empty.annot_types_id_seq', 7, true);
 
 
 --
--- Name: cc_rel_types_id_seq; Type: SEQUENCE SET; Schema: empty; Owner: rdf
+-- Name: cc_rel_types_id_seq; Type: SEQUENCE SET; Schema: empty; Owner: -
 --
 
-SELECT pg_catalog.setval('empty.cc_rel_types_id_seq', 2, true);
+SELECT pg_catalog.setval('empty.cc_rel_types_id_seq', 3, true);
 
 
 --
--- Name: cc_rels_id_seq; Type: SEQUENCE SET; Schema: empty; Owner: rdf
+-- Name: cc_rels_id_seq; Type: SEQUENCE SET; Schema: empty; Owner: -
 --
 
 SELECT pg_catalog.setval('empty.cc_rels_id_seq', 1, false);
 
 
 --
--- Name: class_annots_id_seq; Type: SEQUENCE SET; Schema: empty; Owner: rdf
+-- Name: class_annots_id_seq; Type: SEQUENCE SET; Schema: empty; Owner: -
 --
 
 SELECT pg_catalog.setval('empty.class_annots_id_seq', 1, false);
 
 
 --
--- Name: classes_id_seq; Type: SEQUENCE SET; Schema: empty; Owner: rdf
+-- Name: classes_id_seq; Type: SEQUENCE SET; Schema: empty; Owner: -
 --
 
 SELECT pg_catalog.setval('empty.classes_id_seq', 1, false);
 
 
 --
--- Name: cp_rel_types_id_seq; Type: SEQUENCE SET; Schema: empty; Owner: rdf
+-- Name: cp_rel_types_id_seq; Type: SEQUENCE SET; Schema: empty; Owner: -
 --
 
 SELECT pg_catalog.setval('empty.cp_rel_types_id_seq', 4, true);
 
 
 --
--- Name: cp_rels_id_seq; Type: SEQUENCE SET; Schema: empty; Owner: rdf
+-- Name: cp_rels_id_seq; Type: SEQUENCE SET; Schema: empty; Owner: -
 --
 
 SELECT pg_catalog.setval('empty.cp_rels_id_seq', 1, false);
 
 
 --
--- Name: cpc_rels_id_seq; Type: SEQUENCE SET; Schema: empty; Owner: rdf
+-- Name: cpc_rels_id_seq; Type: SEQUENCE SET; Schema: empty; Owner: -
 --
 
 SELECT pg_catalog.setval('empty.cpc_rels_id_seq', 1, false);
 
 
 --
--- Name: cpd_rels_id_seq; Type: SEQUENCE SET; Schema: empty; Owner: rdf
+-- Name: cpd_rels_id_seq; Type: SEQUENCE SET; Schema: empty; Owner: -
 --
 
 SELECT pg_catalog.setval('empty.cpd_rels_id_seq', 1, false);
 
 
 --
--- Name: datatypes_id_seq; Type: SEQUENCE SET; Schema: empty; Owner: rdf
+-- Name: datatypes_id_seq; Type: SEQUENCE SET; Schema: empty; Owner: -
 --
 
 SELECT pg_catalog.setval('empty.datatypes_id_seq', 1, false);
 
 
 --
--- Name: instances_id_seq; Type: SEQUENCE SET; Schema: empty; Owner: rdf
+-- Name: instances_id_seq; Type: SEQUENCE SET; Schema: empty; Owner: -
 --
 
 SELECT pg_catalog.setval('empty.instances_id_seq', 1, false);
 
 
 --
--- Name: ns_id_seq; Type: SEQUENCE SET; Schema: empty; Owner: rdf
+-- Name: ns_id_seq; Type: SEQUENCE SET; Schema: empty; Owner: -
 --
 
-SELECT pg_catalog.setval('empty.ns_id_seq', 67, true);
-
-
---
--- Name: parameters_id_seq; Type: SEQUENCE SET; Schema: empty; Owner: rdf
---
-
-SELECT pg_catalog.setval('empty.parameters_id_seq', 20, true);
+SELECT pg_catalog.setval('empty.ns_id_seq', 68, true);
 
 
 --
--- Name: pd_rels_id_seq; Type: SEQUENCE SET; Schema: empty; Owner: rdf
+-- Name: parameters_id_seq; Type: SEQUENCE SET; Schema: empty; Owner: -
+--
+
+SELECT pg_catalog.setval('empty.parameters_id_seq', 22, true);
+
+
+--
+-- Name: pd_rels_id_seq; Type: SEQUENCE SET; Schema: empty; Owner: -
 --
 
 SELECT pg_catalog.setval('empty.pd_rels_id_seq', 1, false);
 
 
 --
--- Name: pp_rel_types_id_seq; Type: SEQUENCE SET; Schema: empty; Owner: rdf
+-- Name: pp_rel_types_id_seq; Type: SEQUENCE SET; Schema: empty; Owner: -
 --
 
 SELECT pg_catalog.setval('empty.pp_rel_types_id_seq', 4, true);
 
 
 --
--- Name: pp_rels_id_seq; Type: SEQUENCE SET; Schema: empty; Owner: rdf
+-- Name: pp_rels_id_seq; Type: SEQUENCE SET; Schema: empty; Owner: -
 --
 
 SELECT pg_catalog.setval('empty.pp_rels_id_seq', 1, false);
 
 
 --
--- Name: properties_id_seq; Type: SEQUENCE SET; Schema: empty; Owner: rdf
+-- Name: properties_id_seq; Type: SEQUENCE SET; Schema: empty; Owner: -
 --
 
 SELECT pg_catalog.setval('empty.properties_id_seq', 1, false);
 
 
 --
--- Name: property_annots_id_seq; Type: SEQUENCE SET; Schema: empty; Owner: rdf
+-- Name: property_annots_id_seq; Type: SEQUENCE SET; Schema: empty; Owner: -
 --
 
 SELECT pg_catalog.setval('empty.property_annots_id_seq', 1, false);
 
 
 --
--- Name: _h_classes _h_classes_pkey; Type: CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: _h_classes _h_classes_pkey; Type: CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty._h_classes
@@ -1665,7 +1631,7 @@ ALTER TABLE ONLY empty._h_classes
 
 
 --
--- Name: annot_types annot_types_iri_uq; Type: CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: annot_types annot_types_iri_uq; Type: CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.annot_types
@@ -1673,7 +1639,7 @@ ALTER TABLE ONLY empty.annot_types
 
 
 --
--- Name: annot_types annot_types_pkey; Type: CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: annot_types annot_types_pkey; Type: CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.annot_types
@@ -1681,7 +1647,7 @@ ALTER TABLE ONLY empty.annot_types
 
 
 --
--- Name: cc_rel_types cc_rel_types_pkey; Type: CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: cc_rel_types cc_rel_types_pkey; Type: CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.cc_rel_types
@@ -1689,7 +1655,7 @@ ALTER TABLE ONLY empty.cc_rel_types
 
 
 --
--- Name: cc_rels cc_rels_class_1_id_class_2_id_type_id_key; Type: CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: cc_rels cc_rels_class_1_id_class_2_id_type_id_key; Type: CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.cc_rels
@@ -1697,7 +1663,7 @@ ALTER TABLE ONLY empty.cc_rels
 
 
 --
--- Name: cc_rels cc_rels_pkey; Type: CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: cc_rels cc_rels_pkey; Type: CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.cc_rels
@@ -1705,7 +1671,7 @@ ALTER TABLE ONLY empty.cc_rels
 
 
 --
--- Name: class_annots class_annots_c_t_l_uq; Type: CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: class_annots class_annots_c_t_l_uq; Type: CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.class_annots
@@ -1713,7 +1679,7 @@ ALTER TABLE ONLY empty.class_annots
 
 
 --
--- Name: class_annots class_annots_pkey; Type: CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: class_annots class_annots_pkey; Type: CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.class_annots
@@ -1721,7 +1687,7 @@ ALTER TABLE ONLY empty.class_annots
 
 
 --
--- Name: classes classes_iri_cl_prop_id_key; Type: CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: classes classes_iri_cl_prop_id_key; Type: CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.classes
@@ -1729,7 +1695,7 @@ ALTER TABLE ONLY empty.classes
 
 
 --
--- Name: classes classes_pkey; Type: CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: classes classes_pkey; Type: CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.classes
@@ -1737,7 +1703,7 @@ ALTER TABLE ONLY empty.classes
 
 
 --
--- Name: cp_rel_types cp_rel_types_name_unique; Type: CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: cp_rel_types cp_rel_types_name_unique; Type: CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.cp_rel_types
@@ -1745,7 +1711,7 @@ ALTER TABLE ONLY empty.cp_rel_types
 
 
 --
--- Name: cp_rel_types cp_rel_types_pkey; Type: CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: cp_rel_types cp_rel_types_pkey; Type: CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.cp_rel_types
@@ -1753,7 +1719,7 @@ ALTER TABLE ONLY empty.cp_rel_types
 
 
 --
--- Name: cp_rels cp_rels_class_id_property_id_type_id_key; Type: CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: cp_rels cp_rels_class_id_property_id_type_id_key; Type: CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.cp_rels
@@ -1761,7 +1727,7 @@ ALTER TABLE ONLY empty.cp_rels
 
 
 --
--- Name: cp_rels cp_rels_pkey; Type: CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: cp_rels cp_rels_pkey; Type: CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.cp_rels
@@ -1769,7 +1735,7 @@ ALTER TABLE ONLY empty.cp_rels
 
 
 --
--- Name: cpc_rels cpc_rels_cp_rel_id_other_class_id_key; Type: CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: cpc_rels cpc_rels_cp_rel_id_other_class_id_key; Type: CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.cpc_rels
@@ -1777,7 +1743,7 @@ ALTER TABLE ONLY empty.cpc_rels
 
 
 --
--- Name: cpc_rels cpc_rels_pkey; Type: CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: cpc_rels cpc_rels_pkey; Type: CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.cpc_rels
@@ -1785,7 +1751,7 @@ ALTER TABLE ONLY empty.cpc_rels
 
 
 --
--- Name: cpd_rels cpd_rels_cp_rel_id_datatype_id_key; Type: CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: cpd_rels cpd_rels_cp_rel_id_datatype_id_key; Type: CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.cpd_rels
@@ -1793,7 +1759,7 @@ ALTER TABLE ONLY empty.cpd_rels
 
 
 --
--- Name: cpd_rels cpd_rels_pkey; Type: CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: cpd_rels cpd_rels_pkey; Type: CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.cpd_rels
@@ -1801,7 +1767,7 @@ ALTER TABLE ONLY empty.cpd_rels
 
 
 --
--- Name: datatypes datatypes_iri_key; Type: CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: datatypes datatypes_iri_key; Type: CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.datatypes
@@ -1809,7 +1775,7 @@ ALTER TABLE ONLY empty.datatypes
 
 
 --
--- Name: datatypes datatypes_pkey; Type: CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: datatypes datatypes_pkey; Type: CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.datatypes
@@ -1817,7 +1783,7 @@ ALTER TABLE ONLY empty.datatypes
 
 
 --
--- Name: instances instances_iri_key; Type: CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: instances instances_iri_key; Type: CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.instances
@@ -1825,7 +1791,7 @@ ALTER TABLE ONLY empty.instances
 
 
 --
--- Name: instances instances_pkey; Type: CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: instances instances_pkey; Type: CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.instances
@@ -1833,7 +1799,7 @@ ALTER TABLE ONLY empty.instances
 
 
 --
--- Name: ns ns_name_key; Type: CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: ns ns_name_key; Type: CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.ns
@@ -1841,7 +1807,7 @@ ALTER TABLE ONLY empty.ns
 
 
 --
--- Name: ns ns_name_unique; Type: CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: ns ns_name_unique; Type: CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.ns
@@ -1849,7 +1815,7 @@ ALTER TABLE ONLY empty.ns
 
 
 --
--- Name: ns ns_value_key; Type: CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: ns ns_value_key; Type: CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.ns
@@ -1857,7 +1823,7 @@ ALTER TABLE ONLY empty.ns
 
 
 --
--- Name: parameters parameters_name_key; Type: CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: parameters parameters_name_key; Type: CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.parameters
@@ -1865,7 +1831,7 @@ ALTER TABLE ONLY empty.parameters
 
 
 --
--- Name: parameters parameters_pkey; Type: CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: parameters parameters_pkey; Type: CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.parameters
@@ -1873,7 +1839,7 @@ ALTER TABLE ONLY empty.parameters
 
 
 --
--- Name: pd_rels pd_rels_pkey; Type: CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: pd_rels pd_rels_pkey; Type: CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.pd_rels
@@ -1881,7 +1847,7 @@ ALTER TABLE ONLY empty.pd_rels
 
 
 --
--- Name: pd_rels pd_rels_property_id_datatype_id_key; Type: CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: pd_rels pd_rels_property_id_datatype_id_key; Type: CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.pd_rels
@@ -1889,7 +1855,7 @@ ALTER TABLE ONLY empty.pd_rels
 
 
 --
--- Name: pp_rel_types pp_rel_types_pkey; Type: CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: pp_rel_types pp_rel_types_pkey; Type: CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.pp_rel_types
@@ -1897,7 +1863,7 @@ ALTER TABLE ONLY empty.pp_rel_types
 
 
 --
--- Name: pp_rels pp_rels_pkey; Type: CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: pp_rels pp_rels_pkey; Type: CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.pp_rels
@@ -1905,7 +1871,7 @@ ALTER TABLE ONLY empty.pp_rels
 
 
 --
--- Name: pp_rels pp_rels_property_1_id_property_2_id_type_id_key; Type: CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: pp_rels pp_rels_property_1_id_property_2_id_type_id_key; Type: CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.pp_rels
@@ -1913,7 +1879,7 @@ ALTER TABLE ONLY empty.pp_rels
 
 
 --
--- Name: ns prefixes_pkey; Type: CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: ns prefixes_pkey; Type: CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.ns
@@ -1921,7 +1887,7 @@ ALTER TABLE ONLY empty.ns
 
 
 --
--- Name: properties properties_iri_key; Type: CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: properties properties_iri_key; Type: CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.properties
@@ -1929,7 +1895,7 @@ ALTER TABLE ONLY empty.properties
 
 
 --
--- Name: properties properties_pkey; Type: CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: properties properties_pkey; Type: CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.properties
@@ -1937,7 +1903,7 @@ ALTER TABLE ONLY empty.properties
 
 
 --
--- Name: property_annots property_annots_p_t_l_uq; Type: CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: property_annots property_annots_p_t_l_uq; Type: CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.property_annots
@@ -1945,7 +1911,7 @@ ALTER TABLE ONLY empty.property_annots
 
 
 --
--- Name: property_annots property_annots_pkey; Type: CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: property_annots property_annots_pkey; Type: CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.property_annots
@@ -1953,280 +1919,280 @@ ALTER TABLE ONLY empty.property_annots
 
 
 --
--- Name: fki_annot_types_ns_fk; Type: INDEX; Schema: empty; Owner: rdf
+-- Name: fki_annot_types_ns_fk; Type: INDEX; Schema: empty; Owner: -
 --
 
 CREATE INDEX fki_annot_types_ns_fk ON empty.annot_types USING btree (ns_id);
 
 
 --
--- Name: fki_cc_rels_class_1_fk; Type: INDEX; Schema: empty; Owner: rdf
+-- Name: fki_cc_rels_class_1_fk; Type: INDEX; Schema: empty; Owner: -
 --
 
 CREATE INDEX fki_cc_rels_class_1_fk ON empty.cc_rels USING btree (class_1_id);
 
 
 --
--- Name: fki_cc_rels_class_2_fk; Type: INDEX; Schema: empty; Owner: rdf
+-- Name: fki_cc_rels_class_2_fk; Type: INDEX; Schema: empty; Owner: -
 --
 
 CREATE INDEX fki_cc_rels_class_2_fk ON empty.cc_rels USING btree (class_2_id);
 
 
 --
--- Name: fki_cc_rels_type_fk; Type: INDEX; Schema: empty; Owner: rdf
+-- Name: fki_cc_rels_type_fk; Type: INDEX; Schema: empty; Owner: -
 --
 
 CREATE INDEX fki_cc_rels_type_fk ON empty.cc_rels USING btree (type_id);
 
 
 --
--- Name: fki_class_annots_class_fk; Type: INDEX; Schema: empty; Owner: rdf
+-- Name: fki_class_annots_class_fk; Type: INDEX; Schema: empty; Owner: -
 --
 
 CREATE INDEX fki_class_annots_class_fk ON empty.class_annots USING btree (class_id);
 
 
 --
--- Name: fki_classes_ns_fk; Type: INDEX; Schema: empty; Owner: rdf
+-- Name: fki_classes_ns_fk; Type: INDEX; Schema: empty; Owner: -
 --
 
 CREATE INDEX fki_classes_ns_fk ON empty.classes USING btree (ns_id);
 
 
 --
--- Name: fki_classes_superclass_fk; Type: INDEX; Schema: empty; Owner: rdf
+-- Name: fki_classes_superclass_fk; Type: INDEX; Schema: empty; Owner: -
 --
 
 CREATE INDEX fki_classes_superclass_fk ON empty.classes USING btree (principal_super_class_id);
 
 
 --
--- Name: fki_cp_rels_class_fk; Type: INDEX; Schema: empty; Owner: rdf
+-- Name: fki_cp_rels_class_fk; Type: INDEX; Schema: empty; Owner: -
 --
 
 CREATE INDEX fki_cp_rels_class_fk ON empty.cp_rels USING btree (class_id);
 
 
 --
--- Name: fki_cp_rels_domain_classes_fk; Type: INDEX; Schema: empty; Owner: rdf
+-- Name: fki_cp_rels_domain_classes_fk; Type: INDEX; Schema: empty; Owner: -
 --
 
 CREATE INDEX fki_cp_rels_domain_classes_fk ON empty.properties USING btree (domain_class_id);
 
 
 --
--- Name: fki_cp_rels_property_fk; Type: INDEX; Schema: empty; Owner: rdf
+-- Name: fki_cp_rels_property_fk; Type: INDEX; Schema: empty; Owner: -
 --
 
 CREATE INDEX fki_cp_rels_property_fk ON empty.cp_rels USING btree (property_id);
 
 
 --
--- Name: fki_cp_rels_range_classes_fk; Type: INDEX; Schema: empty; Owner: rdf
+-- Name: fki_cp_rels_range_classes_fk; Type: INDEX; Schema: empty; Owner: -
 --
 
 CREATE INDEX fki_cp_rels_range_classes_fk ON empty.properties USING btree (range_class_id);
 
 
 --
--- Name: fki_cp_rels_type_fk; Type: INDEX; Schema: empty; Owner: rdf
+-- Name: fki_cp_rels_type_fk; Type: INDEX; Schema: empty; Owner: -
 --
 
 CREATE INDEX fki_cp_rels_type_fk ON empty.cp_rels USING btree (type_id);
 
 
 --
--- Name: fki_datatypes_ns_fk; Type: INDEX; Schema: empty; Owner: rdf
+-- Name: fki_datatypes_ns_fk; Type: INDEX; Schema: empty; Owner: -
 --
 
 CREATE INDEX fki_datatypes_ns_fk ON empty.datatypes USING btree (ns_id);
 
 
 --
--- Name: fki_pp_rels_property_1_fk; Type: INDEX; Schema: empty; Owner: rdf
+-- Name: fki_pp_rels_property_1_fk; Type: INDEX; Schema: empty; Owner: -
 --
 
 CREATE INDEX fki_pp_rels_property_1_fk ON empty.pp_rels USING btree (property_1_id);
 
 
 --
--- Name: fki_pp_rels_property_2_fk; Type: INDEX; Schema: empty; Owner: rdf
+-- Name: fki_pp_rels_property_2_fk; Type: INDEX; Schema: empty; Owner: -
 --
 
 CREATE INDEX fki_pp_rels_property_2_fk ON empty.pp_rels USING btree (property_2_id);
 
 
 --
--- Name: fki_pp_rels_type_fk; Type: INDEX; Schema: empty; Owner: rdf
+-- Name: fki_pp_rels_type_fk; Type: INDEX; Schema: empty; Owner: -
 --
 
 CREATE INDEX fki_pp_rels_type_fk ON empty.pp_rels USING btree (type_id);
 
 
 --
--- Name: fki_properties_ns_fk; Type: INDEX; Schema: empty; Owner: rdf
+-- Name: fki_properties_ns_fk; Type: INDEX; Schema: empty; Owner: -
 --
 
 CREATE INDEX fki_properties_ns_fk ON empty.properties USING btree (ns_id);
 
 
 --
--- Name: fki_property_annots_class_fk; Type: INDEX; Schema: empty; Owner: rdf
+-- Name: fki_property_annots_class_fk; Type: INDEX; Schema: empty; Owner: -
 --
 
 CREATE INDEX fki_property_annots_class_fk ON empty.property_annots USING btree (property_id);
 
 
 --
--- Name: idx_cc_rels_data; Type: INDEX; Schema: empty; Owner: rdf
+-- Name: idx_cc_rels_data; Type: INDEX; Schema: empty; Owner: -
 --
 
 CREATE INDEX idx_cc_rels_data ON empty.cc_rels USING gin (data);
 
 
 --
--- Name: idx_classes_cnt; Type: INDEX; Schema: empty; Owner: rdf
+-- Name: idx_classes_cnt; Type: INDEX; Schema: empty; Owner: -
 --
 
 CREATE INDEX idx_classes_cnt ON empty.classes USING btree (cnt);
 
 
 --
--- Name: idx_classes_data; Type: INDEX; Schema: empty; Owner: rdf
+-- Name: idx_classes_data; Type: INDEX; Schema: empty; Owner: -
 --
 
 CREATE INDEX idx_classes_data ON empty.classes USING gin (data);
 
 
 --
--- Name: idx_classes_iri; Type: INDEX; Schema: empty; Owner: rdf
+-- Name: idx_classes_iri; Type: INDEX; Schema: empty; Owner: -
 --
 
 CREATE INDEX idx_classes_iri ON empty.classes USING btree (iri);
 
 
 --
--- Name: idx_classes_large_superclass_id; Type: INDEX; Schema: empty; Owner: rdf
+-- Name: idx_classes_large_superclass_id; Type: INDEX; Schema: empty; Owner: -
 --
 
 CREATE INDEX idx_classes_large_superclass_id ON empty.classes USING btree (large_superclass_id) INCLUDE (id);
 
 
 --
--- Name: idx_cp_rels_class_prop_data; Type: INDEX; Schema: empty; Owner: rdf
+-- Name: idx_cp_rels_class_prop_data; Type: INDEX; Schema: empty; Owner: -
 --
 
 CREATE INDEX idx_cp_rels_class_prop_data ON empty.cp_rels USING btree (class_id, type_id, data_cnt DESC NULLS LAST) INCLUDE (property_id);
 
 
 --
--- Name: idx_cp_rels_class_prop_object; Type: INDEX; Schema: empty; Owner: rdf
+-- Name: idx_cp_rels_class_prop_object; Type: INDEX; Schema: empty; Owner: -
 --
 
 CREATE INDEX idx_cp_rels_class_prop_object ON empty.cp_rels USING btree (class_id, type_id, object_cnt DESC NULLS LAST) INCLUDE (property_id);
 
 
 --
--- Name: idx_cp_rels_data; Type: INDEX; Schema: empty; Owner: rdf
+-- Name: idx_cp_rels_data; Type: INDEX; Schema: empty; Owner: -
 --
 
 CREATE INDEX idx_cp_rels_data ON empty.cp_rels USING gin (data);
 
 
 --
--- Name: idx_cp_rels_prop_class; Type: INDEX; Schema: empty; Owner: rdf
+-- Name: idx_cp_rels_prop_class; Type: INDEX; Schema: empty; Owner: -
 --
 
 CREATE INDEX idx_cp_rels_prop_class ON empty.cp_rels USING btree (property_id, type_id, cnt DESC NULLS LAST) INCLUDE (class_id);
 
 
 --
--- Name: idx_instances_local_name; Type: INDEX; Schema: empty; Owner: rdf
+-- Name: idx_instances_local_name; Type: INDEX; Schema: empty; Owner: -
 --
 
 CREATE INDEX idx_instances_local_name ON empty.instances USING btree (local_name text_pattern_ops);
 
 
 --
--- Name: idx_instances_test; Type: INDEX; Schema: empty; Owner: rdf
+-- Name: idx_instances_test; Type: INDEX; Schema: empty; Owner: -
 --
 
 CREATE INDEX idx_instances_test ON empty.instances USING gin (test);
 
 
 --
--- Name: idx_pp_rels_data; Type: INDEX; Schema: empty; Owner: rdf
+-- Name: idx_pp_rels_data; Type: INDEX; Schema: empty; Owner: -
 --
 
 CREATE INDEX idx_pp_rels_data ON empty.pp_rels USING gin (data);
 
 
 --
--- Name: idx_pp_rels_p1_t_p2; Type: INDEX; Schema: empty; Owner: rdf
+-- Name: idx_pp_rels_p1_t_p2; Type: INDEX; Schema: empty; Owner: -
 --
 
 CREATE INDEX idx_pp_rels_p1_t_p2 ON empty.pp_rels USING btree (property_1_id, type_id, cnt DESC NULLS LAST) INCLUDE (property_2_id);
 
 
 --
--- Name: idx_pp_rels_p2_t_p1; Type: INDEX; Schema: empty; Owner: rdf
+-- Name: idx_pp_rels_p2_t_p1; Type: INDEX; Schema: empty; Owner: -
 --
 
 CREATE INDEX idx_pp_rels_p2_t_p1 ON empty.pp_rels USING btree (property_2_id, type_id, cnt DESC NULLS LAST) INCLUDE (property_1_id);
 
 
 --
--- Name: idx_pp_rels_property_1_type; Type: INDEX; Schema: empty; Owner: rdf
+-- Name: idx_pp_rels_property_1_type; Type: INDEX; Schema: empty; Owner: -
 --
 
 CREATE INDEX idx_pp_rels_property_1_type ON empty.pp_rels USING btree (property_1_id) INCLUDE (type_id);
 
 
 --
--- Name: idx_pp_rels_property_1_type_; Type: INDEX; Schema: empty; Owner: rdf
+-- Name: idx_pp_rels_property_1_type_; Type: INDEX; Schema: empty; Owner: -
 --
 
 CREATE INDEX idx_pp_rels_property_1_type_ ON empty.pp_rels USING btree (property_1_id, type_id);
 
 
 --
--- Name: idx_pp_rels_property_2_type; Type: INDEX; Schema: empty; Owner: rdf
+-- Name: idx_pp_rels_property_2_type; Type: INDEX; Schema: empty; Owner: -
 --
 
 CREATE INDEX idx_pp_rels_property_2_type ON empty.pp_rels USING btree (property_2_id) INCLUDE (type_id);
 
 
 --
--- Name: idx_pp_rels_property_2_type_; Type: INDEX; Schema: empty; Owner: rdf
+-- Name: idx_pp_rels_property_2_type_; Type: INDEX; Schema: empty; Owner: -
 --
 
 CREATE INDEX idx_pp_rels_property_2_type_ ON empty.pp_rels USING btree (property_2_id, type_id);
 
 
 --
--- Name: idx_properties_cnt; Type: INDEX; Schema: empty; Owner: rdf
+-- Name: idx_properties_cnt; Type: INDEX; Schema: empty; Owner: -
 --
 
 CREATE INDEX idx_properties_cnt ON empty.properties USING btree (cnt);
 
 
 --
--- Name: idx_properties_data; Type: INDEX; Schema: empty; Owner: rdf
+-- Name: idx_properties_data; Type: INDEX; Schema: empty; Owner: -
 --
 
 CREATE INDEX idx_properties_data ON empty.properties USING gin (data);
 
 
 --
--- Name: idx_properties_iri; Type: INDEX; Schema: empty; Owner: rdf
+-- Name: idx_properties_iri; Type: INDEX; Schema: empty; Owner: -
 --
 
 CREATE INDEX idx_properties_iri ON empty.properties USING btree (iri);
 
 
 --
--- Name: annot_types annot_types_ns_fk; Type: FK CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: annot_types annot_types_ns_fk; Type: FK CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.annot_types
@@ -2234,7 +2200,7 @@ ALTER TABLE ONLY empty.annot_types
 
 
 --
--- Name: cc_rels cc_rels_class_1_fk; Type: FK CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: cc_rels cc_rels_class_1_fk; Type: FK CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.cc_rels
@@ -2242,7 +2208,7 @@ ALTER TABLE ONLY empty.cc_rels
 
 
 --
--- Name: cc_rels cc_rels_class_2_fk; Type: FK CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: cc_rels cc_rels_class_2_fk; Type: FK CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.cc_rels
@@ -2250,7 +2216,7 @@ ALTER TABLE ONLY empty.cc_rels
 
 
 --
--- Name: cc_rels cc_rels_type_fk; Type: FK CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: cc_rels cc_rels_type_fk; Type: FK CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.cc_rels
@@ -2258,7 +2224,7 @@ ALTER TABLE ONLY empty.cc_rels
 
 
 --
--- Name: class_annots class_annots_class_fk; Type: FK CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: class_annots class_annots_class_fk; Type: FK CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.class_annots
@@ -2266,7 +2232,7 @@ ALTER TABLE ONLY empty.class_annots
 
 
 --
--- Name: class_annots class_annots_type_fk; Type: FK CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: class_annots class_annots_type_fk; Type: FK CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.class_annots
@@ -2274,7 +2240,7 @@ ALTER TABLE ONLY empty.class_annots
 
 
 --
--- Name: classes classes_datatype_fk; Type: FK CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: classes classes_datatype_fk; Type: FK CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.classes
@@ -2282,7 +2248,7 @@ ALTER TABLE ONLY empty.classes
 
 
 --
--- Name: classes classes_ns_fk; Type: FK CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: classes classes_ns_fk; Type: FK CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.classes
@@ -2290,7 +2256,7 @@ ALTER TABLE ONLY empty.classes
 
 
 --
--- Name: classes classes_superclass_fk; Type: FK CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: classes classes_superclass_fk; Type: FK CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.classes
@@ -2298,7 +2264,7 @@ ALTER TABLE ONLY empty.classes
 
 
 --
--- Name: cp_rels cp_rels_class_fk; Type: FK CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: cp_rels cp_rels_class_fk; Type: FK CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.cp_rels
@@ -2306,7 +2272,7 @@ ALTER TABLE ONLY empty.cp_rels
 
 
 --
--- Name: cp_rels cp_rels_property_fk; Type: FK CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: cp_rels cp_rels_property_fk; Type: FK CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.cp_rels
@@ -2314,7 +2280,7 @@ ALTER TABLE ONLY empty.cp_rels
 
 
 --
--- Name: cp_rels cp_rels_type_fk; Type: FK CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: cp_rels cp_rels_type_fk; Type: FK CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.cp_rels
@@ -2322,7 +2288,7 @@ ALTER TABLE ONLY empty.cp_rels
 
 
 --
--- Name: cpc_rels cpc_rels_cp_rel_fk; Type: FK CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: cpc_rels cpc_rels_cp_rel_fk; Type: FK CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.cpc_rels
@@ -2330,7 +2296,7 @@ ALTER TABLE ONLY empty.cpc_rels
 
 
 --
--- Name: cpc_rels cpc_rels_other_class_fk; Type: FK CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: cpc_rels cpc_rels_other_class_fk; Type: FK CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.cpc_rels
@@ -2338,7 +2304,7 @@ ALTER TABLE ONLY empty.cpc_rels
 
 
 --
--- Name: cpd_rels cpd_rels_cp_rel_fk; Type: FK CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: cpd_rels cpd_rels_cp_rel_fk; Type: FK CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.cpd_rels
@@ -2346,7 +2312,7 @@ ALTER TABLE ONLY empty.cpd_rels
 
 
 --
--- Name: cpd_rels cpd_rels_datatype_fk; Type: FK CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: cpd_rels cpd_rels_datatype_fk; Type: FK CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.cpd_rels
@@ -2354,7 +2320,7 @@ ALTER TABLE ONLY empty.cpd_rels
 
 
 --
--- Name: datatypes datatypes_ns_fk; Type: FK CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: datatypes datatypes_ns_fk; Type: FK CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.datatypes
@@ -2362,7 +2328,7 @@ ALTER TABLE ONLY empty.datatypes
 
 
 --
--- Name: instances instances_class_id_fkey; Type: FK CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: instances instances_class_id_fkey; Type: FK CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.instances
@@ -2370,7 +2336,7 @@ ALTER TABLE ONLY empty.instances
 
 
 --
--- Name: instances instances_ns_id_fkey; Type: FK CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: instances instances_ns_id_fkey; Type: FK CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.instances
@@ -2378,7 +2344,7 @@ ALTER TABLE ONLY empty.instances
 
 
 --
--- Name: pd_rels pd_rels_datatype_fk; Type: FK CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: pd_rels pd_rels_datatype_fk; Type: FK CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.pd_rels
@@ -2386,7 +2352,7 @@ ALTER TABLE ONLY empty.pd_rels
 
 
 --
--- Name: pd_rels pd_rels_property_fk; Type: FK CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: pd_rels pd_rels_property_fk; Type: FK CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.pd_rels
@@ -2394,7 +2360,7 @@ ALTER TABLE ONLY empty.pd_rels
 
 
 --
--- Name: pp_rels pp_rels_property_1_fk; Type: FK CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: pp_rels pp_rels_property_1_fk; Type: FK CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.pp_rels
@@ -2402,7 +2368,7 @@ ALTER TABLE ONLY empty.pp_rels
 
 
 --
--- Name: pp_rels pp_rels_property_2_fk; Type: FK CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: pp_rels pp_rels_property_2_fk; Type: FK CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.pp_rels
@@ -2410,7 +2376,7 @@ ALTER TABLE ONLY empty.pp_rels
 
 
 --
--- Name: pp_rels pp_rels_type_fk; Type: FK CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: pp_rels pp_rels_type_fk; Type: FK CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.pp_rels
@@ -2418,7 +2384,7 @@ ALTER TABLE ONLY empty.pp_rels
 
 
 --
--- Name: properties properties_domain_class_id_fkey; Type: FK CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: properties properties_domain_class_id_fkey; Type: FK CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.properties
@@ -2426,7 +2392,7 @@ ALTER TABLE ONLY empty.properties
 
 
 --
--- Name: properties properties_ns_fk; Type: FK CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: properties properties_ns_fk; Type: FK CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.properties
@@ -2434,7 +2400,7 @@ ALTER TABLE ONLY empty.properties
 
 
 --
--- Name: properties properties_range_class_id_fkey; Type: FK CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: properties properties_range_class_id_fkey; Type: FK CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.properties
@@ -2442,7 +2408,7 @@ ALTER TABLE ONLY empty.properties
 
 
 --
--- Name: property_annots property_annots_property_fk; Type: FK CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: property_annots property_annots_property_fk; Type: FK CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.property_annots
@@ -2450,277 +2416,11 @@ ALTER TABLE ONLY empty.property_annots
 
 
 --
--- Name: property_annots property_annots_type_fk; Type: FK CONSTRAINT; Schema: empty; Owner: rdf
+-- Name: property_annots property_annots_type_fk; Type: FK CONSTRAINT; Schema: empty; Owner: -
 --
 
 ALTER TABLE ONLY empty.property_annots
     ADD CONSTRAINT property_annots_type_fk FOREIGN KEY (type_id) REFERENCES empty.annot_types(id) ON DELETE CASCADE;
-
-
---
--- Name: SCHEMA empty; Type: ACL; Schema: -; Owner: rdf
---
-
-GRANT USAGE ON SCHEMA empty TO rdfgroup;
-
-
---
--- Name: TABLE _h_classes; Type: ACL; Schema: empty; Owner: rdf
---
-
-GRANT SELECT ON TABLE empty._h_classes TO rdfgroup;
-
-
---
--- Name: TABLE annot_types; Type: ACL; Schema: empty; Owner: rdf
---
-
-GRANT SELECT ON TABLE empty.annot_types TO rdfgroup;
-
-
---
--- Name: TABLE classes; Type: ACL; Schema: empty; Owner: rdf
---
-
-GRANT SELECT ON TABLE empty.classes TO rdfgroup;
-
-
---
--- Name: TABLE cp_rels; Type: ACL; Schema: empty; Owner: rdf
---
-
-GRANT SELECT ON TABLE empty.cp_rels TO rdfgroup;
-
-
---
--- Name: TABLE properties; Type: ACL; Schema: empty; Owner: rdf
---
-
-GRANT SELECT ON TABLE empty.properties TO rdfgroup;
-
-
---
--- Name: TABLE c_links; Type: ACL; Schema: empty; Owner: rdf
---
-
-GRANT SELECT ON TABLE empty.c_links TO rdfgroup;
-
-
---
--- Name: TABLE cc_rel_types; Type: ACL; Schema: empty; Owner: rdf
---
-
-GRANT SELECT ON TABLE empty.cc_rel_types TO rdfgroup;
-
-
---
--- Name: TABLE cc_rels; Type: ACL; Schema: empty; Owner: rdf
---
-
-GRANT SELECT ON TABLE empty.cc_rels TO rdfgroup;
-
-
---
--- Name: TABLE class_annots; Type: ACL; Schema: empty; Owner: rdf
---
-
-GRANT SELECT ON TABLE empty.class_annots TO rdfgroup;
-
-
---
--- Name: TABLE cp_rel_types; Type: ACL; Schema: empty; Owner: rdf
---
-
-GRANT SELECT ON TABLE empty.cp_rel_types TO rdfgroup;
-
-
---
--- Name: TABLE cpc_rels; Type: ACL; Schema: empty; Owner: rdf
---
-
-GRANT SELECT ON TABLE empty.cpc_rels TO rdfgroup;
-
-
---
--- Name: TABLE cpd_rels; Type: ACL; Schema: empty; Owner: rdf
---
-
-GRANT SELECT ON TABLE empty.cpd_rels TO rdfgroup;
-
-
---
--- Name: TABLE datatypes; Type: ACL; Schema: empty; Owner: rdf
---
-
-GRANT SELECT ON TABLE empty.datatypes TO rdfgroup;
-
-
---
--- Name: TABLE instances; Type: ACL; Schema: empty; Owner: rdf
---
-
-GRANT SELECT ON TABLE empty.instances TO rdfgroup;
-
-
---
--- Name: TABLE ns; Type: ACL; Schema: empty; Owner: rdf
---
-
-GRANT SELECT ON TABLE empty.ns TO rdfgroup;
-
-
---
--- Name: TABLE parameters; Type: ACL; Schema: empty; Owner: rdf
---
-
-GRANT SELECT ON TABLE empty.parameters TO rdfgroup;
-
-
---
--- Name: TABLE pd_rels; Type: ACL; Schema: empty; Owner: rdf
---
-
-GRANT SELECT ON TABLE empty.pd_rels TO rdfgroup;
-
-
---
--- Name: TABLE pp_rel_types; Type: ACL; Schema: empty; Owner: rdf
---
-
-GRANT SELECT ON TABLE empty.pp_rel_types TO rdfgroup;
-
-
---
--- Name: TABLE pp_rels; Type: ACL; Schema: empty; Owner: rdf
---
-
-GRANT SELECT ON TABLE empty.pp_rels TO rdfgroup;
-
-
---
--- Name: TABLE property_annots; Type: ACL; Schema: empty; Owner: rdf
---
-
-GRANT SELECT ON TABLE empty.property_annots TO rdfgroup;
-
-
---
--- Name: TABLE v_cc_rels; Type: ACL; Schema: empty; Owner: rdf
---
-
-GRANT SELECT ON TABLE empty.v_cc_rels TO rdfgroup;
-
-
---
--- Name: TABLE v_classes_ns; Type: ACL; Schema: empty; Owner: rdf
---
-
-GRANT SELECT ON TABLE empty.v_classes_ns TO rdfgroup;
-
-
---
--- Name: TABLE v_classes_ns_main; Type: ACL; Schema: empty; Owner: rdf
---
-
-GRANT SELECT ON TABLE empty.v_classes_ns_main TO rdfgroup;
-
-
---
--- Name: TABLE v_classes_ns_plus; Type: ACL; Schema: empty; Owner: rdf
---
-
-GRANT SELECT ON TABLE empty.v_classes_ns_plus TO rdfgroup;
-
-
---
--- Name: TABLE v_classes_ns_main_plus; Type: ACL; Schema: empty; Owner: rdf
---
-
-GRANT SELECT ON TABLE empty.v_classes_ns_main_plus TO rdfgroup;
-
-
---
--- Name: TABLE v_classes_ns_main_v01; Type: ACL; Schema: empty; Owner: rdf
---
-
-GRANT SELECT ON TABLE empty.v_classes_ns_main_v01 TO rdfgroup;
-
-
---
--- Name: TABLE v_cp_rels; Type: ACL; Schema: empty; Owner: rdf
---
-
-GRANT SELECT ON TABLE empty.v_cp_rels TO rdfgroup;
-
-
---
--- Name: TABLE v_cp_rels_card; Type: ACL; Schema: empty; Owner: rdf
---
-
-GRANT SELECT ON TABLE empty.v_cp_rels_card TO rdfgroup;
-
-
---
--- Name: TABLE v_properties_ns; Type: ACL; Schema: empty; Owner: rdf
---
-
-GRANT SELECT ON TABLE empty.v_properties_ns TO rdfgroup;
-
-
---
--- Name: TABLE v_cp_sources_single; Type: ACL; Schema: empty; Owner: rdf
---
-
-GRANT SELECT ON TABLE empty.v_cp_sources_single TO rdfgroup;
-
-
---
--- Name: TABLE v_cp_targets_single; Type: ACL; Schema: empty; Owner: rdf
---
-
-GRANT SELECT ON TABLE empty.v_cp_targets_single TO rdfgroup;
-
-
---
--- Name: TABLE v_pp_rels_names; Type: ACL; Schema: empty; Owner: rdf
---
-
-GRANT SELECT ON TABLE empty.v_pp_rels_names TO rdfgroup;
-
-
---
--- Name: TABLE v_properties_sources; Type: ACL; Schema: empty; Owner: rdf
---
-
-GRANT SELECT ON TABLE empty.v_properties_sources TO rdfgroup;
-
-
---
--- Name: TABLE v_properties_sources_single; Type: ACL; Schema: empty; Owner: rdf
---
-
-GRANT SELECT ON TABLE empty.v_properties_sources_single TO rdfgroup;
-
-
---
--- Name: TABLE v_properties_targets; Type: ACL; Schema: empty; Owner: rdf
---
-
-GRANT SELECT ON TABLE empty.v_properties_targets TO rdfgroup;
-
-
---
--- Name: TABLE v_properties_targets_single; Type: ACL; Schema: empty; Owner: rdf
---
-
-GRANT SELECT ON TABLE empty.v_properties_targets_single TO rdfgroup;
-
-
---
--- Name: DEFAULT PRIVILEGES FOR TABLES; Type: DEFAULT ACL; Schema: empty; Owner: rdf
---
-
-ALTER DEFAULT PRIVILEGES FOR ROLE rdf IN SCHEMA empty GRANT SELECT,INSERT,DELETE,UPDATE ON TABLES  TO rdf;
 
 
 --
