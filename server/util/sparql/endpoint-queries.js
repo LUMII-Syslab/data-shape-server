@@ -326,7 +326,10 @@ const sparqlGetPropertiesFromClass = async (schema, params, pos, uriClass, only_
 const executeSPARQL = async (endpointUrl, querySparql) => {
     let client = await findClient(endpointUrl);
 	console.log('--------executeSPARQL-----------------')
+	if ( querySparql == undefined)
+		return [];
 	console.log(querySparql)
+
     if (querySparql.toLowerCase().startsWith('ask')) {
         const reply = await client.query.ask(querySparql);
         console.log(reply)
@@ -509,7 +512,6 @@ const sparqlGetIndividualsNew =  async (schema, params) => {
 			individualPattern = await getIndividualPattern(schema, params, clInfo[0].iri);
 			const classInfo = await getClassSparqlPart(schema, params, clInfo[0].iri); 
 			whereList.push(classInfo); //(`?x ${typeString} <${clInfo[0].iri}>`);
-			
 		}	
 	}
 	
@@ -533,7 +535,7 @@ const sparqlGetIndividualsNew =  async (schema, params) => {
 		if (newPList.out.length > 0 )
 			newPList.out.forEach(element => whereList.push(`?x <${element}> []`));
 	}
-	
+
 	reply = await getFullResults(schema, endpointUrl, whereList, params, individualPattern);	
 	reply.forEach(v => { rr.push(v.localName);} );
 	return rr;

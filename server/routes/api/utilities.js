@@ -45,6 +45,8 @@ const get_KNOWN_DATA2 = async () => {
 			db_info.profile_data = tree_profiles.filter(function(t){ return t.profile_name == tree_profile_name;})[0].data;
 			db_info.schema_name = r2.filter(function(p){ return p.name == 'schema_kind';})[0].textvalue;
 			db_info.direct_class_role = r2.filter(function(p){ return p.name == 'direct_class_role';})[0].textvalue;
+			if ( db_info.direct_class_role == undefined )
+				db_info.direct_class_role = 'rdf:type';
 			db_info.indirect_class_role = r2.filter(function(p){ return p.name == 'indirect_class_role';})[0].textvalue;
 			db_info.use_pp_rels = r2.filter(function(p){ return p.name == 'use_pp_rels';})[0].jsonvalue;
 			if ( r2.filter(function(p){ return p.name == 'instance_lookup_mode';})[0].textvalue == 'table')
