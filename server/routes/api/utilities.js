@@ -53,6 +53,9 @@ const get_KNOWN_DATA2 = async () => {
 				db_info.has_instance_table = true;
 			else
 				db_info.has_instance_table = false;
+
+			var rc = await db.any(`SELECT COUNT(*) FROM ${db_info.db_schema_name}.classes`);
+			db_info.class_count = rc[0].count;
 			
 			result.push(db_info);
 		} 
