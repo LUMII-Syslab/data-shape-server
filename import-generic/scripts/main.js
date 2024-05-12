@@ -3,6 +3,7 @@ const col = require('ansi-colors')
 
 const { importFromJSON } = require('./json-importer');
 const { registerImportedSchema } = require('./schema-registrar');
+const { calculateDisplayNames } = require('./display-name-calculator');
 
 const { DB_CONFIG, db } = require('../config');
 
@@ -156,6 +157,10 @@ const doImport = async () => {
         process.exit(1);
     }
     
+    if ((process.env.CALCULATE_DISPLAY_NAMES ?? '').toLocaleLowerCase() === 'true') {
+        await calculateDisplayNames();
+    }
+
     await registerImportedSchema(effectiveParams);
 
     return 'done';
