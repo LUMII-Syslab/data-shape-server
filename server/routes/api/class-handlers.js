@@ -275,7 +275,7 @@ const xx_getClassListExt = async (schema, params) => {
 		r =  await util.getSchemaData(sql, params, false);
 		const in_props = (r.data[0].sum == null) ? '' : ` in_props-${roundCount(Number(r.data[0].sum))}`; 
 		c.in_props = (r.data[0].sum == null) ? 0 : Number(r.data[0].sum);
-		c.cnt_sum = c.cnt + Math.round(Math.pow(c.in_props, 5/6)); 
+		c.cnt_sum = Number(c.cnt) + Math.round(Math.pow(c.in_props, 5/6)); 
 		
 		c.s = [c.id];
 		if ( cc_rels.length > 0 ) {
@@ -408,7 +408,7 @@ const xx_getClassListInfo = async (schema, params) => {
 		sql = `select sum(object_cnt) from ${schema}.cp_rels where type_id = 1 and class_id = ${c.id}`;
 		r =  await util.getSchemaData(sql, params, false);
 		c.in_props = (r.data[0].sum == null) ? 0 : Number(r.data[0].sum);
-		c.cnt_sum = c.cnt + Math.round(Math.pow(c.in_props, 5/6)); 
+		c.cnt_sum = Number(c.cnt) + Math.round(Math.pow(c.in_props, 5/6)); 
 
 		if ( cc_rels.length > 0 ) {
 			let len = 1;
