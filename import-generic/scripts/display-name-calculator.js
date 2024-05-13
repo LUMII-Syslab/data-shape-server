@@ -3,18 +3,16 @@ const col = require('ansi-colors')
 const _ = require('lodash')
 const ProgressBar = require('progress')
 
-const { v4: uuidv4 } = require('uuid');
-
 const c = require('../config');
 const { DB_CONFIG, db, DRY_RUN } = c
-console.log(c)
 const dbSchema = process.env.DB_SCHEMA;
 
 // let LL = [ 'en', 'de', 'lv' ]
-let LL = (process.env.ANNOT_LANG_PRIORITIES ?? '').split(',').map(x=>x.trim().toLowerCase())
+let LL = (process.env.ANNOT_LANG_PRIORITIES ?? '').split(',').map(x=>x.trim().toLowerCase()).filter(x=>!!x)
 if (!LL.includes('en')) LL.push('en')
 
-console.log('effective annot language order:', LL)    
+console.log('effective annot language order:', LL)
+
 /*
     annot_types (id, iri, ns_id, local_name
     class_annots (id, class_id, type_id, annotatio::text, language_code)
@@ -92,7 +90,9 @@ async function calculateDisplayNames() {
 
         for (const row of rows) {
             bar.tick()
-            if (!nameIsTechnical(row, baseTable)) continue
+
+            let isTechnical = await nameIsTechnical(row, baseTable)
+            if (!isTechnical) continue
 
             // vajag jaunu d_n
             let annotations = await db.any(`select type_id, language_code, annotation 
@@ -107,6 +107,11 @@ async function calculateDisplayNames() {
             _.sortBy(annotations, [langPrio, annotTypePrio])
 
             let bestAnnot = annotations[0].annotation
+
+            if (bestAnnot === row.local_name) {
+                // annot the same as local_name => don't change
+                continue
+            }
 
             if (bestAnnot.length > 50) bestAnnot = bestAnnot.slice(0, 48) + '..'
 
