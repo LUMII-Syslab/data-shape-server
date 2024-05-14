@@ -66,7 +66,7 @@ const nameIsTechnical = async (row, baseTable) => {
     let similarCount = (await db.any(`select count(*) 
         from ${dbSchema}.${baseTable}  
         where display_name like $1`, [ `${head}%` ])
-    ).count
+    )[0].count
     
     return Number.parseInt(similarCount, 10) > tailPos
 }
