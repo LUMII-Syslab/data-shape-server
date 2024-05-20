@@ -16,6 +16,7 @@ const {
 	xx_getClassListExt,
 	xx_getPropList,
 	xx_getPropList2,
+	xx_getPropList3,
 	xx_getClassListInfo,
 	xx_getClassInfo,
 	xx_getClassInfoAtr,
@@ -255,6 +256,10 @@ router.post('/ontologies/:ont/:fn', wrapAsync(async (req, res, next) => {
 			const classCount = await db.any(`SELECT count(*) from ${schema}.classes`);
 			r = classCount[0].count;
 		}
+		if ( fn === 'xx_getPropertyInfo') {
+			const propCount = await db.any(`SELECT count(*), max(cnt) from ${schema}.properties`);
+			r = {count:propCount[0].count, max:propCount[0].max};
+		}
 		if ( fn === 'getTreeClasses')
 			r = await getTreeClasses(schema, params);
 		if ( fn === 'getProperties') {
@@ -311,6 +316,9 @@ router.post('/ontologies/:ont/:fn', wrapAsync(async (req, res, next) => {
 		}
 		if ( fn === 'xx_getPropList2') {
 			r = await xx_getPropList2(schema, params);
+		}
+		if ( fn === 'xx_getPropList3') {
+			r = await xx_getPropList3(schema, params);
 		}
 		if ( fn === 'xx_getClassListInfo') {
 			r = await xx_getClassListInfo(schema, params);

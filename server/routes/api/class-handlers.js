@@ -273,7 +273,7 @@ const xx_getClassListExt = async (schema, params) => {
 		//***c.c = r.data.map( v => { return v.class_id});
 		sql = `select sum(object_cnt) from ${schema}.cp_rels where type_id = 1 and class_id = ${c.id}`;
 		r =  await util.getSchemaData(sql, params, false);
-		const in_props = (r.data[0].sum == null) ? '' : ` in_props-${roundCount(Number(r.data[0].sum))}`; 
+		const in_props = (r.data[0].sum == null) ? '' : ` in_triples-${roundCount(Number(r.data[0].sum))}`; 
 		c.in_props = (r.data[0].sum == null) ? 0 : Number(r.data[0].sum);
 		c.cnt_sum = Number(c.cnt) + Math.round(Math.pow(c.in_props, 5/6)); 
 		
@@ -360,10 +360,43 @@ const xx_getPropList2 = async (schema, params) => {
 		}
 	}
 
-	const sql = `select id, display_name, prefix, cnt, object_cnt, data_cnt, max_cardinality, inverse_max_cardinality, domain_class_id, range_class_id,
+	const sql = `select id, iri, display_name, prefix, cnt, object_cnt, data_cnt, max_cardinality, inverse_max_cardinality, domain_class_id, range_class_id,
 	(select count(*) from ${schema}.cp_rels where property_id = vpn.id and cover_set_index > 0 and type_id = 2) as type_2,
 	(select count(*) from ${schema}.cp_rels where property_id = vpn.id and cover_set_index > 0 and type_id = 1) as type_1	
 	from ${schema}.v_properties_ns vpn where id in (select distinct(property_id) from ${schema}.cp_rels where class_id in (${params.main.c_list})) order by cnt desc`;
+	
+	let r = await util.getSchemaData(sql, params);
+	
+	for (var c of r.data) {
+		if ( c.cnt == c.object_cnt )
+			c.p_name = `${c.prefix}:${c.display_name} (cnt-${roundCount(c.cnt)}, object property ${c.type_2}-${c.type_1})`;
+		else if ( c.cnt == c.data_cnt )
+			c.p_name = `${c.prefix}:${c.display_name} (cnt-${roundCount(c.cnt)}, data property )`;
+		else
+			c.p_name = `${c.prefix}:${c.display_name} (cnt-${roundCount(c.cnt)}, property ${c.type_2}-${c.type_1})`;
+		
+	}
+
+    return r;
+}
+const xx_getPropList3 = async (schema, params) => {
+	function roundCount(cnt) {
+		if ( cnt == '' || cnt == 0) {
+			return '';
+		} 
+		else {
+			cnt = Number(cnt);
+		if ( cnt < 10000)
+				return cnt;
+			else
+				return cnt.toPrecision(2).replace("+", "");				
+		}
+	}
+
+	const sql = `select id, iri, display_name, prefix, cnt, object_cnt, data_cnt, max_cardinality, inverse_max_cardinality, domain_class_id, range_class_id,
+	(select count(*) from ${schema}.cp_rels where property_id = vpn.id and cover_set_index > 0 and type_id = 2) as type_2,
+	(select count(*) from ${schema}.cp_rels where property_id = vpn.id and cover_set_index > 0 and type_id = 1) as type_1	
+	from ${schema}.v_properties_ns vpn order by cnt desc`;
 	
 	let r = await util.getSchemaData(sql, params);
 	
@@ -490,6 +523,7 @@ module.exports = {
 	xx_getClassListExt,
 	xx_getPropList,
 	xx_getPropList2,
+	xx_getPropList3,
 	xx_getClassListInfo,
 	xx_getCCInfo,
 	xx_getCPCInfo,
