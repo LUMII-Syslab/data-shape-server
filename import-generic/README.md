@@ -16,7 +16,7 @@ This folder contains scripts to import the RDF endpoint schemata retrieval resul
 - Obtain the database connection information for the DSS database,
 - To install the packages required by the import script, run from the command line:
 
-```
+```bash
 npm install
 ```
 
@@ -46,6 +46,9 @@ Create an environment file (copy `sample.env` to `.env`) and configure the follo
   - 
   - `REGISTRY_SCHEMA` – name of the DB schema which stores the schemate registry (optional, defaults to `public`)
   - `OVERRIDE_DB_SCHEMA` – should the importer replace existing db schema (if exists) (optional, defaults to `false`)
+  - 
+  - `CALCULATE_DISPLAY_NAMES` – set to "true" to generate nicer display names calculated from class and property annotations, replacing the technical names like `Q123` (optional)
+  - `ANNOT_LANG_PRIORITIES` – list of language codes specifying the language lookup order for generating display names, e.g., `"de,fr,en"`; defaults to `"en"`
 
 By default the import script will look for the environment file named `.env`. 
 
@@ -55,7 +58,7 @@ It is also possible to use a named `env` file (e.g., `myendpoint.env`), providin
 
 To start the import in automatic mode, enter the following command:
 
-```
+```bash
 npm run auto
 ```
 
@@ -65,14 +68,14 @@ Before importing in the manual mode, ensure that the recipient schema contains a
 
 For example, assuming that the name of your DSS database is `dss`, and that the name for your schema is `myendpoint`, issue the following commands:
 
-```
+```bash
 psql dss < empty_template.pgsql
 psql -c "alter schema empty rename to myendpoint" dss
 ```
 
 When the recipient schema is created, you can run the import script 
 
-```
+```bash
 npm run manual
 ```
 
@@ -98,6 +101,28 @@ The namespaces table can be edited manually after the import. Change the prefixe
 Setting a default namespace would simplify its entity appearance. 
 
 Setting priorities to namespaces will order the entities in code completion lists. 
+
+## Generating the human readable display names
+
+By default, class and property local names are used also as their display names. If all or part of these local names are technical, like `Q123`, and these classes or properties have annotations, there is an option to build display names from these annotations.
+
+You can initiate the display name generation as part of the schema import, including
+
+```bash
+CALCULATE_DISPLAY_NAMES=true
+```
+
+in the `.env` file specifying the import parameters.
+
+Or, if you wish to (re)generate display names for an already imported schema, you can start the name generation separately, with the commands
+
+```bash
+cd import-generic
+node scripts/display-name-calculator.js
+```
+
+The `.env` file has the same format as above.
+
 
 ## Acknowledgements
 
