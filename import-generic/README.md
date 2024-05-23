@@ -102,7 +102,7 @@ Setting a default namespace would simplify its entity appearance.
 
 Setting priorities to namespaces will order the entities in code completion lists. 
 
-## Generating the human readable display names
+## Generate human readable display names for classes and properties
 
 By default, class and property local names are used also as their display names. If all or part of these local names are technical, like `Q123`, and these classes or properties have annotations, there is an option to build display names from these annotations.
 
