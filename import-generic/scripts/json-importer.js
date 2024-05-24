@@ -11,7 +11,7 @@ const dbSchema = process.env.DB_SCHEMA;
 const INPUT_FILE = process.env.INPUT_FILE;
 const registrySchema = process.env.REGISTRY_SCHEMA || 'public';
 
-const IMPORTER_VERSION = '2023-11-03';
+const IMPORTER_VERSION = '2024-05-23';
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -33,6 +33,11 @@ const rememberPrefix = (id, name, value) => {
     NS_ID_TO_NAME.set(id, name);
     NS_NAME_TO_ID.set(name, id);
     NS_NAME_TO_VALUE.set(name, value);
+
+    if (name === '') {
+        NS_NAME_TO_ID.set(':', id);
+        NS_NAME_TO_VALUE.set(':', value);
+    }
 }
 
 const generateAbbr = prefix => {
@@ -41,7 +46,7 @@ const generateAbbr = prefix => {
     if (m) {
         return `owl_${m[1]}`;
     }
-    return `auto_${auto_ns_counter++}`;
+    return `n_${auto_ns_counter++}`;
 }
 
 const getAbbrFromTheWeb = async prefix => {
@@ -69,35 +74,37 @@ const getAbbrFromTheWeb = async prefix => {
     return null;
 }
 
-const getAbbrFromPublic = async prefix => {
-    let r = await db.any(`select * from public.ns_prefixes where prefix = $1 order by id`, [ prefix ]);
-    if (r.length > 0) return r[0].abbr;
+const getAbbrFromPublic = async prefixValue => {
+    let r = await db.any(`select * from public.ns_prefixes where prefix = $1 order by id`, [ prefixValue ]);
+    if (r.length > 0) {
+        return r[0].abbr;
+    }
 }
 
-const resolveNsPrefix = async (prefix, abbr = null) => {
-    if (NS_VALUE_TO_ID.has(prefix)) {
-        return NS_VALUE_TO_ID.get(prefix);
+const resolveNsPrefix = async (prefixValue, prefixAbbr = null) => {
+    if (NS_VALUE_TO_ID.has(prefixValue)) {
+        return NS_VALUE_TO_ID.get(prefixValue);
     }
     try {
-        let resolvedAbbr = abbr;
+        let resolvedAbbr = prefixAbbr;
         if (!resolvedAbbr) {
-            resolvedAbbr = await getAbbrFromTheWeb(prefix);
+            resolvedAbbr = await getAbbrFromPublic(prefixValue);
         }
         if (!resolvedAbbr) {
-            resolvedAbbr = await getAbbrFromPublic(prefix);
+            resolvedAbbr = await getAbbrFromTheWeb(prefixValue);
         }
         if (!resolvedAbbr) {
-            resolvedAbbr = generateAbbr(prefix);
+            resolvedAbbr = generateAbbr(prefixValue);
         }
 
         let id = (await db.one(
             `INSERT INTO ${dbSchema}.ns (value, name) values ($1, $2) RETURNING id`,
         [
-            prefix,
+            prefixValue,
             resolvedAbbr
         ])).id;
 
-        rememberPrefix(id, resolvedAbbr, prefix);
+        rememberPrefix(id, resolvedAbbr, prefixValue);
 
         return id;
 
@@ -901,7 +908,7 @@ const setDefaultNS = async prefixValue => {
     rememberPrefix(localId, '', prefixValue);
 }
 
-const addPrefixShortcut = async (prefixValue, prefixName) => {
+const addPrefixAbbr = async (prefixValue, prefixName) => {
     // namespace: "https://creativecommons.org/ns#""
     // shortcut: "cc" (vai "cc:") vai ":"
 
@@ -959,6 +966,12 @@ const addPrefixShortcut = async (prefixValue, prefixName) => {
     } catch(err) {
         console.error(err);
     }
+}
+
+const postponedPrefixes = [];
+const postponePrefixAbbr = (value, name) => {
+    postponedPrefixes.push({ value, name });
+    // TODO: re-check these at the end of import
 }
 
 const addOneParameter = async (param_name, param_value) => {
@@ -1101,7 +1114,11 @@ const importFromJSON = async data => {
     // prefixes
     if (data.Prefixes) {
         for (const pref of data.Prefixes) {
-            await addPrefixShortcut(pref.namespace, pref.prefix);
+            if (/^n\d+$/.test(pref.prefix)) {
+                postponePrefixAbbr(pref.namespace, pref.prefix);
+            } else {
+                await addPrefixAbbr(pref.namespace, pref.prefix);
+            }
         }
     }
 
