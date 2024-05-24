@@ -124,6 +124,15 @@ node scripts/display-name-calculator.js
 The `.env` file has the same format as above.
 
 
+If the display names already have been generated, you can reset them via SQL executing the following commands:
+
+```sql
+update YOUR_SCHEMA_NAME.classes set display_name = local_name;
+update YOUR_SCHEMA_NAME.properties set display_name = local_name;
+```
+
+After that, you can repeat the display name generation as shown above.
+
 ## Acknowledgements
 
 Supported in part by Latvian Science Council project lzp-2021/1-0389 "Visual Queries in Distributed Knowledge Graphs" (since 2022).
