@@ -29,17 +29,17 @@ const get_KNOWN_DATA = async () => {
 const get_KNOWN_DATA2 = async () => {
 	const r = await db.any(`SELECT * from public.v_configurations where is_active = true`);
 	const tree_profiles = await db.any(`SELECT * from public.tree_profiles`);
-	var result = [];
-	for ( var db_info of r) {
-		var r0 = await db.any(`SELECT COUNT(*) FROM information_schema."tables" where table_schema = '${db_info.db_schema_name}'`);
+	let result = [];
+	for ( const db_info of r) {
+		let r0 = await db.any(`SELECT COUNT(*) FROM information_schema."tables" where table_schema = '${db_info.db_schema_name}'`);
 		if ( r0[0].count > 0) {
-			var r2 = await db.any(`SELECT * from ${db_info.db_schema_name}.parameters`);
+			let r2 = await db.any(`SELECT * from ${db_info.db_schema_name}.parameters`);
 		
 			if ( r2.filter(function(p){ return p.name == 'show_instance_tab';})[0].jsonvalue == true )
 				db_info.hide_instances = false;
 			else
 				db_info.hide_instances = true;
-			var tree_profile_name = r2.filter(function(p){ return p.name == 'tree_profile_name';})[0].textvalue;
+			let tree_profile_name = r2.filter(function(p){ return p.name == 'tree_profile_name';})[0].textvalue;
 			if ( tree_profile_name == null || tree_profile_name == undefined ) 
 				tree_profile_name = 'default';
 			db_info.profile_data = tree_profiles.filter(function(t){ return t.profile_name == tree_profile_name;})[0].data;
@@ -54,7 +54,7 @@ const get_KNOWN_DATA2 = async () => {
 			else
 				db_info.has_instance_table = false;
 
-			var rc = await db.any(`SELECT COUNT(*) FROM ${db_info.db_schema_name}.classes`);
+			let rc = await db.any(`SELECT COUNT(*) FROM ${db_info.db_schema_name}.classes`);
 			db_info.class_count = rc[0].count;
 			
 			result.push(db_info);
@@ -63,6 +63,27 @@ const get_KNOWN_DATA2 = async () => {
 	return result;
 	//const kd = KNOWN_DATA;
 	//return kd;
+}
+
+const get_KNOWN_DATA3 = async () => {
+	const r = await db.any(`SELECT * from public.v_configurations where is_active = true`);
+	let result = [];
+	for ( const db_info of r) {
+		let r0 = await db.any(`SELECT COUNT(*) FROM information_schema."tables" where table_schema = '${db_info.db_schema_name}'`);
+		if ( r0[0].count > 0) {
+			let info = {display_name:db_info.display_name};
+			//let rr = await db.any(`SELECT COUNT(*) FROM ${db_info.db_schema_name}.classes`);
+			//info.class_count = rr[0].count;
+			const sql = `select count(*) count, (select count(*) from ${db_info.db_schema_name}.properties) pp, (select count(*) > 0 from ${db_info.db_schema_name}.cpc_rels) cpc_rels, (select count(*) > 0 from ${db_info.db_schema_name}.cc_rels ) cc_rels, (select count(*) - count(distinct class_1_id) > 0 from ${db_info.db_schema_name}.cc_rels) multi from ${db_info.db_schema_name}.classes`
+			const rr = await db.any(sql);
+			info.class_count = rr[0].count;
+			info.properties = rr[0].pp;
+			info.info = `has_cpc_rels: ${rr[0].cpc_rels} has_cc_rels: ${rr[0].cc_rels} multi: ${rr[0].multi}`; 
+			result.push(info);
+		} 
+	}
+	result = result.sort(function(a,b){ return b.class_count-a.class_count});
+	return result;
 }
 
 const parameterExists = (parTree, par) => {
@@ -678,6 +699,7 @@ module.exports = {
 	getOnlyIndividualsNS,
 	get_KNOWN_DATA,
 	get_KNOWN_DATA2,
+	get_KNOWN_DATA3,
 	getTypeStrings,
 	getTypeString,
 	getUsePP,

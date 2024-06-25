@@ -103,7 +103,10 @@ router.get('/info2', wrapAsync(async (req, res, next) => {
   const kd = await util.get_KNOWN_DATA2();
   res.json(kd);
 }));
-
+router.get('/info3', wrapAsync(async (req, res, next) => {
+	const kd = await util.get_KNOWN_DATA3();
+	res.json(kd);
+  }));
 /**
  * List of known prefixes
  */
