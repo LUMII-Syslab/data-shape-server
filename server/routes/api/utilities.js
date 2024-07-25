@@ -19,6 +19,7 @@ const KNOWN_DATA = [
 ]
 
 const get_KNOWN_DATA = async () => {
+	// Šis ir vecais variants
 	const sql = `SELECT * from public.v_configurations`; 
 	const r = await db.any(sql);
 	return r;
@@ -86,6 +87,13 @@ const get_KNOWN_DATA3 = async (tag) => {
 	result = result.sort(function(a,b){ return b.class_count-a.class_count});
 	return result;
 }
+
+const get_KNOWN_DATA_OntTags = async () => {
+	const tags = await getAllSchemaTags();
+	const schemas = await get_KNOWN_DATA2();
+	return { tags:tags, schemas:schemas};
+}
+
 
 const getAllSchemaTags = async () => {
     const r = await db.any(`SELECT * FROM public.schemata_tags where is_active order by display_name`);
@@ -706,6 +714,7 @@ module.exports = {
 	get_KNOWN_DATA,
 	get_KNOWN_DATA2,
 	get_KNOWN_DATA3,
+	get_KNOWN_DATA_OntTags,
 	getTypeStrings,
 	getTypeString,
 	getUsePP,

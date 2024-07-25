@@ -119,6 +119,10 @@ router.get('/info3', wrapAsync(async (req, res, next) => {
   const kd = await util.get_KNOWN_DATA3();
   res.json(kd);
 }));
+router.get('/infoOntTags', wrapAsync(async (req, res, next) => {
+	const kd = await util.get_KNOWN_DATA_OntTags();
+	res.json(kd);
+  }));
 
 /**
  * List of known prefixes
