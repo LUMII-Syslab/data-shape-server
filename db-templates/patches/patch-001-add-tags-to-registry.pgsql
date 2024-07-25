@@ -22,7 +22,14 @@ grant all on
 table public.schemata_tags to rdf;
 -- add a 'tags' column to the 'schemata' table
 
-alter table public.schemata add column tags text[] not null default '{}';
+alter table public.schemata add column if not exists tags text[] not null default '{}';
+
+grant all on
+table public.schemata to rdf;
+
+grant all on
+table public.endpoints to rdf;
+
 -- update the schemata view
 
 drop view if exists public.v_configurations;
@@ -55,3 +62,6 @@ order by
 
 alter table public.v_configurations
     owner to rdf;
+
+grant all on
+table public.v_configurations to rdf;
