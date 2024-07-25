@@ -69,7 +69,7 @@ const get_KNOWN_DATA3 = async (tag) => {
 	const r = await db.any(`SELECT * from public.v_configurations where is_active = true`);
 	let result = [];
 	for ( const db_info of r) {
-        if (tag && !db_info.includes(tag)) continue;
+        if (tag && !db_info.tags.includes(tag)) continue;
 		let r0 = await db.any(`SELECT COUNT(*) FROM information_schema."tables" where table_schema = '${db_info.db_schema_name}'`);
 		if ( r0[0].count > 0) {
 			let info = {display_name:db_info.display_name};
