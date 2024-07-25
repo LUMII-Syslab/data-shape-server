@@ -93,6 +93,14 @@ router.get('/', (req, res, next) => {
 });
 
 /**
+ * List of known schema tags
+ */
+router.get('/schema_tags', wrapAsync(async (req, res, next) => {
+  const d = await util.getAllSchemaTags();
+  res.json(d);
+}));
+
+/**
  * List of known ontologies
  */
 router.get('/info', wrapAsync(async (req, res, next) => {
@@ -103,10 +111,15 @@ router.get('/info2', wrapAsync(async (req, res, next) => {
   const kd = await util.get_KNOWN_DATA2();
   res.json(kd);
 }));
+router.get('/info3/:tag', wrapAsync(async (req, res, next) => {
+    const kd = await util.get_KNOWN_DATA3(req.params.tag);
+    res.json(kd);
+}));
 router.get('/info3', wrapAsync(async (req, res, next) => {
-	const kd = await util.get_KNOWN_DATA3();
-	res.json(kd);
-  }));
+  const kd = await util.get_KNOWN_DATA3();
+  res.json(kd);
+}));
+
 /**
  * List of known prefixes
  */

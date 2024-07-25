@@ -65,10 +65,11 @@ const get_KNOWN_DATA2 = async () => {
 	//return kd;
 }
 
-const get_KNOWN_DATA3 = async () => {
+const get_KNOWN_DATA3 = async (tag) => {
 	const r = await db.any(`SELECT * from public.v_configurations where is_active = true`);
 	let result = [];
 	for ( const db_info of r) {
+        if (tag && !db_info.includes(tag)) continue;
 		let r0 = await db.any(`SELECT COUNT(*) FROM information_schema."tables" where table_schema = '${db_info.db_schema_name}'`);
 		if ( r0[0].count > 0) {
 			let info = {display_name:db_info.display_name};
@@ -84,6 +85,11 @@ const get_KNOWN_DATA3 = async () => {
 	}
 	result = result.sort(function(a,b){ return b.class_count-a.class_count});
 	return result;
+}
+
+const getAllSchemaTags = async () => {
+    const r = await db.any(`SELECT * FROM public.schemata_tags where is_active order by display_name`);
+    return r;
 }
 
 const parameterExists = (parTree, par) => {
@@ -714,4 +720,5 @@ module.exports = {
 	correctValue,
 	getFullName,
 	getFullNameP,
+    getAllSchemaTags,
 }
