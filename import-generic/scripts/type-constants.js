@@ -17,8 +17,15 @@ const PP_REL_TYPE = {
     SUB_PROPERTY_OF: 4,
 }
 
+const NS_STATS_TYPE = {
+    CLASS: 1,
+    SUBJECT: 2,
+    OBJECT: 3,
+}
+
 module.exports = {
     CP_REL_TYPE,
     CC_REL_TYPE,
     PP_REL_TYPE,
+    NS_STATS_TYPE,
 }

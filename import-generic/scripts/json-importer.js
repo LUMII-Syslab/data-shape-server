@@ -3,7 +3,7 @@ const debug = require('debug')('import')
 const fetch = require('node-fetch');
 const col = require('ansi-colors')
 
-const { CC_REL_TYPE, CP_REL_TYPE, PP_REL_TYPE } = require('./type-constants')
+const { CC_REL_TYPE, CP_REL_TYPE, PP_REL_TYPE, NS_STATS_TYPE } = require('./type-constants')
 
 const { DB_CONFIG, db } = require('../config');
 
@@ -254,9 +254,37 @@ const addClass = async c => {
         ])).id;
         CLASSES.set(c.fullName, class_id);
 
+        /// c.InstanceNamespaces : [ {
+        ///   "namespace" : "http://www.wikidata.org/entity/",
+        ///   "count" : 195
+        /// } ]
+        if (c.InstanceNamespaces) {
+            for (const ns of c.InstanceNamespaces) {
+                await addNamespaceStats(ns, NS_STATS_TYPE.CLASS, class_id, null);
+            }
+        }
+    
     } catch(err) {
         console.error(err);
     }
+
+}
+
+const addNamespaceStats = async ({namespace, count}, type_id, class_id, property_id) => {
+    let ns_id = await resolveNsPrefix(namespace);
+
+    try {
+        await db.none(`
+            insert into ${dbSchema}.ns_stats (ns_id, type_id, cnt, class_id, property_id) 
+            values ($1, $2, $3, $4, $5)
+            -- on conflict on constraint ns_stats_ns_type_uq
+            -- do update set count = count + $3
+            `, 
+            [ ns_id, type_id, count, class_id, property_id ]);
+    } catch(err) {
+        console.error(err);
+    }
+
 }
 
 const addClassSuperclasses = async c => {
@@ -400,6 +428,7 @@ const addProperty = async p => {
     //   ...
     // DataTypes[]:
     //  ...
+
     let ns_id = await resolveNsPrefix(p.namespace);
 
     let domain_class_id = null;
@@ -440,10 +469,44 @@ const addProperty = async p => {
         ])).id;
         PROPS.set(p.fullName, property_id);
 
+        // "SubjectInstanceNamespaces" : [ {
+        //     "namespace" : "https://swapi.co/resource/human/",
+        //     "count" : 22
+        // },
+        if (p.SubjectInstanceNamespaces) {
+            for (const ns of p.SubjectInstanceNamespaces) {
+                await addNamespaceStats(ns, NS_STATS_TYPE.SUBJECT, null, property_id)
+            }
+        }
+    
+        // "ObjectInstanceNamespaces" : [ {
+        //     "namespace" : "https://swapi.co/resource/human/",
+        //     "count" : 34
+        // }
+        if (p.ObjectInstanceNamespaces) {
+            for (const ns of p.ObjectInstanceNamespaces) {
+                await addNamespaceStats(ns, NS_STATS_TYPE.OBJECT, null, property_id)
+            }
+        }
+
+        // "hasOutgoingPropertiesOK" : true | false,
+        // "hasIncomingPropertiesOK" : true | false,
+        // "hasFollowersOK" : true | false,
+        if (p.hasOutgoingPropertiesOK === false) {
+            await db.none(`update ${dbSchema}.properties set has_outgoing_props_ok = false where id = $1`, [ property_id ]);
+        }
+        if (p.hasIncomingPropertiesOK === false) {
+            await db.none(`update ${dbSchema}.properties set has_incoming_props_ok = false where id = $1`, [ property_id ]);
+        }
+        if (p.hasFollowersOK === false) {
+            await db.none(`update ${dbSchema}.properties set has_followers_ok = false where id = $1`, [ property_id ]);
+        }
+    
     } catch(err) {
         console.error(err);
     }
 
+    
     // p.SourceClasses[] -> cp_rels(2=outgoing)
     //      classFullName: "http://dbpedia.org/class/yago/YagoLegalActorGeo" -> resolve to class_id
     //      tripleCount: 33 -> cnt
