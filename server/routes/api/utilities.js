@@ -426,7 +426,16 @@ const getPropertyByName = async (pName, schema, params) => {
 	}
 	else if ( pName.includes(':')){
 		const nList = pName.split(':');
-		r = await db.any(`SELECT id FROM ${schema}.v_properties_ns v  WHERE ( v.display_name = $2 or v.local_name = $2) and v.prefix = $1 order by v.cnt desc limit 1`, [nList[0], nList[1]]);
+		let ns = nList[0];
+		let local_name = nList[1];
+		if ( nList.length > 2 ) {
+			local_name = `${local_name}:${nList[2]}`;
+		}
+		r = await db.any(`SELECT id FROM ${schema}.v_properties_ns v  WHERE ( v.display_name = $2 or v.local_name = $2) and v.prefix = $1 order by v.cnt desc limit 1`, [ns, local_name]);
+		if ( r.length ==  0) {
+			ns = await getLocalNamespace(schema);
+			r = await db.any(`SELECT id FROM ${schema}.v_properties_ns v  WHERE ( v.display_name = $2 or v.local_name = $2) and v.prefix = $1 order by v.cnt desc limit 1`, [ns.name, pName]);
+		}
 	}
 	else {
 		let ns = await getLocalNamespace(schema);
