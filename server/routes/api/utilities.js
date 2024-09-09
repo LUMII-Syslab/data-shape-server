@@ -365,12 +365,38 @@ getFullNameP = (prop, params) => {
 		prefix = `${prop.prefix}:`;
 	}	
 
+	//if (prop.display_name.indexOf(':') != -1 )
+	//	prop.display_name = `[${prop.display_name}]`;
+
 	fullName = `${prefix}${prop.display_name}`;
 	return fullName;
 }
 
+parseName = (name, localNS) => {
+	let rez = { hasPrefix:false, name:name, fullName:name };
+	// Ja jau ir prefikss, tad abi vārdi būs vienādi
+	if ( name.includes(':')){
+		if ( name.includes('[')) {
+			if ( name.indexOf(':') < name.indexOf('[')) {
+				rez.hasPrefix = true;
+			}
+			else {
+				rez.fullName = `${localNS.name}:${name}`;
+			}
+		}
+		else {
+			rez.hasPrefix = true;
+		}
+	}
+	else {
+		rez.fullName = `${localNS.name}:${name}`;
+	}
+	return rez;
+}
+
 const getClassByName = async (cName, schema, params) => {
 	let r;
+	const localNS = await getLocalNamespace(schema);
 	//cName = cName.replace(' ','');
 	if ( cName.includes('://')){
 		r = await db.any(`SELECT * FROM ${schema}.v_classes_ns WHERE iri = $1 order by cnt desc limit 1`, [cName]);
@@ -379,34 +405,21 @@ const getClassByName = async (cName, schema, params) => {
 		if ( params.main.has_classification_property && cName.substring(0,1) == '(') {
 			cName = cName.replace(' ','');
 			const ad = cName.substring(1,cName.indexOf(')'));
-			if ( cName.includes(':')) {
-				const prefix = cName.substring(cName.indexOf(')')+ 1, cName.indexOf(':'));
-				const nList = cName.split(':');
-				r = await db.any(`SELECT * FROM ${schema}.v_classes_ns WHERE ( display_name = $3 or local_name = $3) and prefix = $2 and classification_adornment = $1 order by cnt desc limit 1`, [ad, prefix, nList[1]]);
-			}
-			else {
-				const nList = cName.split(')');
-				const ns = await getLocalNamespace(schema);
-				r = await db.any(`SELECT * FROM ${schema}.v_classes_ns WHERE ( display_name = $3 or local_name = $3) and prefix = $2 and classification_adornment = $1 order by cnt desc limit 1`, [ad, ns.name, nList[1]]);
-				if ( r.length === 0)
-					r = await db.any(`SELECT * FROM ${schema}.v_classes_ns WHERE ( display_name = $2 or local_name = $2) and classification_adornment = $1 order by cnt desc limit 1`, [ad, nList[1]]);
-			}
+			const restName = cName.substring(cName.indexOf(')')+1, cName.length);
+			const parsedName = parseName(restName, localNS);
+			r = await db.any(`SELECT * FROM ${schema}.v_classes_ns WHERE ( CONCAT(prefix, ':', display_name) = $2 or CONCAT(prefix, ':', local_name) = $2) and classification_adornment = $1 order by cnt desc limit 1`, [ad, parsedName.fullName]);
+			if ( r.length === 0 && !parsedName.hasPrefix )
+				r = await db.any(`SELECT * FROM ${schema}.v_classes_ns WHERE ( display_name = $2 or  local_name = $2) and classification_adornment = $1 order by cnt desc limit 1`, [ad, parsedName.name]);
+	
 		}
 		else {
-			if ( cName.includes(':')){
-				const nList = cName.split(':');
-				r = await db.any(`SELECT * FROM ${schema}.v_classes_ns WHERE ( display_name = $2 or local_name = $2) and prefix = $1 order by cnt desc limit 1`, [nList[0], nList[1]]);
-			}
-			else {
-				const ns = await getLocalNamespace(schema);
-				r = await db.any(`SELECT * FROM ${schema}.v_classes_ns WHERE ( display_name = $2 or local_name = $2) and prefix = $1 order by cnt desc limit 1`, [ns.name, cName]);
-				if ( r.length === 0)
-					r = await db.any(`SELECT * FROM ${schema}.v_classes_ns WHERE ( display_name = $1 or local_name = $1) order by cnt desc limit 1`, [cName]);
-			}
+			parsedName = parseName(cName, localNS);
+			r = await db.any(`SELECT * FROM ${schema}.v_classes_ns WHERE ( CONCAT(prefix, ':', display_name) = $1 or CONCAT(prefix, ':', local_name) = $1) order by cnt desc limit 1`, [parsedName.fullName]);
+			if ( r.length === 0 && !parsedName.hasPrefix )
+				r = await db.any(`SELECT * FROM ${schema}.v_classes_ns WHERE ( display_name = $1 or  local_name = $1) order by cnt desc limit 1`, [ parsedName.name]);
+	
 		}
 	}
-	
-
 
 	if ( r.length === 1 ) {
 		let cp = await getTypeString(schema, params, r[0].iri); // TODO Varbūt skaistāk būtu dot pilno iri, lai ir visur vienādi. Drusku sanāk dubultas darbības
@@ -420,31 +433,18 @@ const getClassByName = async (cName, schema, params) => {
 
 const getPropertyByName = async (pName, schema, params) => {
 	let r;
+	let localNS = await getLocalNamespace(schema);
+	if ( getSchemaType(params) == 'wikidata' )
+		localNS.name = 'wdt';
 
 	if ( pName.includes('://')){
 		r = await db.any(`SELECT id FROM ${schema}.v_properties_ns WHERE iri = $1 order by cnt desc limit 1`, [pName]);
 	}
-	else if ( pName.includes(':')){
-		const nList = pName.split(':');
-		let ns = nList[0];
-		let local_name = nList[1];
-		if ( nList.length > 2 ) {
-			local_name = `${local_name}:${nList[2]}`;
-		}
-		r = await db.any(`SELECT id FROM ${schema}.v_properties_ns v  WHERE ( v.display_name = $2 or v.local_name = $2) and v.prefix = $1 order by v.cnt desc limit 1`, [ns, local_name]);
-		if ( r.length ==  0) {
-			ns = await getLocalNamespace(schema);
-			r = await db.any(`SELECT id FROM ${schema}.v_properties_ns v  WHERE ( v.display_name = $2 or v.local_name = $2) and v.prefix = $1 order by v.cnt desc limit 1`, [ns.name, pName]);
-		}
-	}
 	else {
-		let ns = await getLocalNamespace(schema);
-		if ( getSchemaType(params) == 'wikidata' )
-			ns = {name:'wdt'};
-			
-		r = await db.any(`SELECT id FROM ${schema}.v_properties_ns v  WHERE ( v.display_name = $2 or v.local_name = $2) and v.prefix = $1 order by v.cnt desc limit 1`, [ns.name, pName]);
-		//if ( r.length === 0)
-		//	r = await db.any(`SELECT id FROM ${schema}.v_properties_ns v  WHERE ( v.display_name = $1 or v.local_name = $1) order by v.cnt desc limit 1`, [pName]);
+		const parsedName = parseName(pName, localNS);
+		r = await db.any(`SELECT id FROM ${schema}.v_properties_ns where CONCAT(prefix, ':', display_name) = $1 or CONCAT(prefix, ':', local_name) = $1 order by cnt desc limit 1`, [parsedName.fullName]);
+		if ( r.length === 0 && !parsedName.hasPrefix )
+			r = await db.any(`SELECT id FROM ${schema}.v_properties_ns v  WHERE ( v.display_name = $1 or v.local_name = $1) order by v.cnt desc limit 1`, [pName]);
 	}
 
 	let data_types = [null];
