@@ -12,8 +12,6 @@ ENV DB_URL $DB_URL
 
 RUN npm i npm@latest -g
 
-USER node
-
 RUN mkdir -p /opt/app && chown -R node:node /opt/app
 WORKDIR /opt/app
 
@@ -23,5 +21,7 @@ RUN npm ci --only=production && npm cache clean --force
 ENV PATH /opt/app/node_modules/.bin:$PATH
 
 COPY --chown=node:node server/ .
+
+USER node
 
 CMD [ "node", "./bin/www" ]
