@@ -49,6 +49,7 @@ Create an environment file (copy `sample.env` to `.env`) and configure the follo
   - 
   - `CALCULATE_DISPLAY_NAMES` – set to "true" to generate nicer display names calculated from class and property annotations, replacing the technical names like `Q123` (optional)
   - `ANNOT_LANG_PRIORITIES` – list of language codes specifying the language lookup order for generating display names, e.g., `"de,fr,en"`; defaults to `"en"`
+  - `SCHEMA_TAGS` – list of comma separated tags to be added to the schema entry in the schema registry, e.g., `"sample,demo"`
 
 By default the import script will look for the environment file named `.env`. 
 

@@ -75,13 +75,15 @@ const registerImportedSchema = async (params) => {
             display_name_default = await findUnusedDisplayNameFor(display_name_default);
             console.log(`Display name ${display_name_default} will be used instead`);
         }
+
+        const schemaTags = process.env?.SCHEMA_TAGS?.trim()?.split(',').map(x=>x.trim()) ?? [];
     
         const SCHEMA_SQL = `INSERT INTO ${registrySchema}.schemata 
-            (display_name, db_schema_name, description, endpoint_id, is_active, is_default_for_endpoint) 
-            VALUES ($1, $2, $3, $4, $5, $6)
+            (display_name, db_schema_name, description, endpoint_id, is_active, is_default_for_endpoint, tags) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
             ON CONFLICT ON CONSTRAINT schemata_display_name_unique
             DO UPDATE
-            SET db_schema_name = $2, description = $3, endpoint_id = $4, is_active = $5, is_default_for_endpoint = $6`;
+            SET db_schema_name = $2, description = $3, endpoint_id = $4, is_active = $5, is_default_for_endpoint = $6, tags = $7`;
         
             await db.none(SCHEMA_SQL, [
             display_name_default,
@@ -90,6 +92,7 @@ const registerImportedSchema = async (params) => {
             endpoint_id,
             true,
             true,
+            schemaTags,
         ]);
 
     } catch (err) {
