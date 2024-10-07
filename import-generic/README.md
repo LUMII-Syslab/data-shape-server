@@ -4,9 +4,9 @@ This folder contains scripts to import the RDF endpoint schemata retrieval resul
 
 ## Steps before the first import
 
-- Set up your DSS according the instructions [here](../db-templates/).
+- Set up your DSS according the instructions [here](../db-templates/). Note: DSS is configured automatically, if you use [ViziQuer Tools](https://github.com/LUMII-Syslab/viziquer-tools).
 
-- Obtain a JSON file containing the shape info extracted from the endpoint (see [OBIS-SchemaExtractor](https://github.com/LUMII-Syslab/OBIS-SchemaExtractor)).
+- Obtain a JSON file containing the shape info extracted from the endpoint (see [OBIS-SchemaExtractor](https://github.com/LUMII-Syslab/OBIS-SchemaExtractor), use version 2).
 
 - Choose the name (alias) to be used for the endpoint schema inside the DSS (it must be unique).
   
@@ -33,24 +33,27 @@ The import script can be used in two modes:
 
 In both modes, the import options have to be provided via an `env` file.
 
-Create an environment file (copy `sample.env` to `.env`) and configure the following variables inside the `.env` file:
+Create an environment file (copy `sample.env` to `.env`) and configure at least the following variables inside the `.env` file:
 
   - `INPUT_FILE` – name of the JSON file with the extracted information (see previous section).
   - `DB_URL` – connection string to the Data Shape Server PostgreSQL database,
-  - `DB_SCHEMA` – name of the db schema (e.g., `myendpoint`) where the shapes should be imported into
-  - `SCHEMA_DISPLAY_NAME` – schema name for the UI (appears in a dropdown list of available schemas)
-  - `SPARQL_URL` – URL for the SPARQL requests to the endpoint
-  - `SCHEMA_KIND` – kind of the schema (dbpedia, wikidata, europeana, ...)
-  - `NAMED_GRAPH` – named graph (optional)
-  - `PUBLIC_URL` – public web site for the endpoint (optional)
-  - 
-  - `REGISTRY_SCHEMA` – name of the DB schema which stores the schemate registry (optional, defaults to `public`)
-  - `OVERRIDE_DB_SCHEMA` – should the importer replace existing db schema (if exists) (optional, defaults to `false`)
-  - 
-  - `CALCULATE_DISPLAY_NAMES` – set to "true" to generate nicer display names calculated from class and property annotations, replacing the technical names like `Q123` (optional)
-  - `ANNOT_LANG_PRIORITIES` – list of language codes specifying the language lookup order for generating display names, e.g., `"de,fr,en"`; defaults to `"en"`
-  - `SCHEMA_TAGS` – list of comma separated tags to be added to the schema entry in the schema registry, e.g., `"sample,demo"`
+  - `DB_SCHEMA` – name of the db schema (e.g., `nobel_prizes`) where the data schema information should be imported into
 
+The following variables can be defined, as well:
+
+  - `SCHEMA_DISPLAY_NAME` – schema name for the UI (appears in a dropdown list of available schemas), defaults to `DB_SCHEMA`
+  - `SPARQL_URL` – URL for the SPARQL requests to the endpoint (used to execute the queries against; a default version is in the schema)
+  - `NAMED_GRAPH` – named graph (optional, use if necessary together with `SPARQL_URL`)
+  - `PUBLIC_URL` – public web site for the endpoint (informative, optional)
+  - 
+  - `CALCULATE_DISPLAY_NAMES` – set to "true" to generate nicer display names calculated from class and property annotations (if available in the schema), replacing the technical names like `Q123` (optional)
+  - `ANNOT_LANG_PRIORITIES` – list of language codes specifying the language lookup order for generating display names, e.g., `"de,fr,en"`; defaults to `"en"`
+  -
+  - `OVERRIDE_DB_SCHEMA` – should the importer replace existing db schema (if exists) (optional, defaults to `false`)
+  - `SCHEMA_TAGS` – list of comma separated tags to be added to the schema entry in the schema registry, e.g., `"sample,demo"`. Used for schema list structuring (in case of many schemas). Can be left empty.
+  - 
+  - `REGISTRY_SCHEMA` – name of the DB schema which stores the schemata registry (optional, defaults to `public`)
+  
 By default the import script will look for the environment file named `.env`. 
 
 It is also possible to use a named `env` file (e.g., `myendpoint.env`), providing its name as the environment variable `ENV_NAME` (e.g., `ENV_NAME=myendpoint npm run auto`).
@@ -83,9 +86,9 @@ npm run manual
 
 ## Meta-parameters for environment tuning
 
-The schema import shall set the basic options for meta-parameters in the schema `public`, tables `endpoints`, `schemata`, `schemata_to_endpoints` and `tree_profiles` (the `display_name` field in `schemata_to_endpoints` table allows to locate the information related to the performed import).
+The schema import shall set the basic options for meta-parameters in the schema `public`, tables `endpoints` and `schemata` (the `display_name` field in `schemata` table allows to locate the information related to the performed import).
 
-To repeat import of a schema with the same display name, change the value of the already existing display name, or delete previous row of `schemata_to_endpoints`, as well as the matching rows in tables `endpoints` and `schemata`.
+To repeat import of a schema with the same display name, change the value of the already existing display name, or delete previous row of `schemata`, as well as the matching rows in table `endpoints`.
 
 ## Namespace table prepopulation and tuning
 
