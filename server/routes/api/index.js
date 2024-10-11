@@ -122,7 +122,8 @@ router.get('/info3', wrapAsync(async (req, res, next) => {
 router.get('/infoOntTags', wrapAsync(async (req, res, next) => {
 	const kd = await util.get_KNOWN_DATA_OntTags();
 	res.json(kd);
-  }));
+}));
+
 
 /**
  * List of known prefixes
@@ -251,7 +252,7 @@ router.get('/ontologies/:ont/properties-filtered/:filter/:limit', wrapAsync(asyn
     }
 }));
 
-// ***********************************************************************************88
+// ***********************************************************************************
 router.post('/ontologies/:ont/:fn', wrapAsync(async (req, res, next) => {
 	console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~');
     try {

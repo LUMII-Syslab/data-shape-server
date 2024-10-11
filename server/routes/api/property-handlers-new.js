@@ -148,7 +148,7 @@ order by ${orderByPref} o desc LIMIT $1`;
 	const orderByPref = ( util.getIsBasicOrder(params) ? `case when ${ util.getDeferredProperties(params)} then 0.5 else basic_order_level end, ` : '');
    	let r = { data: [], complete: false };
 	let sql;
-	const use_pp_rels = util.getUsePP(params);
+	let use_pp_rels = util.getUsePP(params);
 	const simplePrompt = util.getSimplePrompt(params);  
 	const isLinksWithTargets = util.isLinksWithTargets(params);	
 	const class_pairs_info = await db.any(`SELECT count(*) FROM ${schema}.cpc_rels`);
@@ -233,7 +233,14 @@ order by ${orderByPref} o desc LIMIT $1`;
 			if ( newPListFrom.in.length > 0 || newPListFrom.out.length > 0 ) {  // Ir propertijas apkārtnē
 				const mainProp = await findMainProperty(schema, newPListFrom, newPListTo);
 				console.log("--------galvenā propertija----------")
-				console.log(mainProp)			
+				console.log(mainProp)
+				const col_info = await db.any(`SELECT count(*) FROM information_schema."columns"  where table_schema = '${schema}' and table_name = 'properties' and column_name = 'has_followers_ok'`);
+				if ( col_info[0].count > 0) {
+					const mainPropInfo = await db.any(`SELECT * FROM ${schema}.properties where id = ${mainProp.id}`);
+					console.log(mainPropInfo)
+					use_pp_rels = mainPropInfo[0].has_followers_ok && mainPropInfo[0].has_outgoing_props_ok && mainPropInfo[0].has_incoming_props_ok ;
+				}
+
 				if ( use_pp_rels ) {
 					if ( contextA === '' ) {  // Ir tikai properijas
 
@@ -289,9 +296,9 @@ order by ${orderByPref} o desc LIMIT $1`;
 						const mainPropObj = await db.any(`SELECT * FROM ${schema}.v_properties_ns WHERE id = ${mainProp.id}`);
 						let class_id_list = [];
 						
-						if ( mainProp.type === 'in' ) {
-							if ( mainPropObj[0].domain_class_id !== null) {
-								class_id_list.push(mainPropObj[0].domain_class_id);
+						if ( mainProp.type === 'in' ) { 
+							if ( mainPropObj[0].range_class_id !== null) {
+								class_id_list.push(mainPropObj[0].range_class_id);
 							}
 							else {
 								const classList = await db.any(`SELECT class_id FROM ${schema}.cp_rels where property_id = ${mainProp.id} and type_id = 1 order by class_id`);
@@ -301,8 +308,8 @@ order by ${orderByPref} o desc LIMIT $1`;
 						}
 					
 						if ( mainProp.type === 'out' ) {
-							if ( mainPropObj[0].range_class_id !== null) {
-								class_id_list.push(mainPropObj[0].range_class_id);
+							if ( mainPropObj[0].domain_class_id !== null) {
+								class_id_list.push(mainPropObj[0].domain_class_id);
 							}
 							else {
 								const classList = await db.any(`SELECT class_id FROM ${schema}.cp_rels where property_id = ${mainProp.id} and type_id = 2 order by class_id`);
@@ -468,7 +475,7 @@ order by ${orderByPref} o desc LIMIT $1`;
 				r = await util.getSchemaData(sql_0, params);
 			}	
 			else if ( classType(classFrom) === 'b' ) {
-				sql_0 = `SELECT property_id FROM ${schema}.v_properties_ns v, ${schema}.cp_rels r WHERE property_id = v.id ${filter_string} and r.type_id = 2 property_id = v.id ${filter_string} and class_id = ${classFrom[0].id} 
+				sql_0 = `SELECT property_id FROM ${schema}.v_properties_ns v, ${schema}.cp_rels r WHERE property_id = v.id ${filter_string} and r.type_id = 2 and class_id = ${classFrom[0].id} 
 						and r.object_cnt > 0 order by r.object_cnt desc LIMIT $1`;
 				const prop_out = await util.getSchemaData(sql_0, params);
 
