@@ -8,7 +8,12 @@ const monitor = require('pg-monitor');
 const argv = require('minimist')(process.argv.slice(2));
 
 const ENV_NAME=process.env.ENV_NAME || argv['config'] || '';
-const config = require('dotenv').config({path: path.join(__dirname, ENV_NAME + '.env')});
+const config = require('dotenv').config({path: path.join(__dirname, ENV_NAME ? 'env' : '', ENV_NAME + '.env')});
+
+if (config.error) {
+    console.error('no or bad env file provided; exiting...');
+    process.exit(1);
+}
 
 console.log('config loaded:', config);
 
