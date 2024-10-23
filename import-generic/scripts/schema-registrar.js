@@ -6,7 +6,7 @@ const { v4: uuidv4 } = require('uuid');
 const { DB_CONFIG, db } = require('../config');
 
 const registrySchema = process.env.REGISTRY_SCHEMA || 'public';
-const overrideExistingRegistry = (process.env.OVERRIDE_REGISTRY || '').toLowerCase() === 'true' 
+const overrideExistingRegistry = (process.env.OVERRIDE_REGISTRY || '').toLowerCase() === 'true'
         || (process.env.OVERRIDE_EXISTING || '').toLowerCase() === 'true';
 
 const checkDisplayNameExists = async schemaDisplayName => {
@@ -29,24 +29,26 @@ const findUnusedDisplayNameFor = async baseDisplayName => {
 }
 
 const registerImportedSchema = async (params) => {
-    let { 
-        db_schema_name, 
-        display_name_default, 
+    let {
+        db_schema_name,
+        display_name_default,
         schema_description,
 
         endpoint_url,
         named_graph,
         endpoint_public_url,
-        endpoint_type, 
+        endpoint_type,
     } = params;
 
+    db_schema_name = db_schema_name.slice(0, 63); // max name length in postgresql
+
     try {
-        const ENDPOINT_SQL = `INSERT INTO ${registrySchema}.endpoints 
-            (sparql_url, public_url, named_graph, endpoint_type) 
-            VALUES ($1, $2, $3, $4) 
+        const ENDPOINT_SQL = `INSERT INTO ${registrySchema}.endpoints
+            (sparql_url, public_url, named_graph, endpoint_type)
+            VALUES ($1, $2, $3, $4)
             -- ON CONFLICT ON CONSTRAINT endpoints_sparql_graph_unique
             ON CONFLICT (coalesce(sparql_url, '@@'), coalesce(named_graph, '@@'))
-            DO UPDATE 
+            DO UPDATE
             SET public_url = $2, endpoint_type = $4
             RETURNING id`;
 
@@ -62,7 +64,7 @@ const registerImportedSchema = async (params) => {
         const probe = await db.any(CHECK_SCHEMA_SQL, [
             display_name_default,
             db_schema_name,
-            endpoint_id,            
+            endpoint_id,
         ]);
         if (probe.length > 0) {
             console.log(`A reusable entry for (${display_name_default}, ${db_schema_name}, endpoint_id) exists; skip creating a new one`);
@@ -77,14 +79,14 @@ const registerImportedSchema = async (params) => {
         }
 
         const schemaTags = process.env?.SCHEMA_TAGS?.trim()?.split(',').map(x=>x.trim()) ?? [];
-    
-        const SCHEMA_SQL = `INSERT INTO ${registrySchema}.schemata 
-            (display_name, db_schema_name, description, endpoint_id, is_active, is_default_for_endpoint, tags) 
+
+        const SCHEMA_SQL = `INSERT INTO ${registrySchema}.schemata
+            (display_name, db_schema_name, description, endpoint_id, is_active, is_default_for_endpoint, tags)
             VALUES ($1, $2, $3, $4, $5, $6, $7)
             ON CONFLICT ON CONSTRAINT schemata_display_name_unique
             DO UPDATE
             SET db_schema_name = $2, description = $3, endpoint_id = $4, is_active = $5, is_default_for_endpoint = $6, tags = $7`;
-        
+
             await db.none(SCHEMA_SQL, [
             display_name_default,
             db_schema_name,
