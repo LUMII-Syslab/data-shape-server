@@ -139,10 +139,12 @@ WHERE ${whereStr} order by ${util.getOrderByPrefix(params)} p.cnt desc LIMIT $1`
 			sql = `SELECT * FROM (
 SELECT v.*, case when p.cover_set_index > 0 then 2 else 1 end as principal_class
 FROM ${viewname} JOIN ${schema}.cp_rels p ON p.class_id = v.id and p.type_id = ${mainProp.typeId} and p.property_id = ${mainProp.id} and p.details_level = 0
+WHERE ${whereStr} 
 UNION
 SELECT v.*, case when p.cover_set_index > 0 then 2 else 1 end as principal_class
 FROM ${viewname} JOIN ${schema}.cp_rels p ON p.class_id = v.id and p.type_id = ${mainProp.typeId} and p.property_id = ${mainProp.id} and p.details_level > 0
 JOIN ${schema}.cpc_rels cp on cp.cp_rel_id = p.id and cp.other_class_id = ${mainClassId} 
+WHERE ${whereStr} 
 ) aa order by  cnt desc LIMIT $1`;
 			
 		
