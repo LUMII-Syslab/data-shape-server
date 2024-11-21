@@ -179,13 +179,14 @@ const getTreeClasses = async (schema, params) => {
 	
 	if ( util.isFilter(params)) 
 		whereList.push(`v.${util.getFilterColumn(params)} ~ $2`); 
-	
+
 	if (util.getTreeMode(params) === 'Top') {
+		whereList.push('v.hide_in_main = false');
 		sql = `SELECT v.* FROM ${viewname} WHERE ${whereList.join(' and ')} order by cnt desc LIMIT $1`;
 	}
 	
 	if (util.getTreeMode(params) === 'Sub') {
-		whereList.push(`r.class_2_id = ${util.getClassId(params)} and r.class_1_id = v.id`);
+		whereList.push(`r.class_2_id = ${util.getClassId(params)} and r.class_1_id = v.id and type_id = 1`);
 		sql = `SELECT v.* from ${schema}.v_classes_ns_plus v, ${schema}.cc_rels r WHERE ${whereList.join(' and ')} order by cnt desc LIMIT $1`;
 	}
 
