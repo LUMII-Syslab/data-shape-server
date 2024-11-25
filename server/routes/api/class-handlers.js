@@ -181,7 +181,9 @@ const getTreeClasses = async (schema, params) => {
 		whereList.push(`v.${util.getFilterColumn(params)} ~ $2`); 
 
 	if (util.getTreeMode(params) === 'Top') {
-		whereList.push('v.hide_in_main = false');
+		let col_info = await db.any(`SELECT count(*) FROM information_schema."columns"  where table_schema = '${schema}' and table_name = 'v_classes_ns_plus' and column_name = 'hide_in_main'`);
+		if ( col_info[0].count > 0) 
+			whereList.push('v.hide_in_main = false');
 		sql = `SELECT v.* FROM ${viewname} WHERE ${whereList.join(' and ')} order by cnt desc LIMIT $1`;
 	}
 	
