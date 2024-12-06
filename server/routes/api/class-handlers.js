@@ -235,8 +235,18 @@ const getPublicNamespaces = async () => {
     return r;
 }
 // **************************************************************************************************************
+const roundCount = (cnt) => {
+	if ( cnt == '' || cnt == 0) {
+		return '';
+	} 
+	else {
+		cnt = Number(cnt);
+		const formatter = Intl.NumberFormat('en', { notation: 'compact' });
+		return formatter.format(cnt);
+	}
+}
 const xx_getClassListExt = async (schema, params) => {
-	function roundCount(cnt) {
+	function roundCountV(cnt) {
 		if ( cnt == '' || cnt == 0) {
 			return '';
 		} 
@@ -352,7 +362,7 @@ const xx_getPropList = async (schema, params) => {
 }
 const xx_getPropList2 = async (schema, params) => {
 	// TODO pagaidām ir noņemta ns filtra iespēja, remSmall arī vairs nebūs
-	function roundCount(cnt) {
+	function roundCountV(cnt) {
 		if ( cnt == '' || cnt == 0) {
 			return '';
 		} 
@@ -385,7 +395,7 @@ const xx_getPropList2 = async (schema, params) => {
     return r;
 }
 const xx_getPropList3 = async (schema, params) => {
-	function roundCount(cnt) {
+	function roundCountV(cnt) {
 		if ( cnt == '' || cnt == 0) {
 			return '';
 		} 
