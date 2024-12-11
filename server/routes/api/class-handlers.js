@@ -486,7 +486,8 @@ const xx_getCCInfo = async (schema, params) => {
 }
 const xx_getCPCInfo = async (schema, params) => {
 	//const sql = `select * from ${schema}.cpc_rels`;
-	const sql = `select cpc.*, class_id, property_id, type_id from ${schema}.cpc_rels cpc, ${schema}.cp_rels cp where cpc.cp_rel_id = cp.id and cp.cover_set_index > 0`;
+	//const sql = `select cpc.*, class_id, property_id, type_id from ${schema}.cpc_rels cpc, ${schema}.cp_rels cp where cpc.cp_rel_id = cp.id and cp.cover_set_index > 0`;
+	const sql = `select cpc.*, class_id, property_id, type_id from ${schema}.cpc_rels cpc, ${schema}.cp_rels cp where cpc.cp_rel_id = cp.id and cpc.cover_set_index > 0`;
 	const r = await util.getSchemaData(sql, params);
     return r;
 }
