@@ -23,6 +23,7 @@ const {
 	xx_getClassInfoLink,
 	xx_getPropListInfo,
 	xx_getCCInfo,
+	xx_getCCInfo_Type3,
 	xx_getCPInfo,
 	xx_getCPCInfo,
 	xx_getPropListInfo2,
@@ -349,6 +350,9 @@ router.post('/ontologies/:ont/:fn', wrapAsync(async (req, res, next) => {
 		}
 		if ( fn === 'xx_getCCInfo') {
 			r = await xx_getCCInfo(schema, params);
+		}
+		if ( fn === 'xx_getCCInfo_Type3') {
+			r = await xx_getCCInfo_Type3(schema, params);
 		}
 		if ( fn === 'xx_getCPInfo') {
 			r = await xx_getCPInfo(schema, params);

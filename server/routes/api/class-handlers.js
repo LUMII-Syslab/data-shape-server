@@ -478,9 +478,21 @@ const xx_getClassListInfo = async (schema, params) => {
 	return rr;
 }
 const xx_getCCInfo = async (schema, params) => {
-
 	const sql = `select class_1_id, class_2_id from ${schema}.cc_rels  where ( type_id = 1 or type_id = 2 ) and class_1_id in (${params.main.c_list}) and class_2_id in (${params.main.c_list})`;
 	const r = await util.getSchemaData(sql, params);
+
+    return r;
+}
+const xx_getCCInfo_Type3 = async (schema, params) => {
+	let sql = `select id from ${schema}.classes where id not in (select class_1_id from ${schema}.cc_rels where type_id = 1) and id in (${params.main.c_list})`;
+	const rr =  await util.getSchemaData(sql, params);
+	const top_classes =  rr.data;
+	let r = { data: [], complete: false };
+	if ( top_classes.length > 0 ) {
+		const top_ids = top_classes.map( v => { return v.id});
+		sql = `select class_1_id, class_2_id from ${schema}.cc_rels where class_1_id in (${top_ids.join(', ')}) and class_2_id in (${top_ids.join(', ')}) and type_id = 3`;
+		r =  await util.getSchemaData(sql, params);
+	}
 
     return r;
 }
@@ -542,6 +554,7 @@ module.exports = {
 	xx_getPropList3,
 	xx_getClassListInfo,
 	xx_getCCInfo,
+	xx_getCCInfo_Type3,
 	xx_getCPCInfo,
 	xx_getCPInfo,
 	xx_getPropInfo,
