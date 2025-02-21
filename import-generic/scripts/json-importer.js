@@ -263,7 +263,7 @@ const addClass = async c => {
                 await addNamespaceStats(ns, NS_STATS_TYPE.CLASS, class_id, null);
             }
         }
-    
+
     } catch(err) {
         console.error(err);
     }
@@ -275,11 +275,11 @@ const addNamespaceStats = async ({namespace, count}, type_id, class_id, property
 
     try {
         await db.none(`
-            insert into ${dbSchema}.ns_stats (ns_id, type_id, cnt, class_id, property_id) 
+            insert into ${dbSchema}.ns_stats (ns_id, type_id, cnt, class_id, property_id)
             values ($1, $2, $3, $4, $5)
             -- on conflict on constraint ns_stats_ns_type_uq
             -- do update set count = count + $3
-            `, 
+            `,
             [ ns_id, type_id, count, class_id, property_id ]);
     } catch(err) {
         console.error(err);
@@ -478,7 +478,7 @@ const addProperty = async p => {
                 await addNamespaceStats(ns, NS_STATS_TYPE.SUBJECT, null, property_id)
             }
         }
-    
+
         // "ObjectInstanceNamespaces" : [ {
         //     "namespace" : "https://swapi.co/resource/human/",
         //     "count" : 34
@@ -501,12 +501,12 @@ const addProperty = async p => {
         if (p.hasFollowersOK === false) {
             await db.none(`update ${dbSchema}.properties set has_followers_ok = false where id = $1`, [ property_id ]);
         }
-    
+
     } catch(err) {
         console.error(err);
     }
 
-    
+
     // p.SourceClasses[] -> cp_rels(2=outgoing)
     //      classFullName: "http://dbpedia.org/class/yago/YagoLegalActorGeo" -> resolve to class_id
     //      tripleCount: 33 -> cnt
@@ -635,7 +635,7 @@ const addProperty = async p => {
             ])
         } catch(err) {
             console.error(err);
-        } 
+        }
     }
 
     // p.TargetClasses[] -> cp_rels(1=incoming)
@@ -741,7 +741,7 @@ const addProperty = async p => {
             ])
         } catch(err) {
             console.error(err);
-        } 
+        }
     }
 
     // p.DataTypes[]
@@ -772,9 +772,9 @@ const addProperty = async p => {
 }
 
 const addPropertyPairs = async p => {
-    // Followers[], 
+    // Followers[],
     //  ...
-    // IncomingProperties[], 
+    // IncomingProperties[],
     //  ...
     // OutgoingProperties[]
     //  ...
@@ -868,9 +868,9 @@ const postProcessingAfterImport = async (params) => {
             set classification_property_id = p.id
             from ${dbSchema}.properties p where p.iri = classification_property`;
         await db.none(sql1);
-    
 
-        // Šeit #1 un #2 ir true, ja propertija ir visas spiegošnas parametros iekš principalClassificationProperties 
+
+        // Šeit #1 un #2 ir true, ja propertija ir visas spiegošnas parametros iekš principalClassificationProperties
         //   vai classificationPropertiesWithConnectionsOnly, pretējā gadījumā #1 un #2 ir false.
 
         const specialPropIRIs = new Set();
@@ -905,12 +905,12 @@ const postProcessingAfterImport = async (params) => {
             where id in (select classification_property_id from ${dbSchema}.classes)
                 and iri = $1`;
             await db.none(sql2b, [ specialPropIRI ]);
-    
+
         }
 
 
-        // Šeit #3 ir iri galvenajai (pirmajai) klasifikācijas propertijai, meklējot vispirms pa 
-        //  principalClassificationProperties un tad ja neatrod, tad pa classificationPropertiesWithConnectionsOnly 
+        // Šeit #3 ir iri galvenajai (pirmajai) klasifikācijas propertijai, meklējot vispirms pa
+        //  principalClassificationProperties un tad ja neatrod, tad pa classificationPropertiesWithConnectionsOnly
         //  (simpleClassificationProperties nebūtu jāskatās);
         //
         // katrā no šīm grupām: ja ir rdf:type, tad ņem to; ja rdf:type nav, bet ir cita(s), tad ņem no saraksta pirmo.
@@ -933,20 +933,58 @@ const postProcessingAfterImport = async (params) => {
 
         const sql3 = `update ${dbSchema}.properties
             set classif_prefix = local_name
-            where id in (select classification_property_id from ${dbSchema}.classes) 
+            where id in (select classification_property_id from ${dbSchema}.classes)
                 and not (iri = $1)`;
         await db.none(sql3, [ n3iri ]);
 
 
         const sql4 = `update ${dbSchema}.classes
             set classification_adornment = p.classif_prefix
-            from ${dbSchema}.properties p 
+            from ${dbSchema}.properties p
             where p.id = classification_property_id
                 and p.classif_prefix is not null`;
 
         await db.none(sql4);
 
-    
+        // papildinājumi atbilstoši vēlmēm rocket chat 2025-02-21
+
+        // shēmas importierī šādām klasēm, kas atbilst simpleClassificationProperties ir jāuzstāda
+        // self_cp_rels = false, kā arī jāuzliek atbilstošais principal_super_class_id (ja iespējams),
+        // to dara, atrodot mazāko no virsklasēm (ja tāda ir), kas ir šai klasei, un kas ir virsklase
+        // šai "nestandarta" klasei (ja neatrod, tad paliek tukšs lauks)
+
+        let sql5 = `
+          update ${dbSchema}.classes
+          set self_cp_rels = false
+          from ${dbSchema}.properties pp
+          where classification_property_id = pp.id and values_have_cp = false`;
+
+        await db.none(sql5);
+
+        // situācijā, ja klasei self_cp_rels=false, klasei saistītās propertijas tiek ņemtas
+        // no klases ar principal_super_class_id (ja tas norādīts), vai arī no klases klasifikācijas
+        // propertijas incoming (ienākošajām saitēm) un following (izejošajām saitēm) pp_rels
+
+        let sql6 = `
+          update ${dbSchema}.classes cc
+          set principal_super_class_id = (
+            select ss.id
+            from ${dbSchema}.classes ss, ${dbSchema}.cc_rels subrel
+             	where subrel.class_1_id = cc.id
+                and subrel.class_2_id = ss.id
+                and subrel.type_id in (1,2)
+             		and ss.classification_property_id in (
+                  select id
+                  from ${dbSchema}.properties
+                  where values_have_cp = true
+                )
+              order by ss.cnt
+              limit 1
+            )
+          where self_cp_rels = false`;
+
+        await db.none(sql6);
+
     } catch(err) {
         console.error('Error while post processing imported schema');
         console.error(err);
@@ -965,7 +1003,7 @@ const getPropertyId = iri => {
 const setDefaultNS = async prefixValue => {
     await db.none(`UPDATE ${dbSchema}.ns SET is_local = false`);
     let localId = (await db.one(`INSERT INTO ${dbSchema}.ns (name, value, is_local) VALUES ('', $1, true)
-        ON CONFLICT ON CONSTRAINT ns_value_key 
+        ON CONFLICT ON CONSTRAINT ns_value_key
         DO UPDATE SET name = '', value = $1, is_local = true
         RETURNING id`, [ prefixValue ])).id;
     rememberPrefix(localId, '', prefixValue);
@@ -994,7 +1032,7 @@ const addPrefixAbbr = async (prefixValue, prefixName) => {
             await setDefaultNS(prefixValue);
             return;
         }
-        
+
         let normalizedName = prefixName;
         if (prefixName.endsWith(':')) {
             normalizedName = prefixName.slice(0, prefixName.length - 1);
@@ -1143,7 +1181,7 @@ const printStats = async () => {
 
         console.log(col.blue('\n=== Imported schema stats ==='));
         console.log(JSON.stringify(stats, null, 2));
-    
+
     } catch (err) {
         console.error('error obtaining schema stats');
         console.error(err);
@@ -1245,7 +1283,7 @@ const importFromJSON = async data => {
 */
     let jsonParams = typeof data.Parameters === 'object'
         ? Array.isArray(data.Parameters)
-            ? Object.fromEntries(data.Parameters.map(x => [ x.name, x.value ])) 
+            ? Object.fromEntries(data.Parameters.map(x => [ x.name, x.value ]))
             : data.Parameters
         : {}
 
