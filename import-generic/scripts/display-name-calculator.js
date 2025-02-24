@@ -19,9 +19,9 @@ console.log('effective annot language order:', LL)
     classes (id, iri, ..., local_name, display_name, ...)
     property_annots
     properties
- 
+
 Shēmas pēcapstrāde ielasīšanā / pēc ielasīšanas
-Divi darbi: 
+Divi darbi:
 Saturīgu namespace prefix piedāvāšana (šobrīd neatrastos apzīmē ar n1, n2, ..)
 Lasāmu vārdu pievienošana klasēm un propertijām
 
@@ -63,11 +63,11 @@ const nameIsTechnical = async (row, baseTable) => {
     if (tailPos === -1) return false
 
     let head = dn.slice(0, tailPos)
-    let similarCount = (await db.any(`select count(*) 
-        from ${dbSchema}.${baseTable}  
+    let similarCount = (await db.any(`select count(*)
+        from ${dbSchema}.${baseTable}
         where display_name like $1`, [ `${head}%` ])
     )[0].count
-    
+
     return Number.parseInt(similarCount, 10) > tailPos
 }
 
@@ -81,7 +81,7 @@ async function calculateDisplayNames() {
 
     for (const [ baseTable, annotTable, fkColumn ] of PARAMS) {
         const rows = await db.any(`
-            select * from ${dbSchema}.${baseTable} 
+            select * from ${dbSchema}.${baseTable}
             where display_name = local_name;`);
 
         console.log(`${rows.length} rename candidates in ${dbSchema}.${baseTable}`)
@@ -95,18 +95,18 @@ async function calculateDisplayNames() {
             if (!isTechnical) continue
 
             // vajag jaunu d_n
-            let annotations = await db.any(`select type_id, language_code, annotation 
+            let annotations = await db.any(`select type_id, language_code, annotation
                 from ${dbSchema}.${annotTable}
                 -- join annot_types t on a.type_id = t.id
                 where ${fkColumn} = $1`, [ row.id ])
-                
+
             // console.log(`${annotations.length} annotations found for ${baseTable} ${row.display_name}`)
 
             if (annotations.length === 0) continue
 
-            _.sortBy(annotations, [langPrio, annotTypePrio])
+            let sortedAnnotations = _.sortBy(annotations, [langPrio, annotTypePrio])
 
-            let bestAnnot = annotations[0].annotation
+            let bestAnnot = sortedAnnotations[0].annotation
 
             if (bestAnnot === row.local_name) {
                 // annot the same as local_name => don't change
@@ -117,7 +117,7 @@ async function calculateDisplayNames() {
 
             let newDisplayName = `[${bestAnnot} (${row.local_name})]`
             if (!DRY_RUN) {
-                await db.none(`update ${dbSchema}.${baseTable} 
+                await db.none(`update ${dbSchema}.${baseTable}
                     set display_name = $2
                     where id = $1`, [ row.id, newDisplayName ])
             }
