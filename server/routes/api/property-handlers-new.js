@@ -140,6 +140,21 @@ order by ${orderByPref} o desc LIMIT $1`;
 		}
 		return sql;
 	}
+	async function getClass(ind) {
+		let classInfo = await util.getClassByName(util.getClassName(params, ind), schema, params);
+		let col_info = await util.columnChecking(schema,'classes','self_cp_rels');
+
+		if ( col_info && classInfo.length > 0 && classInfo[0].self_cp_rels == false && classInfo[0].principal_super_class_id != null) {
+			classInfo = await db.any(`SELECT * FROM ${schema}.v_classes_ns WHERE ( id = ${classInfo[0].principal_super_class_id} )`);
+		}
+		if ( col_info && classInfo.length > 0 && classInfo[0].self_cp_rels == false && classInfo[0].principal_super_class_id == null) {
+			if ( ind == 0 ) { // TODO var padomāt, vai nevajag arī otra gala klasei to izdarīt
+				newPListFrom.out.push(classInfo[0].classification_property_id);
+				classInfo = [];
+			}
+		} 
+		return classInfo;
+	}
 	
 	const filter_string = ( util.isFilter(params) == '' ? '' : ` and v.${util.getFilterColumn(params)} ~ $2`);
 	const propertyKind = util.getPropertyKind(params);
@@ -197,7 +212,7 @@ order by ${orderByPref} o desc LIMIT $1`;
 		}
 		
 		if ( util.isClassName(params, 0))
-			classFrom = await util.getClassByName(util.getClassName(params, 0), schema, params);
+			classFrom = await getClass(0); //await util.getClassByName(util.getClassName(params, 0), schema, params);
 		
 		if ( classType(classFrom) === 's' || util.isUriIndividual(params, 0) || util.isPListI(params) ) {  // Informācija no end-pointa
 			if ( util.isUriIndividual(params, 0) ) {
@@ -234,8 +249,10 @@ order by ${orderByPref} o desc LIMIT $1`;
 				const mainProp = await findMainProperty(schema, newPListFrom, newPListTo);
 				console.log("--------galvenā propertija----------")
 				console.log(mainProp)
-				const col_info = await db.any(`SELECT count(*) FROM information_schema."columns"  where table_schema = '${schema}' and table_name = 'properties' and column_name = 'has_followers_ok'`);
-				if ( col_info[0].count > 0) {
+				//const col_info = await db.any(`SELECT count(*) FROM information_schema."columns"  where table_schema = '${schema}' and table_name = 'properties' and column_name = 'has_followers_ok'`);
+				//if ( col_info[0].count > 0) {
+				let col_info = await util.columnChecking(schema, 'properties', 'has_followers_ok');
+				if ( col_info) {
 					const mainPropInfo = await db.any(`SELECT * FROM ${schema}.properties where id = ${mainProp.id}`);
 					console.log(mainPropInfo)
 					use_pp_rels = mainPropInfo[0].has_followers_ok && mainPropInfo[0].has_outgoing_props_ok && mainPropInfo[0].has_incoming_props_ok ;
@@ -419,10 +436,10 @@ order by ${orderByPref} o desc LIMIT $1`;
 		else if ( util.isClassName(params, 0) || util.isClassName(params, 1)) {
 
 			if ( util.isClassName(params, 0))
-				classFrom = await util.getClassByName(util.getClassName(params, 0), schema, params);		
+				classFrom = await getClass(0);  //await util.getClassByName(util.getClassName(params, 0), schema, params);		
 
 			if ( util.isClassName(params, 1))
-				classTo = await util.getClassByName(util.getClassName(params, 1), schema, params);	
+				classTo = await getClass(1); //await util.getClassByName(util.getClassName(params, 1), schema, params);	
 				
 			if ( classType(classFrom) === 'b' && classType(classTo) === 'b' ) {
 

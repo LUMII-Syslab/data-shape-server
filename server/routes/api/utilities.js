@@ -312,11 +312,15 @@ const checkEndpoint = async (params, schema, KNOWN_DATA) => {
 	else 
 		params = setTypeStrings(params, 'rdf:type', '');
 
-	let col_info = await db.any(`SELECT count(*) FROM information_schema."columns"  where table_schema = '${schema}' and table_name = 'classes' and column_name = 'classification_property'`);
-	if ( col_info[0].count > 0) 
+	//let col_info = await db.any(`SELECT count(*) FROM information_schema."columns"  where table_schema = '${schema}' and table_name = 'classes' and column_name = 'classification_property'`);
+	//if ( col_info[0].count > 0) 
+	let col_info = await columnChecking(schema, 'classes', 'classification_property');
+	if ( col_info) 
 		params.main.has_classification_property = true;
-	col_info = await db.any(`SELECT count(*) FROM information_schema."columns"  where table_schema = '${schema}' and table_name = 'classes' and column_name = 'classification_adornment'`);
-	if ( col_info[0].count > 0) 
+	//col_info = await db.any(`SELECT count(*) FROM information_schema."columns"  where table_schema = '${schema}' and table_name = 'classes' and column_name = 'classification_adornment'`);
+	//if ( col_info[0].count > 0) 
+	col_info = await columnChecking(schema, 'classes', 'classification_adornment');
+	if ( col_info) 
 		params.main.has_classification_adornment = true;	
 
 	return params;
@@ -678,6 +682,14 @@ const checkIndividualsParams = async (schema, params) => {
 	return find;
 }
 
+const columnChecking = async (schema, table, column) => {
+	let col_info = await db.any(`SELECT count(*) FROM information_schema."columns"  where table_schema = '${schema}' and table_name = '${table}' and column_name = '${column}'`);
+	if ( col_info[0].count > 0)
+		return true;
+	else 
+		return false; 
+}
+
 module.exports = {
 	parameterExists,
 	getFilterColumn,
@@ -739,4 +751,5 @@ module.exports = {
 	getFullName,
 	getFullNameP,
     getAllSchemaTags,
+	columnChecking,
 }
