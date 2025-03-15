@@ -26,6 +26,8 @@ const {
 	xx_getCCInfo_Type3,
 	xx_getCPInfo,
 	xx_getCPCInfo,
+	xx_getCPCInfoWithNames,
+	xx_getClassCPCCounts,
 	xx_getPropListInfo2,
 	xx_getPropInfo,
 	generateClassUpdate,
@@ -359,6 +361,12 @@ router.post('/ontologies/:ont/:fn', wrapAsync(async (req, res, next) => {
 		}
 		if ( fn === 'xx_getCPCInfo') {
 			r = await xx_getCPCInfo(schema, params);
+		}
+		if ( fn === 'xx_getCPCInfoWithNames') {
+			r = await xx_getCPCInfoWithNames(schema, params);
+		}
+		if ( fn === 'xx_getClassCPCCounts') {
+			r = await xx_getClassCPCCounts(schema, params);
 		}
 		if ( fn === 'xx_getClassInfo') {
 			r = await xx_getClassInfo(schema, params);
