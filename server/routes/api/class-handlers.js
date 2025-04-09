@@ -51,6 +51,7 @@ const addFullNames = (r, params) => {
 	}
 	return r;
 }
+
 /* list of classes */
 const getClasses = async (schema, params) => {
 
@@ -468,6 +469,7 @@ const xx_getClassListInfo = async (schema, params) => {
 				len = c.s.length;
 				c.s = [...new Set([...c.s, ...cc_rels.filter(function(s){ return c.s.includes(s.class_1_id)}).map( v => { return v.class_2_id})])];
 			}
+			len = 1;
 			c.b = [...new Set([...c.b, ...cc_rels.filter(function(s){ return c.b.includes(s.class_2_id)}).map( v => { return v.class_1_id})])];
 			c.b0 = cc_rels.filter(function(s){ return s.class_2_id == c.id; }).map( v => { return v.class_1_id});
 			while ( len < c.b.length) {
@@ -503,6 +505,47 @@ const xx_getCPCInfo = async (schema, params) => {
 	//const sql = `select cpc.*, class_id, property_id, type_id from ${schema}.cpc_rels cpc, ${schema}.cp_rels cp where cpc.cp_rel_id = cp.id and cp.cover_set_index > 0`;
 	const sql = `select cpc.*, class_id, property_id, type_id from ${schema}.cpc_rels cpc, ${schema}.cp_rels cp where cpc.cp_rel_id = cp.id and cpc.cover_set_index > 0`;
 	const r = await util.getSchemaData(sql, params);
+    return r;
+}
+const xx_getCPCInfoNew = async (schema, params) => {
+	console.log('##############################################')
+	const p_list = params.main.p_list;
+	const c_list = await getAllClassesIds(schema, params, false);	
+	const rr = await xx_getCCInfoNew(schema, params);
+	const ccFull = await addCCInfo(schema, params, c_list, rr);
+	const c_tree_full = ccFull.c_tree_full;
+	const dnums = ccFull.dnums;
+	const sql = `select cpc.id, cpc.cp_rel_id, cpc.other_class_id, cpc.cover_set_index, cpc.cnt, cpc.other_class_id as class_id, cp.class_id as class_1, cp.property_id, cp.type_id, c.display_name, c.prefix, c.cnt as c_cnt from ${schema}.cpc_rels cpc, ${schema}.cp_rels cp, ${schema}.v_classes_ns c  where cp.id = cpc.cp_rel_id and c.id = cpc.other_class_id  and property_id in (${p_list}) order by cpc.cp_rel_id, cp.cnt desc, c.cnt`;
+	const r = await util.getSchemaData(sql, params);
+	let cp_ids = await db.any(`select id from ${schema}.cp_rels`);
+	cp_ids = cp_ids.map(v => v.id);
+	
+	for (const d of r.data) {
+		d.cnt = Number(d.cnt);
+		d.cover_set_index_new = 0;
+		d.ok = false;
+		d.dnum = dnums[d.class_id];
+		d.c_cnt = Number(d.c_cnt);
+	}
+	r.data = r.data.sort(function(a,b) {
+		if ( a.cnt === b.cnt && a.c_cnt === b.c_cnt) {
+			return b.dnum - a.dnum;
+		}
+		else if (a.cnt === b.cnt) {
+			return a.c_cnt - b.c_cnt;
+		}
+		return b.cnt > a.cnt ? 1 : -1;	 
+	});	
+	
+	for (const cp_id of cp_ids) {
+		const cp_list = r.data.filter(function(e){ return e.cp_rel_id == cp_id});
+		calculateCoverSets(cp_list, c_tree_full);
+	}
+	for (const d of r.data) {
+		d.class_id = d.class_1;
+	}
+	const dataNew = r.data.filter(function(e){ return e.cover_set_index == 1});	
+	r.data = dataNew;
     return r;
 }
 const xx_getCPCInfoWithNames = async (schema, params) => {
@@ -569,15 +612,63 @@ const xx_getCPInfo = async (schema, params) => {
 	const r = await util.getSchemaData(sql, params);
     return r;
 }
+const getAllClassesIds = async (schema, params) => {
+	const sql = `select id from ${schema}.classes`;
+	const r = await util.getSchemaData(sql, params, false);
+	return r.data.map(v => v.id);
+} 
+const getAllPropertiesIds = async (schema, params) => {
+	const sql = `select id from ${schema}.properties`;
+	const r = await util.getSchemaData(sql, params);
+	return r.data.map(v => v.id);
+}
+const xx_getCPInfoNew = async (schema, params) => {
+	// Rēķinu coverSetus uz vietas
+	//const c_list = params.main.c_list; // Ņemam visas klases
+	const c_list = await getAllClassesIds(schema, params, false);
+	const p_list = params.main.p_list;
+	const sql = `select cp.*, c.display_name, c.prefix, c.cnt as c_cnt from ${schema}.v_cp_rels_card cp, ${schema}.v_classes_ns c where c.id = class_id and property_id in (${p_list}) order by property_id, cp.cnt desc, c.cnt`;
+	const r = await util.getSchemaData(sql, params);
+	const rr = await xx_getCCInfoNew(schema, params);
+	const ccFull = await addCCInfo(schema, params, c_list, rr);
+	const c_tree_full = ccFull.c_tree_full;
+	const dnums = ccFull.dnums;
+
+	for (const d of r.data) {
+		d.cnt = Number(d.cnt);
+		d.cover_set_index_new = 0;
+		d.ok = false;
+		d.dnum = dnums[d.class_id];
+	}
+	r.data = r.data.sort(function(a,b) {
+		if ( a.cnt === b.cnt && a.c_cnt === b.c_cnt) {
+			return b.dnum - a.dnum;
+		}
+		else if (a.cnt === b.cnt) {
+			return a.c_cnt - b.c_cnt;
+		}
+		return b.cnt > a.cnt ? 1 : -1;	 
+	});
+
+	let diffs = {classes:{}, cpIds:[], pIds:[], pIdsAll:[], newCC:rr.data3};
+	for (const p of p_list) {
+		const pp1 = r.data.filter(function(e){ return e.property_id == p && e.type_id == 1});
+		calculateCoverSets(pp1, c_tree_full, diffs);
+		const pp2 = r.data.filter(function(e){ return e.property_id == p && e.type_id == 2});
+		calculateCoverSets(pp2, c_tree_full, diffs);
+		//if (p == 7)
+		//	console.log(pp2.map(function(v){ return `${v.prefix}:${v.display_name} ${v.class_id} cnt ${v.cnt} c_cnt ${v.c_cnt} dnum ${v.dnum} ${v.cover_set_index} ${v.cover_set_index_new} ${v.cc}`}));
+	}
+	r.diffs = diffs;
+    return r;
+}
 const xx_getPropInfo = async (schema, params) => {
 	// Vairs nevajadzēs
 	const sql = `select id, type_id, class_id, cnt, object_cnt, x_max_cardinality, cover_set_index 
 	from ${schema}.v_cp_rels_card where property_id = ${params.main.prop_id} and cover_set_index > 0 and class_id in (${params.main.c_list}) order by class_id`; 
-
 	const r = await util.getSchemaData(sql, params);
     return r;
 }
-
 const generateClassUpdate = async (schema, params) => {
 	let sql = `select count(*) from ${schema}.classes`;
 	let r = await util.getSchemaData(sql, params);
@@ -602,9 +693,273 @@ const generateClassUpdate = async (schema, params) => {
 
 	return {data: rr, complete: true, params: params};
 }
+const addCCInfo = async (schema, params, c_list, rr) => {
+	let c_tree_full = {};
+	const cc_rels = rr.data;
+	for (const c of c_list) {
+		c_tree_full[c] = [];
+	}
+
+	if ( cc_rels.length > 0 ) {
+		for (const c of c_list) {
+			let ss = [c];
+			let bb = [c];
+			let len = 1;
+			ss = [...new Set([...ss, ...cc_rels.filter(function(s){ return ss.includes(s.class_1_id)}).map( v => { return v.class_2_id})])];
+			while ( len < ss.length) {
+				len = ss.length;
+				ss = [...new Set([...ss, ...cc_rels.filter(function(s){ return ss.includes(s.class_1_id)}).map( v => { return v.class_2_id})])];
+			}
+			len = 1;
+			bb = [...new Set([...bb, ...cc_rels.filter(function(s){ return bb.includes(s.class_2_id)}).map( v => { return v.class_1_id})])];
+			while ( len < bb.length) {
+				len = bb.length;
+				bb = [...new Set([...bb, ...cc_rels.filter(function(s){ return bb.includes(s.class_2_id)}).map( v => { return v.class_1_id})])];
+			}
+			c_tree_full[c] = [...new Set([...ss, ... bb])];		
+		}
+	}
+	//console.log(c_tree_full)
+	return {c_tree_full:c_tree_full,dnums:rr.data2};
+}
+const getSuperClasses = (cc_rels, clId) => {
+	let ss = [clId];
+	let len = 1;
+	ss = [...new Set([...ss, ...cc_rels.filter(function(s){ return ss.includes(s.class_1_id)}).map( v => { return v.class_2_id})])];
+	while ( len < ss.length) {
+		len = ss.length;
+		ss = [...new Set([...ss, ...cc_rels.filter(function(s){ return ss.includes(s.class_1_id)}).map( v => { return v.class_2_id})])];
+	}
+	return ss;
+}  
+const checkConnection = (cc_rels, c1, c2) => {
+	let rez = false;
+	const ss1 = getSuperClasses(cc_rels, c1);
+	const ss2 = getSuperClasses(cc_rels, c2);
+	if ( ss1.includes(c2) || ss2.includes(c1))
+		rez = true;
+	return rez;
+}
+const sortClassCCLists = (cc_list, sortedClassList) => {
+	let cc_ids = [];
+	for (const cc of cc_list) {
+		if ( !cc_ids.includes(cc.class_1_id))
+			cc_ids.push(cc.class_1_id);
+		if ( !cc_ids.includes(cc.class_2_id))
+			cc_ids.push(cc.class_2_id);
+	}
+	const classList =  sortedClassList.filter(function(cl){ return cc_ids.includes(cl.id) });
+	return classList;
+}
+const calculateCoverSets = (list, c_tree_full, diffs = {classes:{}, cpIds:[], pIds:[], pIdsAll:[]}) => {
+	let rez = list;
+	if ( rez.length == 1 ) {
+		rez[0].ok = true;
+		rez[0].cover_set_index_new = 1;
+	} 
+	else {
+		for (const el of rez) {
+			el.cc = c_tree_full[el.class_id];
+			if ( el.ok == false) {
+				if (((el.display_name == 'Thing' && el.prefix =='owl') || (el.display_name == 'Resource' && el.prefix =='rdfs')) && ( el.cc.length > 0 || rez.length > 0 )) {// TODO te var domāt par tiem bērniem 
+					el.ok = true;
+				}
+				else {
+					el.cover_set_index_new = 1;
+					el.ok = true;
+					if ( c_tree_full[el.class_id].length > 0 ) {
+						for (const el2 of rez) {
+							if (c_tree_full[el.class_id].includes(el2.class_id)) {
+								el2.ok = true;
+							}	
+						}
+					}
+				}
+	
+			}
+			else {
+				if ( c_tree_full[el.class_id].length > 0 ) {
+					for (const el2 of rez) {
+						if (c_tree_full[el.class_id].includes(el2.class_id)) {
+							el2.ok = true;
+						}	
+					}
+				}			
+			}
+		}
+	}
+	const rdfClasses = ['rdf:Property', 'skos:Concept"', 'owl:ObjectProperty','owl:Class', 'owl:AnnotationProperty', 'owl:DatatypeProperty', 'rdfs:Class', 'rdfs:Datatype', 'owl:FunctionalProperty', 'owl:InverseFunctionalProperty'];
+	const rez2 = rez.filter(function(r){return r.cover_set_index > 0 });
+	let maxCnt = 1;
+	if ( rez2.length > 0)
+		maxCnt = rez2[0].cnt;
+	for (const el of rez) {
+		if ( ((el.cover_set_index_new > 0 && el.cover_set_index == 0)|| (el.cover_set_index_new == 0 && el.cover_set_index > 0)) && el.dnum == 0) {
+			console.log('********Nesakrīt**********', 'property_id', el.property_id, ' type_id', el.type_id, ' name',`${el.prefix}:${el.display_name}` )
+			const clName = `${el.prefix}:${el.display_name}`;
+			let type = 'o'; 
+			if ( el.type_id == 1) type = 'i';
+			diffs.cpIds.push(el.id);
+			if ( !diffs.pIdsAll.includes(el.property_id))
+				diffs.pIdsAll.push(el.property_id);
+
+			if ( rdfClasses.includes(clName)) {
+				diffs.rdfClasses = 'TRUE';
+			}
+			else {
+				let sk = el.cnt/maxCnt;
+				if ( sk > 0.1) 
+					sk = `_${Math.round(sk*10)/10}`;
+				else
+					sk = '';
+				if ( !diffs.pIds.includes(el.property_id))
+					diffs.pIds.push(el.property_id);
+				if ( diffs.classes[clName] != undefined )
+					diffs.classes[clName] = `${diffs.classes[clName]} ${el.property_id}(${el.cover_set_index_new}${type}${sk})`;
+				else
+					diffs.classes[clName] = `${el.property_id}(${el.cover_set_index_new}${type}${sk})`;
+			}
+			el.ok = false;
+		}
+		el.cover_set_index = el.cover_set_index_new;
+	}
+	//console.log(rez)
+	// 5555
+	//if ( check)  // Izpētei, padodam atšķirības
+	//	return info;
+	//else
+	//return rez;
+}
+const xx_getCCInfoNew = async (schema, params) => {
+	const c_list = params.main.c_list; // To pagaidām neņemšu vērā
+	let sql = `select cr.*, c1.cnt c1_cnt, c2.cnt c2_cnt, c1.display_name name1, c2.display_name name2 from ${schema}.cc_rels cr , ${schema}.classes c1, ${schema}.classes c2 where ( type_id = 1 or type_id = 2 ) and cr.class_1_id = c1.id and cr.class_2_id = c2.id order by c1.cnt, c2.cnt`;
+	let r = await util.getSchemaData(sql, params, false);
+	const cc_rels_orig = r.data;
+	const cc_rels_ekv = cc_rels_orig.filter(function(cc){ return cc.c1_cnt == cc.c2_cnt });
+	const cc_rels_rest = cc_rels_orig.filter(function(cc){ return cc.c1_cnt != cc.c2_cnt });
+	sql = `select id, prefix, display_name, is_local from ${schema}.v_classes_ns order by is_local, prefix, display_name`;
+	r = await util.getSchemaData(sql, params, false);
+	const sortedClassList = r.data;
+	let cc_tree = {};
+	let c_tree = {};
+	let newCCList = [];
+
+	for ( const cl of sortedClassList) {
+		c_tree[cl.id] = 0;
+	}  
+
+	if ( cc_rels_ekv.length > 0 ) {
+		for (const c of cc_rels_ekv) {
+			if ( cc_tree[c.c1_cnt] != undefined) {
+				for (const cId of Object.keys(cc_tree[c.c1_cnt])) {
+					if ( checkConnection(cc_rels_orig, Number(cId), c.class_1_id) )
+						cc_tree[c.c1_cnt][cId].push(c);
+					else
+						cc_tree[c.c1_cnt][c.class_1_id] = [c];
+				}
+			}
+			else {
+				cc_tree[c.c1_cnt] = {};
+				cc_tree[c.c1_cnt][c.class_1_id] = [c];
+			}
+		}
+	
+		let bigSortedIdList = [];
+		for (const cnt of Object.keys(cc_tree)) {
+			for  (const cId of Object.keys(cc_tree[cnt])) {
+				const cc_list = cc_tree[cnt][cId];
+				const sortedCCList = sortClassCCLists(cc_list, sortedClassList);
+				const sortedIdList = sortedCCList.map( v => { return v.id});
+				bigSortedIdList.push(sortedIdList);
+				for (let i = 0; i < sortedCCList.length-1; i++) {
+					const ccNew = {id:0, class_2_id:sortedCCList[i].id, class_1_id:sortedCCList[i+1].id, type_id:1, c1_cnt:cc_list[0].c1_cnt, c2_cnt:cc_list[0].c1_cnt }; // Skaiti ir vienādi
+					cc_rels_rest.push(ccNew);
+					newCCList.push(`${sortedCCList[i+1].display_name}- ${sortedCCList[i].display_name}`);
+				}
+			}
+		}
+
+		for (const cIdList of bigSortedIdList) {
+			let i = 1;
+			for (const cl of cIdList) {
+				c_tree[cl] = i;
+				i = i+1;
+			}
+			const ccSup = cc_rels_rest.filter(function(cc){ return cIdList.includes(cc.class_1_id) && !cIdList.includes(cc.class_2_id) });
+			for (const cc of ccSup) {
+				cc.class_1_id = cIdList[0];
+				newCCList.push(`ID-${cIdList[0]}-${cc.name2}`);
+			}
+			const ccSub = cc_rels_rest.filter(function(cc){ return cIdList.includes(cc.class_2_id) && !cIdList.includes(cc.class_1_id) });
+			for (const cc of ccSub) {
+				cc.class_2_id = cIdList[cIdList.length-1];
+				newCCList.push(`${cc.name1} - ID-${cIdList[cIdList.length-1]}`);
+			}
+		}		
+	}
+
+	r.data = cc_rels_rest;
+	r.data2 = c_tree;
+	r.data3 = newCCList;
+	return r;
+}
+// **************************************************************************************************************
+const get_KNOWN_DATA5 = async (tag) => {
+	const r = await db.any(`SELECT * from public.v_configurations where is_active = true `); //and ( display_name = 'ISWC2017' or display_name = 'BlazeGraphNamespace'  `);
+	let result = [];
+	for ( const db_info of r) {
+        if (tag && !db_info.tags.includes(tag)) continue;
+		let r0 = await db.any(`SELECT COUNT(*) FROM information_schema."tables" where table_schema = '${db_info.db_schema_name}'`);
+		if ( r0[0].count > 0) {
+			let info = {display_name:db_info.display_name};
+			//let rr = await db.any(`SELECT COUNT(*) FROM ${db_info.db_schema_name}.classes`);
+			//info.class_count = rr[0].count;
+			const s1 = ``; 
+			const sql = `select count(*) count, (select count(*) from ${db_info.db_schema_name}.properties) pp, (select count(*) > 0 from ${db_info.db_schema_name}.cpc_rels) cpc_rels, 
+(select count(*) from ${db_info.db_schema_name}.cc_rels where type_id = 1 ) cc1, (select count(*) from ${db_info.db_schema_name}.cc_rels where type_id = 2 ) cc2, (select count(*) from ${db_info.db_schema_name}.cc_rels where type_id = 3 ) cc3, 
+(select count(*) - count(distinct class_1_id) > 0 from ${db_info.db_schema_name}.cc_rels) multi, 
+(select count(*) from ${db_info.db_schema_name}.cc_rels cr , ${db_info.db_schema_name}.classes c1, ${db_info.db_schema_name}.classes c2 where type_id = 1 and cr.class_1_id = c1.id and cr.class_2_id = c2.id and c1.cnt = c2.cnt) ekv
+from ${db_info.db_schema_name}.classes`
+			let rr = await db.any(sql);
+			info.class_count = rr[0].count;
+			info.properties = rr[0].pp;
+			info.info = `has_cpc_rels:${rr[0].cpc_rels} cc1:${rr[0].cc1} cc2:${rr[0].cc2} cc3:${rr[0].cc3} multi:${rr[0].multi}, ekv:${rr[0].ekv}`; 
+			rr = await db.any(`select prefix, local_name from ${db_info.db_schema_name}.v_classes_ns vcn where ( prefix = 'rdfs' and local_name = 'Resource' ) or ( prefix = 'owl' and local_name = 'Thing')`);
+			if ( rr.length > 0 ) {
+				rr = rr.map( v => `${v.prefix}:${v.local_name}`);
+				info.tops = rr;
+			}
+
+			if ( Number(info.class_count) < 100 && Number(info.class_count) > 0 && Number(info.properties) > 0 ) {
+				console.log('***************', db_info.db_schema_name, info.class_count)
+				const p_list = await getAllPropertiesIds(db_info.db_schema_name, {main:{}});
+				const cpInfo = await xx_getCPInfoNew(db_info.db_schema_name, {main:{p_list:p_list}});
+				//console.log('~~~~~~~~~~~~~~~~~', cpInfo.diffs)
+				if ( cpInfo.diffs.newCC.length > 0 ) {
+					info.newCC = cpInfo.diffs.newCC;
+				}
+				if ( cpInfo.diffs.pIdsAll.length > 0 ) {
+					if ( cpInfo.diffs.pIds.length > 0 ) {
+						let prop = await db.any(`SELECT id, display_name FROM ${db_info.db_schema_name}.properties where id in (${cpInfo.diffs.pIds}) order by cnt`);
+						cpInfo.diffs.pNames = prop.map(v => `${v.display_name}(${v.id})`);
+						info.cp = cpInfo.diffs;
+					}
+					else if ( cpInfo.diffs.rdfClasses) {
+						info.rdfClasses = true;
+					}
+
+				}
+			}
+			result.push(info);
+		} 
+	}
+	result = result.sort(function(a,b){ return b.class_count-a.class_count});
+	return result;
+}
 // **************************************************************************************************************
 
 module.exports = {
+	get_KNOWN_DATA5,
 	getClasses,
 	getNamespaces,
 	getPublicNamespaces,
@@ -615,11 +970,14 @@ module.exports = {
 	xx_getPropList3,
 	xx_getClassListInfo,
 	xx_getCCInfo,
+	xx_getCCInfoNew,
 	xx_getCCInfo_Type3,
 	xx_getCPCInfo,
 	xx_getCPCInfoWithNames,
 	xx_getClassCPCCounts,
 	xx_getCPInfo,
+	xx_getCPInfoNew,
+	xx_getCPCInfoNew,
 	xx_getPropInfo,
 	generateClassUpdate,
 }

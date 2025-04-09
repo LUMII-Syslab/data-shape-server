@@ -8,6 +8,7 @@ const util = require('./utilities')
 const db = require('./db')
 
 const { 
+	get_KNOWN_DATA5,
 	getClasses,
 	getTreeClasses,
 	getNamespaces,
@@ -23,9 +24,12 @@ const {
 	xx_getClassInfoLink,
 	xx_getPropListInfo,
 	xx_getCCInfo,
+	xx_getCCInfoNew,
 	xx_getCCInfo_Type3,
 	xx_getCPInfo,
 	xx_getCPCInfo,
+	xx_getCPInfoNew,
+	xx_getCPCInfoNew,
 	xx_getCPCInfoWithNames,
 	xx_getClassCPCCounts,
 	xx_getPropListInfo2,
@@ -122,6 +126,10 @@ router.get('/info3', wrapAsync(async (req, res, next) => {
   const kd = await util.get_KNOWN_DATA3();
   res.json(kd);
 }));
+router.get('/info5', wrapAsync(async (req, res, next) => {
+	const kd = await get_KNOWN_DATA5();
+	res.json(kd);
+  }));
 router.get('/infoOntTags', wrapAsync(async (req, res, next) => {
 	const kd = await util.get_KNOWN_DATA_OntTags();
 	res.json(kd);
@@ -353,14 +361,23 @@ router.post('/ontologies/:ont/:fn', wrapAsync(async (req, res, next) => {
 		if ( fn === 'xx_getCCInfo') {
 			r = await xx_getCCInfo(schema, params);
 		}
+		if ( fn === 'xx_getCCInfoNew') {
+			r = await xx_getCCInfoNew(schema, params);
+		}
 		if ( fn === 'xx_getCCInfo_Type3') {
 			r = await xx_getCCInfo_Type3(schema, params);
 		}
 		if ( fn === 'xx_getCPInfo') {
 			r = await xx_getCPInfo(schema, params);
 		}
+		if ( fn === 'xx_getCPInfoNew') {
+			r = await xx_getCPInfoNew(schema, params);
+		}
 		if ( fn === 'xx_getCPCInfo') {
 			r = await xx_getCPCInfo(schema, params);
+		}
+		if ( fn === 'xx_getCPCInfoNew') {
+			r = await xx_getCPCInfoNew(schema, params);
 		}
 		if ( fn === 'xx_getCPCInfoWithNames') {
 			r = await xx_getCPCInfoWithNames(schema, params);

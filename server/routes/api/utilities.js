@@ -76,11 +76,15 @@ const get_KNOWN_DATA3 = async (tag) => {
 			let info = {display_name:db_info.display_name};
 			//let rr = await db.any(`SELECT COUNT(*) FROM ${db_info.db_schema_name}.classes`);
 			//info.class_count = rr[0].count;
-			const sql = `select count(*) count, (select count(*) from ${db_info.db_schema_name}.properties) pp, (select count(*) > 0 from ${db_info.db_schema_name}.cpc_rels) cpc_rels, (select count(*) > 0 from ${db_info.db_schema_name}.cc_rels ) cc_rels, (select count(*) - count(distinct class_1_id) > 0 from ${db_info.db_schema_name}.cc_rels) multi from ${db_info.db_schema_name}.classes`
+			const sql = `select count(*) count, (select count(*) from ${db_info.db_schema_name}.properties) pp, (select count(*) > 0 from ${db_info.db_schema_name}.cpc_rels) cpc_rels, 
+(select count(*) from ${db_info.db_schema_name}.cc_rels where type_id = 1 ) cc1, (select count(*) from ${db_info.db_schema_name}.cc_rels where type_id = 2 ) cc2, (select count(*) from ${db_info.db_schema_name}.cc_rels where type_id = 3 ) cc3, 
+(select count(*) - count(distinct class_1_id) > 0 from ${db_info.db_schema_name}.cc_rels) multi, 
+(select count(*) from ${db_info.db_schema_name}.cc_rels cr , ${db_info.db_schema_name}.classes c1, ${db_info.db_schema_name}.classes c2 where type_id = 1 and cr.class_1_id = c1.id and cr.class_2_id = c2.id and c1.cnt = c2.cnt) ekv
+from ${db_info.db_schema_name}.classes`
 			const rr = await db.any(sql);
 			info.class_count = rr[0].count;
 			info.properties = rr[0].pp;
-			info.info = `has_cpc_rels: ${rr[0].cpc_rels} has_cc_rels: ${rr[0].cc_rels} multi: ${rr[0].multi}`; 
+			info.info = `has_cpc_rels:${rr[0].cpc_rels} cc1:${rr[0].cc1} cc2:${rr[0].cc2} cc3:${rr[0].cc3} multi:${rr[0].multi}, ekv:${rr[0].ekv}`; 
 			result.push(info);
 		} 
 	}
@@ -507,8 +511,7 @@ const getSchemaData = async (sql, params, print = true) => {
 		r = await db.any(sql, [getLimit(params)+1, getFilter(params)]);
 	else
 		r = await db.any(sql,[getLimit(params)+1]);
-
-	if ( r.length == getLimit(params)+1 ){
+	if ( r.length == getLimit(params)+1 && getLimit(params) != '' ){
 		complete = false;
 		r.pop();
 	}
