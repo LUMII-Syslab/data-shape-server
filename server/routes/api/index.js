@@ -288,6 +288,12 @@ router.post('/ontologies/:ont/:fn', wrapAsync(async (req, res, next) => {
 			const classCount = await db.any(`SELECT count(*) from ${schema}.classes`);
 			r = classCount[0].count;
 		}
+		if ( fn === 'xx_getCPC_info') {
+			const hasCPC = await db.any(`SELECT count(*) from ${schema}.cpc_rels`);
+			r = false;
+			if ( hasCPC[0].count > 0 )
+				r = true;
+		}
 		if ( fn === 'xx_getPropertyInfo') {
 			const propCount = await db.any(`SELECT count(*), max(cnt) from ${schema}.properties`);
 			r = {count:propCount[0].count, max:propCount[0].max};
@@ -402,7 +408,7 @@ router.post('/ontologies/:ont/:fn', wrapAsync(async (req, res, next) => {
 		}		
 
 		r.ontology = ont;
-		res.json(r)	
+		res.json(r)
 
     } catch(err) {
         console.error(err)
