@@ -548,65 +548,6 @@ const xx_getCPCInfoNew = async (schema, params) => {
 	r.data = dataNew;
     return r;
 }
-const xx_getCPCInfoWithNames = async (schema, params) => {
-	const sql = `SELECT ns1.name AS ns1_name, c1.display_name AS class1_name, p.display_name AS property_name, ns2.name AS ns2_name, c2.display_name AS class2_name, cp.type_id AS type_id, cpc.cnt AS cpc_cnt, cp.cnt AS cp_cnt 
-				FROM ${schema}.cp_rels AS cp,
-					${schema}.cpc_rels AS cpc,
-					${schema}.classes AS c1,
-					${schema}.ns AS ns1,
-					${schema}.classes AS c2,
-					${schema}.ns AS ns2, 
-					${schema}.properties AS p
-				WHERE cp.id = cpc.cp_rel_id
-					AND cp.class_id = c1.id
-					AND ns1.id = c1.ns_id
-					AND cpc.other_class_id = c2.id
-					AND ns2.id = c2.ns_id
-					AND cp.property_id = p.id
-					AND cpc.cover_set_index > 0
-					AND cp.type_id = 1`;
-	const r = await util.getSchemaData(sql, params);
-    return r;
-}
-const xx_getClassCPCCounts = async (schema, params) => {
-	const sql = `WITH class_total_cpc_cnts AS (
-					WITH class_cpc_cnts AS (
-						-- collect class_id and cpc_cnt
-						SELECT cp.class_id AS class_id, cpc.cnt AS cpc_cnt
-						FROM ${schema}.cp_rels AS cp,
-							${schema}.cpc_rels AS cpc 
-						WHERE cp.id = cpc.cp_rel_id
-							AND cpc.cover_set_index > 0
-							AND cp.type_id = 1
-							-- If both cpc classes are the same, ignore them here to prevent double counting
-							AND cp.class_id <> cpc.other_class_id
-						
-						UNION ALL
-						
-						-- collect other_class_id and cpc_cnt
-						SELECT cpc.other_class_id AS class_id, cpc.cnt AS cpc_cnt
-						FROM ${schema}.cp_rels AS cp,
-							${schema}.cpc_rels AS cpc
-						WHERE cp.id = cpc.cp_rel_id
-							AND cpc.cover_set_index > 0
-							AND cp.type_id = 1
-					)
-					
-					-- get sum of cpc_cnts for each class_id
-					SELECT class_cpc_cnts.class_id AS class_id, SUM(class_cpc_cnts.cpc_cnt) AS total_cpc_cnt
-					FROM class_cpc_cnts
-					GROUP BY class_cpc_cnts.class_id)
-
-				-- add ns and class name
-				SELECT ns.name as ns_name, classes.display_name as class_name, class_total_cpc_cnts.total_cpc_cnt
-				FROM class_total_cpc_cnts,
-					${schema}.classes AS classes,
-					${schema}.ns AS ns
-				WHERE class_total_cpc_cnts.class_id = classes.id
-					AND classes.ns_id = ns.id`;
-	const r = await util.getSchemaData(sql, params);
-    return r;
-}
 const xx_getClassesSimple = async (schema, params) => {
 	const sql = `SELECT c.id, c.display_name AS class_name, ns.name AS ns_name, c.cnt
 				FROM ${schema}.classes AS c, ${schema}.ns AS ns
@@ -991,8 +932,6 @@ module.exports = {
 	xx_getCCInfoNew,
 	xx_getCCInfo_Type3,
 	xx_getCPCInfo,
-	xx_getCPCInfoWithNames,
-	xx_getClassCPCCounts,
 	xx_getClassesSimple,
 	xx_getPropertiesSimple,
 	xx_getCPInfoObjectProps,
