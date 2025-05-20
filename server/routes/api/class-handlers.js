@@ -607,6 +607,24 @@ const xx_getClassCPCCounts = async (schema, params) => {
 	const r = await util.getSchemaData(sql, params);
     return r;
 }
+const xx_getClassesSimple = async (schema, params) => {
+	const sql = `SELECT c.id, c.display_name AS class_name, ns.name AS ns_name, c.cnt
+				FROM ${schema}.classes AS c, ${schema}.ns AS ns
+				WHERE c.ns_id = ns.id`;
+	const r = await util.getSchemaData(sql, params);
+    return r;
+}
+
+const xx_getPropertiesSimple = async (schema, params) => {
+	const sql = `select id, display_name as name from ${schema}.properties`;
+	const r = await util.getSchemaData(sql, params);
+    return r;
+}
+const xx_getCPInfoObjectProps = async (schema, params) => {
+	const sql = `select id, property_id, type_id, class_id, cnt, object_cnt  from ${schema}.cp_rels where object_cnt > 0`;
+	const r = await util.getSchemaData(sql, params);
+    return r;
+}
 const xx_getCPInfo = async (schema, params) => {
 	const sql = `select id, property_id, type_id, class_id, cnt, object_cnt, x_max_cardinality, cover_set_index  from ${schema}.v_cp_rels_card where property_id in (${params.main.p_list}) order by property_id, type_id, class_id`;
 	const r = await util.getSchemaData(sql, params);
@@ -975,6 +993,9 @@ module.exports = {
 	xx_getCPCInfo,
 	xx_getCPCInfoWithNames,
 	xx_getClassCPCCounts,
+	xx_getClassesSimple,
+	xx_getPropertiesSimple,
+	xx_getCPInfoObjectProps,
 	xx_getCPInfo,
 	xx_getCPInfoNew,
 	xx_getCPCInfoNew,

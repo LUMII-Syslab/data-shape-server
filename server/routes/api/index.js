@@ -26,6 +26,9 @@ const {
 	xx_getCCInfo,
 	xx_getCCInfoNew,
 	xx_getCCInfo_Type3,
+	xx_getClassesSimple,
+	xx_getPropertiesSimple,
+	xx_getCPInfoObjectProps,
 	xx_getCPInfo,
 	xx_getCPCInfo,
 	xx_getCPInfoNew,
@@ -372,6 +375,15 @@ router.post('/ontologies/:ont/:fn', wrapAsync(async (req, res, next) => {
 		}
 		if ( fn === 'xx_getCCInfo_Type3') {
 			r = await xx_getCCInfo_Type3(schema, params);
+		}
+		if ( fn === 'xx_getClassesSimple') {
+			r = await xx_getClassesSimple(schema, params);
+		}
+		if ( fn === 'xx_getPropertiesSimple') {
+			r = await xx_getPropertiesSimple(schema, params);
+		}
+		if ( fn === 'xx_getCPInfoObjectProps') {
+			r = await xx_getCPInfoObjectProps(schema, params);
 		}
 		if ( fn === 'xx_getCPInfo') {
 			r = await xx_getCPInfo(schema, params);
