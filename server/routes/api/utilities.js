@@ -462,7 +462,7 @@ const getPropertyByName = async (pName, schema, params) => {
 		const col = 'v.*, dc.prefix as dc_prefix, dc.display_name as dc_display_name, dc.is_local as dc_is_local, rc.prefix as rc_prefix, rc.display_name as rc_display_name, rc.is_local as rc_is_local';
 		const join = `LEFT JOIN ${schema}.v_classes_ns dc ON v.domain_class_id = dc.id LEFT JOIN ${schema}.v_classes_ns rc ON v.range_class_id = rc.id`;
 		r = await db.any(`SELECT ${col} FROM ${schema}.v_properties_ns v ${join} WHERE v.id = ${prop_id}`);
-		const dt = await db.any(`SELECT CONCAT(ns.name,':', dt.local_name) as type_name, cnt, (select sum(cnt) from ${schema}.pd_rels where property_id = ${prop_id}) as total_cnt from ${schema}.pd_rels pd, ${schema}.datatypes dt, ${schema}.ns ns where pd.property_id = ${prop_id} and dt.id = pd.datatype_id and ns.id = dt.ns_id order by type_name`,);
+		const dt = await db.any(`SELECT CONCAT(ns.name,':', dt.local_name) as type_name, cnt, (select sum(cnt) from ${schema}.pd_rels where property_id = ${prop_id}) as total_cnt from ${schema}.pd_rels pd, ${schema}.datatypes dt, ${schema}.ns ns where pd.property_id = ${prop_id} and dt.id = pd.datatype_id and ns.id = dt.ns_id order by type_name`);
 		if (  dt.length > 0 ) {
 			data_types = dt.map(v => v.type_name);
 			if ( dt[0].total_cnt == r[0].data_cnt) {
@@ -485,6 +485,35 @@ const getPropertyByName = async (pName, schema, params) => {
 	}
 
 	return r;
+}
+
+const getClassPropertyDataTypes = async (propId, classId, schema, params) => {
+  let data_types = [];
+  const cp_info = await db.any(`SELECT id, data_cnt_calc FROM ${schema}.cp_rels WHERE property_id = ${propId} and class_id = ${classId} and type_id = 2`);
+  if ( cp_info.length == 1 ) {
+    const dt = await db.any(`SELECT CONCAT(ns.name,':', dt.local_name) as type_name, cnt, (select sum(cnt) from ${schema}.cpd_rels where cp_rel_id = ${cp_info[0].id}) as total_cnt from ${schema}.cpd_rels cpd, ${schema}.datatypes dt, ${schema}.ns ns where cpd.cp_rel_id = ${cp_info[0].id} and dt.id = cpd.datatype_id and ns.id = dt.ns_id order by type_name`);
+    console.log('*** getClassPropertyDataTypes ***', dt)
+    if (  dt.length > 0 ) {
+			data_types = dt.map(v => v.type_name);
+			if ( dt[0].total_cnt != cp_info[0].data_cnt_calc) {
+        data_types.push(null);
+			}
+		}
+  }
+  return data_types;
+}
+
+const getPropertyDataTypes = async (propId, dataCnt, schema, params) => {
+  let data_types = [];
+  const dt = await db.any(`SELECT CONCAT(ns.name,':', dt.local_name) as type_name, cnt, (select sum(cnt) from ${schema}.pd_rels where property_id = ${propId}) as total_cnt from ${schema}.pd_rels pd, ${schema}.datatypes dt, ${schema}.ns ns where pd.property_id = ${propId} and dt.id = pd.datatype_id and ns.id = dt.ns_id order by type_name`);
+  console.log('*** getPropertyDataTypes ***', dt)
+  if (  dt.length > 0 ) {
+    data_types = dt.map(v => v.type_name);
+    if ( dt[0].total_cnt != dataCnt) {
+      data_types.push(null);
+    }
+  }
+  return data_types;
 }
 
 const getSchemaObject = obj => {
@@ -700,6 +729,8 @@ module.exports = {
 	formWherePart,
 	getClassByName,
 	getPropertyByName,
+  getClassPropertyDataTypes,
+  getPropertyDataTypes,
 	getSchemaData,
 	getSchemaDataPlus,
 	getSchemaObject,

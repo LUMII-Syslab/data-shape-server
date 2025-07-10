@@ -434,7 +434,6 @@ order by ${orderByPref} o desc LIMIT $1`;
 			r = await util.getSchemaData(sql_0, params);
 		}
 		else if ( util.isClassName(params, 0) || util.isClassName(params, 1)) {
-
 			if ( util.isClassName(params, 0))
 				classFrom = await getClass(0);  //await util.getClassByName(util.getClassName(params, 0), schema, params);
 
@@ -543,16 +542,18 @@ order by ${orderByPref} o desc LIMIT $1`;
 	}
 
 	r = addFullNames(r, params);
-  if (params.main.addTypes) {
+  if (params.main.addTypes && classFrom.length == 1) {
     for (const prop of r.data) {
-      const prop_info = await util.getPropertyByName(prop.full_name, schema, params);
-      prop.data_type = null;
-      if ( prop_info[0].data_type != undefined )
-        prop.data_type = prop_info[0].data_type;
-      prop.data_types = prop_info[0].data_types;
+      const data_types = await util.getClassPropertyDataTypes(prop.id, classFrom[0].id, schema, params);
+      prop.data_types = data_types;
     }
   }
-
+  else if (params.main.addTypes) {
+    for (const prop of r.data) {
+      const data_types = await util.getPropertyDataTypes(prop.id, prop.data_cnt, schema, params);
+      prop.data_types = data_types;
+    }
+  }
 	return r;
 //x_max_cardinality
 }
