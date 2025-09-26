@@ -492,13 +492,13 @@ const addProperty = async p => {
         // "hasOutgoingPropertiesOK" : true | false,
         // "hasIncomingPropertiesOK" : true | false,
         // "hasFollowersOK" : true | false,
-        if (p.hasOutgoingPropertiesOK === false) {
+        if (p.hasOutgoingPropertiesOK === false || !p.hasOutgoingPropertiesOK) {
             await db.none(`update ${dbSchema}.properties set has_outgoing_props_ok = false where id = $1`, [ property_id ]);
         }
-        if (p.hasIncomingPropertiesOK === false) {
+        if (p.hasIncomingPropertiesOK === false || !p.hasIncomingPropertiesOK) {
             await db.none(`update ${dbSchema}.properties set has_incoming_props_ok = false where id = $1`, [ property_id ]);
         }
-        if (p.hasFollowersOK === false) {
+        if (p.hasFollowersOK === false || !p.hasFollowersOK) {
             await db.none(`update ${dbSchema}.properties set has_followers_ok = false where id = $1`, [ property_id ]);
         }
 
