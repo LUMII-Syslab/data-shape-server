@@ -492,7 +492,6 @@ const getClassPropertyDataTypes = async (propId, classId, schema, params) => {
   const cp_info = await db.any(`SELECT id, data_cnt_calc FROM ${schema}.cp_rels WHERE property_id = ${propId} and class_id = ${classId} and type_id = 2`);
   if ( cp_info.length == 1 ) {
     const dt = await db.any(`SELECT CONCAT(ns.name,':', dt.local_name) as type_name, cnt, (select sum(cnt) from ${schema}.cpd_rels where cp_rel_id = ${cp_info[0].id}) as total_cnt from ${schema}.cpd_rels cpd, ${schema}.datatypes dt, ${schema}.ns ns where cpd.cp_rel_id = ${cp_info[0].id} and dt.id = cpd.datatype_id and ns.id = dt.ns_id order by type_name`);
-    console.log('*** getClassPropertyDataTypes ***', dt)
     if (  dt.length > 0 ) {
 			data_types = dt.map(v => v.type_name);
 			if ( dt[0].total_cnt != cp_info[0].data_cnt_calc) {
@@ -506,7 +505,6 @@ const getClassPropertyDataTypes = async (propId, classId, schema, params) => {
 const getPropertyDataTypes = async (propId, dataCnt, schema, params) => {
   let data_types = [];
   const dt = await db.any(`SELECT CONCAT(ns.name,':', dt.local_name) as type_name, cnt, (select sum(cnt) from ${schema}.pd_rels where property_id = ${propId}) as total_cnt from ${schema}.pd_rels pd, ${schema}.datatypes dt, ${schema}.ns ns where pd.property_id = ${propId} and dt.id = pd.datatype_id and ns.id = dt.ns_id order by type_name`);
-  console.log('*** getPropertyDataTypes ***', dt)
   if (  dt.length > 0 ) {
     data_types = dt.map(v => v.type_name);
     if ( dt[0].total_cnt != dataCnt) {

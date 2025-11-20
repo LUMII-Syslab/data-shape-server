@@ -7,13 +7,15 @@ const util = require('./utilities')
 
 const db = require('./db')
 
-const { 
+const {
 	get_KNOWN_DATA5,
 	getClasses,
 	getTreeClasses,
 	getNamespaces,
 	getPublicNamespaces,
 	xx_getClassList,
+  xx_getClassListfromIds,
+  xx_getClassListFullfromIds,
 	xx_getClassListExt,
 	xx_getPropList,
 	xx_getPropList2,
@@ -22,7 +24,6 @@ const {
 	xx_getClassInfo,
 	xx_getClassInfoAtr,
 	xx_getClassInfoLink,
-	xx_getPropListInfo,
 	xx_getCCInfo,
 	xx_getCCInfoNew,
 	xx_getCCInfo_Type3,
@@ -33,22 +34,24 @@ const {
 	xx_getCPCInfo,
 	xx_getCPInfoNew,
 	xx_getCPCInfoNew,
-	xx_getPropListInfo2,
 	xx_getPropInfo,
+  xx_getClassOutProperties,
+  xx_getClassInProperties,
+  xx_getClasstoClassProperties,
 	generateClassUpdate,
 } = require('./class-handlers')
 
-const { 
+const {
 	getProperties,
 	checkProperty,
 } = require('./property-handlers')
 
-const { 
+const {
 	getPropertiesNew,
 	getClassifiers,
 } = require('./property-handlers-new')
 
-const { 
+const {
     executeSPARQL,
 	sparqlGetIndividualsNew,
 	sparqlGetTreeIndividualsNew,
@@ -80,9 +83,9 @@ const checkOntology = async (ont) => {
 		err.status = 404;
 		err.err_msg = 'unknown ontology';
 	}
-	else 
+	else
 		err.schema = schema;
-		
+
 	return err;
 }
 
@@ -180,10 +183,10 @@ router.get('/ontologies/:ont/classes/:limit', wrapAsync(async (req, res, next) =
 		}
 		const schema = err.schema;
 
-        const rr = await getClasses(schema, {main:{limit: limit}});  
+        const rr = await getClasses(schema, {main:{limit: limit}});
 		rr.data = rr.data.map(v => {return makeOutput(v)});
         res.json(rr);
-		
+
     } catch(err) {
         console.error(err)
         next(err)
@@ -205,10 +208,10 @@ router.get('/ontologies/:ont/classes-filtered/:filter/:limit', wrapAsync(async (
 		}
 		const schema = err.schema;
 
-        const rr = await getClasses(schema, {main:{limit: limit, filter: filter}});  
+        const rr = await getClasses(schema, {main:{limit: limit, filter: filter}});
 		rr.data = rr.data.map(v => {return makeOutput(v)});
         res.json(rr);
-		
+
     } catch(err) {
         console.error(err)
         next(err)
@@ -229,10 +232,10 @@ router.get('/ontologies/:ont/properties/:limit', wrapAsync(async (req, res, next
 		}
 		const schema = err.schema;
 
-        const rr = await getProperties(schema, {main:{propertyKind:'All', limit: limit}});  
+        const rr = await getProperties(schema, {main:{propertyKind:'All', limit: limit}});
 		rr.data = rr.data.map(v => {return makeOutput(v)});
         res.json(rr);
-		
+
     } catch(err) {
         console.error(err)
         next(err)
@@ -254,10 +257,10 @@ router.get('/ontologies/:ont/properties-filtered/:filter/:limit', wrapAsync(asyn
 		}
 		const schema = err.schema;
 
-        const rr = await getProperties(schema, {main:{propertyKind:'All', limit: limit, filter: filter}});  
+        const rr = await getProperties(schema, {main:{propertyKind:'All', limit: limit, filter: filter}});
 		rr.data = rr.data.map(v => {return makeOutput(v)});
         res.json(rr);
-		
+
     } catch(err) {
         console.error(err)
         next(err)
@@ -270,7 +273,7 @@ router.post('/ontologies/:ont/:fn', wrapAsync(async (req, res, next) => {
     try {
         const ont = req.params['ont'];
 		const fn = req.params['fn'];
-		
+
 		const err = await checkOntology(ont);
 		if ( err.err_msg !== '') {
 			res.status(err.status).send(err.err_msg);
@@ -281,7 +284,7 @@ router.post('/ontologies/:ont/:fn', wrapAsync(async (req, res, next) => {
 		const kd = await util.get_KNOWN_DATA();
 		params = await util.checkEndpoint(params, schema, kd);
 	    console.log(params);
-		
+
 		let r = { complete: false };
 		if ( fn === 'getClasses')
 			r = await getClasses(schema, params);
@@ -290,9 +293,10 @@ router.post('/ontologies/:ont/:fn', wrapAsync(async (req, res, next) => {
 			r = classCount[0].count;
 		}
 		if ( fn === 'xx_getCPC_info') {
-			const hasCPC = await db.any(`SELECT count(*) from ${schema}.cpc_rels`);
+			//const hasCPC = await db.any(`SELECT count(*) from ${schema}.cpc_rels`);
 			r = false;
-			if ( hasCPC[0].count > 0 )
+      const oneCPC = await db.any(`SELECT * from ${schema}.cpc_rels limit 1`);  // Varēja jau arī nemainīt
+			if ( oneCPC.length == 1 )
 				r = true;
 		}
 		if ( fn === 'xx_getPropertyInfo') {
@@ -304,18 +308,18 @@ router.post('/ontologies/:ont/:fn', wrapAsync(async (req, res, next) => {
 		if ( fn === 'getProperties') {
 			const view_info = await db.any(`SELECT count(*) FROM information_schema.views v where table_schema = '${schema}' and  table_name = 'v_cp_sources_single'`);
 			if ( view_info[0].count > 0)   // TODO kaut kad būs tikai jaunais variants
-				r = await getPropertiesNew(schema, params);  
+				r = await getPropertiesNew(schema, params);
 			else
-				r = await getProperties(schema, params); 
+				r = await getProperties(schema, params);
 		}
 		if ( fn === 'getClassifiers')
 			r = await getClassifiers(schema, params);
-		
+
 		if ( fn === 'getNamespaces')
 			r = await getNamespaces(schema);
-			
+
 		if ( fn === 'getIndividuals') {
-			// r = [];	
+			// r = [];
 			// const find = await util.checkIndividualsParams(schema, params);
 			// if ( find ) // Lielajām klasēm nedod instances, ja nav precizējumu
 			r = await sparqlGetIndividualsNew(schema, params);
@@ -347,6 +351,12 @@ router.post('/ontologies/:ont/:fn', wrapAsync(async (req, res, next) => {
 		if ( fn === 'xx_getClassList') {
 			r = await xx_getClassList(schema, params);
 		}
+    if ( fn === 'xx_getClassListfromIds') {
+			r = await xx_getClassListfromIds(schema, params);
+		}
+    if ( fn === 'xx_getClassListFullfromIds') {
+			r = await xx_getClassListFullfromIds(schema, params);
+		}
 		if ( fn === 'xx_getClassListExt') {
 			r = await xx_getClassListExt(schema, params);
 		}
@@ -361,9 +371,6 @@ router.post('/ontologies/:ont/:fn', wrapAsync(async (req, res, next) => {
 		}
 		if ( fn === 'xx_getClassListInfo') {
 			r = await xx_getClassListInfo(schema, params);
-		}
-		if ( fn === 'xx_getPropListInfo') {
-			r = await xx_getPropListInfo(schema, params);
 		}
 		if ( fn === 'xx_getCCInfo') {
 			r = await xx_getCCInfo(schema, params);
@@ -403,13 +410,19 @@ router.post('/ontologies/:ont/:fn', wrapAsync(async (req, res, next) => {
 		}
 		if ( fn === 'xx_getClassInfoLink') {
 			r = await xx_getClassInfoLink(schema, params);
-		}	
-		if ( fn === 'xx_getPropListInfo2') {
-			r = await xx_getPropListInfo2(schema, params);
-		}	
+		}
 		if ( fn === 'xx_getPropInfo') {
 			r = await xx_getPropInfo(schema, params);
-		}		
+		}
+    if ( fn === 'xx_getClassOutProperties') {
+			r = await xx_getClassOutProperties(schema, params);
+		}
+    if ( fn === 'xx_getClassInProperties') {
+			r = await xx_getClassInProperties(schema, params);
+		}
+    if ( fn === 'xx_getClasstoClassProperties') {
+			r = await xx_getClasstoClassProperties(schema, params);
+		}
 
 		r.ontology = ont;
 		res.json(r)
