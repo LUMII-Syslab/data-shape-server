@@ -922,7 +922,7 @@ const xx_getClassInProperties = async (schema, params) => {
 const xx_getClasstoClassProperties = async (schema, params) => {
   const cI1 = params.main.c_1_id;
   const cI2 = params.main.c_2_id;
-	const sql = `select cpc.cnt, p.prefix, p.display_name from ${schema}.cp_rels cp, ${schema}.cpc_rels cpc, ${schema}.v_properties_ns p where class_id  = ${cI1} and cpc.cp_rel_id = cp.id and other_class_id = ${cI2} and cp.property_id = p.id order by cpc.cnt desc LIMIT $1`;
+	const sql = `select cpc.cnt, p.prefix, p.display_name from ${schema}.cp_rels cp, ${schema}.cpc_rels cpc, ${schema}.v_properties_ns p where class_id  = ${cI1} and type_id = 2 and cpc.cp_rel_id = cp.id and other_class_id = ${cI2} and cp.property_id = p.id order by cpc.cnt desc LIMIT $1`;
 	let rr = await util.getSchemaData(sql, params);
   for (var p of rr.data) {
     p.shortName = `${p.prefix}:${p.display_name}`;
