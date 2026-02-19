@@ -92,6 +92,34 @@ from ${db_info.db_schema_name}.classes`
 	return result;
 }
 
+const get_KNOWN_DATA4 = async () => {
+	const r = await db.any(`SELECT * from public.v_configurations where is_active = true`);
+	let result = [];
+	for ( const db_info of r) {
+		let r0 = await db.any(`SELECT COUNT(*) FROM information_schema."tables" where table_schema = '${db_info.db_schema_name}'`);
+		if ( r0[0].count > 0) {
+			let info = {display_name:db_info.display_name};
+			//let rr = await db.any(`SELECT COUNT(*) FROM ${db_info.db_schema_name}.classes`);
+			//info.class_count = rr[0].count;
+			const sql = `select count(*) count, (select count(*) from ${db_info.db_schema_name}.properties) pp, (select count(*) from ${db_info.db_schema_name}.pp_rels) pp_rels, 
+			(select count(*) from ${db_info.db_schema_name}.properties p where (select count(*) from ${db_info.db_schema_name}.cp_rels where property_id = p.id and type_id = 1 ) = 0 ) type_1,
+			(select count(*) from ${db_info.db_schema_name}.properties p where (select count(*) from ${db_info.db_schema_name}.cp_rels where property_id = p.id and type_id = 2 ) = 0 ) type_2
+from ${db_info.db_schema_name}.classes`
+			const rr = await db.any(sql);
+			if ( rr[0].pp_rels > 0 && rr[0].type_2 > 0 ) {
+				info.class_count = rr[0].count;
+				info.properties = rr[0].pp;
+				info.pp_type_1 = rr[0].type_1;
+				info.pp_type_2 = rr[0].type_2;
+				result.push(info);			
+			}
+		}
+	}
+	//result = result.sort(function(a,b){ return b.class_count-a.class_count});
+	result = result.sort(function(a,b){ return b.pp_type_2-a.pp_type_2});
+	return result;
+}
+
 const get_KNOWN_DATA_OntTags = async () => {
 	const tags = await getAllSchemaTags();
 	const schemas = await get_KNOWN_DATA2();
@@ -767,6 +795,7 @@ module.exports = {
 	get_KNOWN_DATA,
 	get_KNOWN_DATA2,
 	get_KNOWN_DATA3,
+	get_KNOWN_DATA4,
 	get_KNOWN_DATA_OntTags,
 	getTypeStrings,
 	getTypeString,

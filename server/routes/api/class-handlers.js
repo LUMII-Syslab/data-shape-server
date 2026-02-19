@@ -601,10 +601,23 @@ const xx_getCPInfoObjectProps = async (schema, params) => {
     return r;
 }
 const xx_getCPInfo = async (schema, params) => {
-  params.main.p_list = params.main.p_list.sort(function(a,b){ return a-b;});
-  const sql = `select id, property_id, type_id, class_id, cnt, object_cnt, x_max_cardinality, cover_set_index  from ${schema}.v_cp_rels_card where property_id in (${params.main.p_list}) order by property_id, type_id, class_id`;
+	params.main.p_list = params.main.p_list.sort(function(a,b){ return a-b;});
+	if ( params.main.props ) {
+		const sql = `select property_id, class_id, cp.cnt, type_id, prefix, display_name from ${schema}.cp_rels cp, ${schema}.v_classes_ns cc  where class_id = cc.id and cover_set_index > 0 and property_id in (${params.main.p_list})  order by property_id, type_id, cp.cnt `;
+		const r = await util.getSchemaData(sql, params);
+		return r;
+	}
+	else {  
+		const sql = `select id, property_id, type_id, class_id, cnt, object_cnt, x_max_cardinality, cover_set_index  from ${schema}.v_cp_rels_card where property_id in (${params.main.p_list}) order by property_id, type_id, class_id`;
+		const r = await util.getSchemaData(sql, params);
+		return r;		
+	}
+}
+const xx_getPPInfo = async (schema, params) => {
+	params.main.p_list = params.main.p_list.sort(function(a,b){ return a-b;});
+	const sql = `select * from ${schema}.pp_rels where property_1_id in (${params.main.p_list}) and property_2_id in (${params.main.p_list})`;
 	const r = await util.getSchemaData(sql, params);
-    return r;
+	return r;
 }
 const getAllClassesIds = async (schema, params) => {
 	const sql = `select id from ${schema}.classes`;
@@ -1008,6 +1021,7 @@ module.exports = {
 	xx_getPropertiesSimple,
 	xx_getCPInfoObjectProps,
 	xx_getCPInfo,
+	xx_getPPInfo,
 	xx_getCPInfoNew,
 	xx_getCPCInfoNew,
 	xx_getPropInfo,

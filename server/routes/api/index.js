@@ -31,6 +31,7 @@ const {
 	xx_getPropertiesSimple,
 	xx_getCPInfoObjectProps,
 	xx_getCPInfo,
+	xx_getPPInfo,
 	xx_getCPCInfo,
 	xx_getCPInfoNew,
 	xx_getCPCInfoNew,
@@ -129,6 +130,10 @@ router.get('/info3/:tag', wrapAsync(async (req, res, next) => {
 router.get('/info3', wrapAsync(async (req, res, next) => {
   const kd = await util.get_KNOWN_DATA3();
   res.json(kd);
+}));
+router.get('/info4', wrapAsync(async (req, res, next) => {
+	const kd = await util.get_KNOWN_DATA4();
+	res.json(kd);
 }));
 router.get('/info5', wrapAsync(async (req, res, next) => {
 	const kd = await get_KNOWN_DATA5();
@@ -392,6 +397,9 @@ router.post('/ontologies/:ont/:fn', wrapAsync(async (req, res, next) => {
 		}
 		if ( fn === 'xx_getCPInfo') {
 			r = await xx_getCPInfo(schema, params);
+		}
+		if ( fn === 'xx_getPPInfo') {
+			r = await xx_getPPInfo(schema, params);
 		}
 		if ( fn === 'xx_getCPInfoNew') {
 			r = await xx_getCPInfoNew(schema, params);
