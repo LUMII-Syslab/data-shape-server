@@ -615,7 +615,8 @@ const xx_getCPInfo = async (schema, params) => {
 }
 const xx_getPPInfo = async (schema, params) => {
 	params.main.p_list = params.main.p_list.sort(function(a,b){ return a-b;});
-	const sql = `select * from ${schema}.pp_rels where property_1_id in (${params.main.p_list}) and property_2_id in (${params.main.p_list})`;
+	const sql = `select * from ${schema}.pp_rels`;
+	//const sql = `select * from ${schema}.pp_rels where property_1_id in (${params.main.p_list}) and property_2_id in (${params.main.p_list})`;
 	const r = await util.getSchemaData(sql, params);
 	return r;
 }
