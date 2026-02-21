@@ -308,12 +308,25 @@ const addClassSuperclasses = async c => {
 
     if (c.IntersectionClasses && c.IntersectionClasses.length > 0) {
         let class_id = getClassId(c.fullName);
+
+        // vecajos spiegojumios c.IntersectionClasses ir string saraksts, jaunākos – { className, instanceCount} saraksts
+        let objectMode = typeof c.IntersectionClasses[0] === 'object';
+
         for (const ic of c.IntersectionClasses) {
-            let ic_id = getClassId(ic);
+            let ic_id;
+            let ic_count;
+            if (objectMode) {
+              ic_id = getClassId(ic.className);
+              ic_count = ic.instanceCount;
+            } else {
+              ic_id = getClassId(ic);
+              ic_count = null;
+            }
             try {
-                await db.none(`INSERT INTO ${dbSchema}.cc_rels (class_1_id, class_2_id, type_id) VALUES ($1, $2, 3)`, [
+                await db.none(`INSERT INTO ${dbSchema}.cc_rels (class_1_id, class_2_id, type_id, cnt) VALUES ($1, $2, 3, $3)`, [
                     class_id,
                     ic_id,
+                    ic_count,
                 ]);
 
             } catch(err) {

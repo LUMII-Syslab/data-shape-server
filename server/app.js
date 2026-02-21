@@ -9,11 +9,19 @@ const apiRouter = require('./routes/api');
 
 const app = express();
 
+// const CORS_OPTIONS = {
+//   "origin": "*",
+//   "methods": "GET,HEAD,PUT,PATCH,POST,DELETE",
+//   "preflightContinue": false,
+//   "optionsSuccessStatus": 200
+// }
+
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'pug');
 
 app.use(logger('dev'));
+// app.use(cors(CORS_OPTIONS));
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
