@@ -423,6 +423,34 @@ const getClassId = iri => {
     return id;
 }
 
+/**
+ * Fixes the counts for partially successful explorations
+ *
+ * @param {*} cnt triple count obtained
+ * @param {*} object_cnt object triple count obtained
+ * @param {*} data_cnt data triple count obtained
+ * @returns fixed counts as { cnt, object_cnt, data_cnt }
+ */
+function fix_cnt_values(cnt, object_cnt, data_cnt) {
+  if (cnt) {
+    if (object_cnt && object_cnt > cnt) {
+      object_cnt = cnt
+    }
+    if (data_cnt && data_cnt > cnt) {
+      data_cnt = cnt
+    }
+    if (!object_cnt && !data_cnt) {
+      object_cnt = cnt;
+      data_cnt = 0;
+    } else if (object_cnt) {
+      data_cnt = cnt - object_cnt;
+    } else if (data_cnt) {
+      object_cnt = cnt - data_cnt;
+    }
+  }
+  return { cnt, object_cnt, data_cnt }
+}
+
 const PROPS = new Map(); // iri -> property_id
 const addProperty = async p => {
     // ?localName: "julPrecipitationDays"
@@ -461,21 +489,28 @@ const addProperty = async p => {
 
     let property_id;
     try {
+        let { cnt, object_cnt, data_cnt } = fix_cnt_values(
+          p.tripleCount,
+          p.objectTripleCount,
+          p.dataTripleCount
+        );
+
         property_id = (await db.one(`INSERT INTO ${dbSchema}.properties
             (iri, ns_id, local_name, display_name,
-                cnt, object_cnt,
+                cnt, object_cnt, data_cnt,
                 max_cardinality, inverse_max_cardinality,
                 source_cover_complete, target_cover_complete,
                 domain_class_id, range_class_id)
             VALUES ($1, $2, $3, $3,
-                $4, $5,
+                $4, $5, $6,
                 $7, $8,
                 $9, $10,
                 $11, $12)
             RETURNING id`,
         [
             p.fullName, ns_id, p.localName,
-            p.tripleCount, p.objectTripleCount, p.dataTripleCount,
+            // p.tripleCount, p.objectTripleCount, p.dataTripleCount,
+            cnt, object_cnt, data_cnt,
             p.maxCardinality, p.maxInverseCardinality,
             p.closedDomain || false, p.closedRange || false,
             domain_class_id, range_class_id,
@@ -553,6 +588,12 @@ const addProperty = async p => {
 
             let cp_rel_id;
             try {
+                let { cnt, object_cnt, data_cnt } = fix_cnt_values(
+                  srcClass.tripleCount,
+                  srcClass.objectTripleCount,
+                  srcClass.dataTripleCount
+                );
+
                 cp_rel_id = (await db.one(`INSERT INTO ${dbSchema}.cp_rels (
                     class_id, property_id, type_id,
                     cnt, object_cnt, data_cnt,
@@ -572,7 +613,8 @@ const addProperty = async p => {
                     $13) RETURNING id`,
                 [
                     class_id, property_id, CP_REL_TYPE.OUTGOING,
-                    srcClass.tripleCount, srcClass.objectTripleCount, srcClass.dataTripleCount,
+                    // srcClass.tripleCount, srcClass.objectTripleCount, srcClass.dataTripleCount,
+                    cnt, object_cnt, data_cnt,
                     srcClass.minCardinality, srcClass.maxCardinality,
                     srcClass.importanceIndex,
                     p.ClassPairs ? 2 : 0,
@@ -680,9 +722,15 @@ const addProperty = async p => {
 
             let cp_rel_id;
             try {
+                let { cnt, object_cnt, data_cnt } = fix_cnt_values(
+                  targetClass.tripleCount,
+                  undefined,
+                  undefined
+                );
+
                 cp_rel_id = (await db.one(`INSERT INTO ${dbSchema}.cp_rels (
                     class_id, property_id, type_id,
-                    cnt, object_cnt,
+                    cnt, object_cnt, data_cnt,
                     min_cardinality, max_cardinality,
                     cover_set_index,
                     details_level,
@@ -690,17 +738,18 @@ const addProperty = async p => {
                     principal_class_id,
                     cnt_base)
                 VALUES ($1, $2, $3,
-                    $4, $4,
-                    $5, $6,
-                    $7,
-                    $8,
+                    $4, $5, $6,
+                    $7, $8,
                     $9,
                     $10,
-                    $11)
+                    $11,
+                    $12,
+                    $13)
                 RETURNING id`,
                 [
                     class_id, property_id, CP_REL_TYPE.INCOMING,
-                    targetClass.tripleCount,
+                    // targetClass.tripleCount,
+                    cnt, object_cnt, data_cnt,
                     targetClass.minInverseCardinality, targetClass.maxInverseCardinality,
                     targetClass.importanceIndex,
                     p.ClassPairs ? 2 : 0,
