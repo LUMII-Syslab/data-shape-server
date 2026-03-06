@@ -470,10 +470,8 @@ const xx_getPropList3 = async (schema, params) => {
 	}
 
     const r = await util.getSchemaData(sql, params);
-console.log('!!!!!!!!!!!!!!!!!!!!!!!!', r0[0].count)
     for (var c of r.data) {
 		if ( r0[0].count == 0 ) {
-			console.log('Jāpieliek', c.object_cnt,  c.source_sum, c.object_cnt == c.source_sum )
 			if ( c.object_cnt == c.source_sum)
 				c.source_cover_complete = true;
 			if ( c.object_cnt == c.target_sum)
