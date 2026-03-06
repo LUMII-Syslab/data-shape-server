@@ -98,21 +98,31 @@ const get_KNOWN_DATA4 = async () => {
 	for ( const db_info of r) {
 		let r0 = await db.any(`SELECT COUNT(*) FROM information_schema."tables" where table_schema = '${db_info.db_schema_name}'`);
 		if ( r0[0].count > 0) {
-			let info = {display_name:db_info.display_name};
-			//let rr = await db.any(`SELECT COUNT(*) FROM ${db_info.db_schema_name}.classes`);
-			//info.class_count = rr[0].count;
-			const sql = `select count(*) count, (select count(*) from ${db_info.db_schema_name}.properties) pp, (select count(*) from ${db_info.db_schema_name}.pp_rels) pp_rels, 
-			(select count(*) from ${db_info.db_schema_name}.properties p where (select count(*) from ${db_info.db_schema_name}.cp_rels where property_id = p.id and type_id = 1 ) = 0 ) type_1,
-			(select count(*) from ${db_info.db_schema_name}.properties p where (select count(*) from ${db_info.db_schema_name}.cp_rels where property_id = p.id and type_id = 2 ) = 0 ) type_2
-from ${db_info.db_schema_name}.classes`
-			const rr = await db.any(sql);
-			if ( rr[0].pp_rels > 0 && rr[0].type_2 > 0 ) {
-				info.class_count = rr[0].count;
-				info.properties = rr[0].pp;
-				info.pp_type_1 = rr[0].type_1;
-				info.pp_type_2 = rr[0].type_2;
-				result.push(info);			
+			//let info = {display_name:db_info.display_name, schema_name:db_info.db_schema_name};
+			let info = { schema_name:db_info.db_schema_name, url:db_info.sparql_url};
+			const rr_c = await db.any(`SELECT COUNT(*) FROM ${db_info.db_schema_name}.classes`);
+			if (  rr_c[0].count < 200) {
+				const sql = `select count(*) count, (select count(*) from ${db_info.db_schema_name}.properties) pp, (select count(*) from ${db_info.db_schema_name}.pp_rels) pp_rels, 
+				(select count(*) from ${db_info.db_schema_name}.properties p where (select count(*) from ${db_info.db_schema_name}.cp_rels where property_id = p.id and type_id = 1 ) = 0 and p.object_cnt > 0 ) type_1,
+				(select count(*) from ${db_info.db_schema_name}.properties p where (select count(*) from ${db_info.db_schema_name}.cp_rels where property_id = p.id and type_id = 2 ) = 0 and p.object_cnt > 0 ) type_2,
+				(select jsonvalue from ${db_info.db_schema_name}.parameters where name = 'schema_import_datetime' ) date,
+				(select count(*) from ${db_info.db_schema_name}.properties p where p.target_cover_complete = true) cover_compl
+					from ${db_info.db_schema_name}.classes`
+
+				const rr = await db.any(sql);
+
+				if ( rr[0].pp_rels > 0 && rr[0].type_2 > 0 ) {
+					info.class_count = rr[0].count;
+					info.properties = rr[0].pp;
+					info.pp_type_1 = rr[0].type_1;
+					info.pp_type_2 = rr[0].type_2;
+					info.date = rr[0].date;
+					info.target_cover_complete = rr[0].cover_compl > 0;
+					result.push(info);			
+				}			
 			}
+			//info.class_count = rr[0].count;
+
 		}
 	}
 	//result = result.sort(function(a,b){ return b.class_count-a.class_count});
