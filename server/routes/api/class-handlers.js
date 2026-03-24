@@ -454,15 +454,21 @@ const xx_getPropList3 = async (schema, params) => {
 		sql = `select id, iri, display_name, prefix, cnt, object_cnt, data_cnt, max_cardinality, inverse_max_cardinality, domain_class_id, range_class_id,
 			(select count(*) from ${schema}.cp_rels where property_id = vpn.id and cover_set_index > 0 and type_id = 2) as type_2,
 			(select count(*) from ${schema}.cp_rels where property_id = vpn.id and cover_set_index > 0 and type_id = 1) as type_1,
-			(select count(*) from ${schema}.pp_rels where property_2_id = vpn.id and type_id = 1) as isFollower,
-			source_cover_complete, target_cover_complete
+			(select count(*) from ${schema}.pp_rels where property_2_id = vpn.id and property_1_id != vpn.id and type_id = 1) as is_follower,
+      (select count(*) from ${schema}.pp_rels where property_1_id = vpn.id and property_2_id != vpn.id and type_id = 1) as follows,
+      (select count(*) from ${schema}.pp_rels where property_1_id = vpn.id and property_2_id != vpn.id and type_id = 3) as common_objects,
+      (select count(*) from ${schema}.pp_rels where property_1_id = vpn.id and property_2_id != vpn.id and type_id = 2) as common_subjects,
+   		source_cover_complete, target_cover_complete
 			from ${schema}.v_properties_ns vpn order by cnt desc`;
 	}
 	else {
 		sql = `select id, iri, display_name, prefix, cnt, object_cnt, data_cnt, max_cardinality, inverse_max_cardinality, domain_class_id, range_class_id,
 			(select count(*) from ${schema}.cp_rels where property_id = vpn.id and cover_set_index > 0 and type_id = 2) as type_2,
 			(select count(*) from ${schema}.cp_rels where property_id = vpn.id and cover_set_index > 0 and type_id = 1) as type_1,
-			(select count(*) from ${schema}.pp_rels where property_2_id = vpn.id and type_id = 1) as isFollower,
+			(select count(*) from ${schema}.pp_rels where property_2_id = vpn.id and property_1_id != vpn.id and type_id = 1) as is_follower,
+      (select count(*) from ${schema}.pp_rels where property_1_id = vpn.id and property_2_id != vpn.id and type_id = 1) as follows,
+      (select count(*) from ${schema}.pp_rels where property_1_id = vpn.id and property_2_id != vpn.id and type_id = 3) as common_objects,
+      (select count(*) from ${schema}.pp_rels where property_1_id = vpn.id and property_2_id != vpn.id and type_id = 2) as common_subjects,
 			(select sum (cnt) from ${schema}.cp_rels where property_id = vpn.id and type_id = 2  and cover_set_index > 0) source_sum,
 			(select sum (cnt) from ${schema}.cp_rels where property_id = vpn.id and type_id = 1 and cover_set_index > 0 ) target_sum,
 			false source_cover_complete, false target_cover_complete
@@ -639,7 +645,7 @@ const xx_getCPInfo = async (schema, params) => {
 	}
 }
 const xx_getPPInfo = async (schema, params) => {
-	params.main.p_list = params.main.p_list.sort(function(a,b){ return a-b;});
+	//params.main.p_list = params.main.p_list.sort(function(a,b){ return a-b;});
 	const sql = `select * from ${schema}.pp_rels`;
 	//const sql = `select * from ${schema}.pp_rels where property_1_id in (${params.main.p_list}) and property_2_id in (${params.main.p_list})`;
 	const r = await util.getSchemaData(sql, params);
