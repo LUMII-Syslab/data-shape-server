@@ -40,6 +40,19 @@ const rememberPrefix = (id, name, value) => {
     }
 }
 
+function roundUpToSingleDigitPower(num) {
+  if (num <= 0) return 0;
+
+  // 1. Find the exponent (n)
+  const exponent = Math.floor(Math.log10(num));
+  const magnitude = Math.pow(10, exponent);
+
+  // 2. Extract and round 'd' up to the next integer
+  const d = Math.ceil(num / magnitude);
+
+  // 3. Reconstruct d * 10^n
+  return d * magnitude;
+}
 const generateAbbr = prefix => {
     const P1 = /http:\/\/www\.w3\.org\/2002\/(\d+)\/owl#/;
     let m = P1.exec(prefix);
@@ -227,6 +240,11 @@ const addClass = async c => {
     /// ?c.propertiesInSchema: true
     /// ?c.IntersectionClasses: [ "https://swapi.co/vocabulary/Character" ]
 
+    // c.distinctInstances: 95074
+    // c.blankNodeCount: 2
+    // c.incomingPropertiesOK: 5
+    // c.outgoingPropertiesOK: 5
+
     // if (CLASSES.has(c.fullName)) {
     //     return CLASSES.get(c.fullName)
     // }
@@ -238,8 +256,17 @@ const addClass = async c => {
 
     let class_id;
     try {
+        let cData;
+        if (c.incomingPropertiesOK) {
+          if (!cData) cData = {}
+          cData.incoming_properties_ok = c.incomingPropertiesOK;
+        }
+        if (c.outgoingPropertiesOK) {
+          if (!cData) cData = {}
+          cData.outgoing_properties_ok = c.outgoingPropertiesOK;
+        }
         class_id = (await db.one(`INSERT INTO ${dbSchema}.classes (iri, local_name, display_name, ns_id, cnt, props_in_schema,
-            classification_property, is_literal, datatype_id, in_cnt)
+            classification_property, is_literal, datatype_id, in_cnt, distinct_instances, blank_node_instances, data)
             VALUES ($1, $2, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
         [
             c.fullName,
@@ -251,6 +278,9 @@ const addClass = async c => {
             c.isLiteral,
             datatype_id,
             c.incomingTripleCount,
+            c.distinctInstances,
+            c.blankNodeCount,
+            cData,
         ])).id;
         CLASSES.set(c.fullName, class_id);
 
