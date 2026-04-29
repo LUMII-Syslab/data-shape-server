@@ -790,14 +790,25 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
                         await addDatatypeByShortIri(dtr.dataType);
                         let datatype_id = resolveDatatypeByShortIri(dtr.dataType);
 
-                        await db.none(`INSERT INTO ${dbSchema}.cpd_rels (cp_rel_id, datatype_id, cnt, cnt_base)
-                            VALUES ($1, $2, $3, $4)
+                        let cnt = dtr.tripleCount
+                        let cnt_base = dtr.tripleCountBase
+                        let cpdData;
+                        if (dtr.tripleCountBase) {
+                          cnt = Math.max(cnt, Math.floor(cnt / cnt_base * srcClass.dataTripleCount))
+                          if (!cpdData) cpdData = {}
+                          cpdData.triple_count_raw = dtr.tripleCount
+                          cpdData.triple_count_base = dtr.tripleCountBase
+                        }
+
+                        await db.none(`INSERT INTO ${dbSchema}.cpd_rels (cp_rel_id, datatype_id, cnt, cnt_base, data)
+                            VALUES ($1, $2, $3, $4, $5)
                             ON CONFLICT ON CONSTRAINT cpd_rels_cp_rel_id_datatype_id_key DO NOTHING`,
                         [
                             cp_rel_id,
                             datatype_id,
-                            dtr.tripleCount,
-                            dtr.tripleCountBase,
+                            cnt,
+                            cnt_base,
+                            cpdData,
                         ]);
 
                     } catch(err) {
