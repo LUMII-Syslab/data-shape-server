@@ -708,7 +708,7 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
     }
 
 
-    // p.SourceClasses[] -> cp_rels(2=outgoing)
+    // p.SourceClasses[] -> cp_rels(2=outgoing); p.SourceClasses[].DataTypes[] -> cpd_rels; p.ClassPairs -> cpc_rels
     //      classFullName: "http://dbpedia.org/class/yago/YagoLegalActorGeo" -> resolve to class_id
     //      tripleCount: 33 -> cnt
     //      tripleCountBase: 3 -> cnt_base
@@ -747,6 +747,18 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
                   srcClass.dataTripleCount
                 );
 
+                let cpData;
+
+                if (srcClass.tripleCountBase) {
+                  cnt = Math.max(srcClass.tripleCount, Math.floor(srcClass.tripleCount / srcClass.tripleCountBase * c.instanceCount));
+                  if (!cpData) cpData = {}
+                  cpData.triple_count_raw = srcClass.tripleCount
+                  cpData.triple_count_base = srcClass.tripleCountBase
+                }
+
+                let min_cardinality = srcClass.minCardinality
+                let max_cardinality = srcClass.maxCardinality
+
                 cp_rel_id = (await db.one(`INSERT INTO ${dbSchema}.cp_rels (
                     class_id, property_id, type_id,
                     cnt, object_cnt, data_cnt,
@@ -755,7 +767,7 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
                     details_level,
                     sub_cover_complete,
                     principal_class_id,
-                    cnt_base)
+                    cnt_base, data)
                 VALUES ($1, $2, $3,
                     $4, $5, $6,
                     $7, $8,
@@ -763,17 +775,18 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
                     $10,
                     $11,
                     $12,
-                    $13) RETURNING id`,
+                    $13, $14) RETURNING id`,
                 [
                     class_id, property_id, CP_REL_TYPE.OUTGOING,
                     // srcClass.tripleCount, srcClass.objectTripleCount, srcClass.dataTripleCount,
                     cnt, object_cnt, data_cnt,
-                    srcClass.minCardinality, srcClass.maxCardinality,
+                    min_cardinality, max_cardinality,
                     srcClass.importanceIndex,
                     p.ClassPairs ? 2 : 0,
                     srcClass.closedRange || false,
                     principalTargetClassId,
                     srcClass.tripleCountBase,
+                    cpData,
                 ])).id;
 
             } catch(err) {
@@ -857,7 +870,7 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
         }
     }
 
-    // p.TargetClasses[] -> cp_rels(1=incoming)
+    // p.TargetClasses[] -> cp_rels(1=incoming), p.ClassPairs -> cpc_rels
     //      classFullName: "http://www.europeana.eu/schemas/edm/WebResource" -> resolve to class_id
     //      tripleCount: 1 -> cnt
     //      tripleCountBase: 3 -> cnt_base
@@ -892,6 +905,18 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
                   undefined
                 );
 
+                let cpData;
+
+                if (targetClass.tripleCountBase) {
+                  cnt = Math.max(targetClass.tripleCount, Math.floor(targetClass.tripleCount / targetClass.tripleCountBase * c.instanceCount));
+                  if (!cpData) cpData = {}
+                  cpData.triple_count_raw = targetClass.tripleCount
+                  cpData.triple_count_base = targetClass.tripleCountBase
+                }
+
+                let min_cardinality = targetClass.minInverseCardinality
+                let max_cardinality = targetClass.maxInverseCardinality
+
                 cp_rel_id = (await db.one(`INSERT INTO ${dbSchema}.cp_rels (
                     class_id, property_id, type_id,
                     cnt, object_cnt, data_cnt,
@@ -900,7 +925,7 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
                     details_level,
                     sub_cover_complete,
                     principal_class_id,
-                    cnt_base)
+                    cnt_base, data)
                 VALUES ($1, $2, $3,
                     $4, $5, $6,
                     $7, $8,
@@ -908,18 +933,19 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
                     $10,
                     $11,
                     $12,
-                    $13)
+                    $13, $14)
                 RETURNING id`,
                 [
                     class_id, property_id, CP_REL_TYPE.INCOMING,
                     // targetClass.tripleCount,
                     cnt, object_cnt, data_cnt,
-                    targetClass.minInverseCardinality, targetClass.maxInverseCardinality,
+                    min_cardinality, max_cardinality,
                     targetClass.importanceIndex,
                     p.ClassPairs ? 2 : 0,
                     targetClass.closedDomain || false,
                     principalSourceClassId,
                     targetClass.tripleCountBase,
+                    cpData,
                 ])).id;
 
             } catch(err) {
