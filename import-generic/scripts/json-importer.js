@@ -577,18 +577,20 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
         }
 
         let has_followers_ok = false
-        let has_incoming_props_ok = false
-        let has_outgoing_props_ok = false
         if (p.hasFollowersOK) {
           if (!pData) pData = {}
           pData.has_followers_ok = p.hasFollowersOK
           has_followers_ok = true
         }
+
+        let has_incoming_props_ok = false
         if (p.hasIncomingPropertiesOK) {
           if (!pData) pData = {}
           pData.has_common_objects_ok = p.hasIncomingPropertiesOK
           has_incoming_props_ok = true
         }
+
+        let has_outgoing_props_ok = false
         if (p.hasOutgoingPropertiesOK) {
           if (!pData) pData = {}
           pData.has_common_subjects_ok = p.hasOutgoingPropertiesOK
@@ -599,6 +601,7 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
           if (!pData) pData = {}
           pData.source_classes_ok = p.sourceClassesOK
         }
+
         if (p.targetClassesOK) {
           if (!pData) pData = {}
           pData.target_classes_ok = p.targetClassesOK
@@ -612,6 +615,14 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
           pData.closed_source_is_indirect = true
         }
 
+        let target_cover_complete = p.closedRange || false
+        if (p.closedTargetAssertedSize) {
+          target_cover_complete = true
+          if (!pData) pData = {}
+          pData.closed_target_asserted_size = p.closedTargetAssertedSize
+          pData.closed_target_is_indirect = true
+        }
+
         let max_cardinality = p.maxCardinality
         if (p.maxCardinality1AssertionSize) {
           max_cardinality = 1
@@ -619,20 +630,13 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
           pData.max_cardinality_1_asserted_size = p.maxCardinality1AssertionSize
           pData.max_cardinality_1_is_indirect = true
         }
+
         let inverse_max_cardinality = p.maxInverseCardinality
         if (p.maxInverseCardinality1AssertionSize) {
           inverse_max_cardinality = 1
           if (!pData) pData = {}
           pData.inverse_max_cardinality_1_asserted_size = p.maxInverseCardinality1AssertionSize
           pData.inverse_max_cardinality_1_is_indirect = true
-        }
-
-        let target_cover_complete = p.closedRange || false
-        if (p.closedTargetAssertedSize) {
-          target_cover_complete = true
-          if (!pData) pData = {}
-          pData.closed_target_asserted_size = p.closedTargetAssertedSize
-          pData.closed_target_is_indirect = true
         }
 
         property_id = (await db.one(`INSERT INTO ${dbSchema}.properties
@@ -955,7 +959,7 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
         }
     }
 
-    // p.DataTypes[]
+    // p.DataTypes[] -> pd_rels
     //      dataType: "xsd:string"
     //      tripleCount: 1013999
     //      tripleCountBase: 2
@@ -964,14 +968,25 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
             try {
                 await addDatatypeByShortIri(dtr.dataType)
                 let datatype_id = resolveDatatypeByShortIri(dtr.dataType)
+
+                let cnt = dtr.tripleCount
+                let cnt_base = dtr.tripleCountBase
+                let pdData;
+                if (dtr.tripleCountBase) {
+                  cnt = Math.max(cnt, Math.floor(cnt / cnt_base * p.dataTripleCount))
+                  if (!pdData) pdData = {}
+                  pdData.triple_count_raw = dtr.tripleCount
+                  pdData.triple_count_base = dtr.tripleCountBase
+                }
+
                 await db.none(`INSERT INTO ${dbSchema}.pd_rels (property_id, datatype_id, cnt, cnt_base)
                     VALUES ($1, $2, $3, $4)
                     ON CONFLICT ON CONSTRAINT pd_rels_property_id_datatype_id_key DO NOTHING`,
                 [
                     property_id,
                     datatype_id,
-                    dtr.tripleCount,
-                    dtr.tripleCountBase,
+                    cnt,
+                    cnt_base,
                 ]);
             } catch (err) {
                 console.error(err);
