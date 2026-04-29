@@ -265,9 +265,15 @@ const addClass = async c => {
           if (!cData) cData = {}
           cData.outgoing_properties_ok = c.outgoingPropertiesOK;
         }
-        class_id = (await db.one(`INSERT INTO ${dbSchema}.classes (iri, local_name, display_name, ns_id, cnt, props_in_schema,
-            classification_property, is_literal, datatype_id, in_cnt, distinct_instances, blank_node_instances, data)
-            VALUES ($1, $2, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+        class_id = (await db.one(`INSERT INTO ${dbSchema}.classes (
+          iri, local_name, display_name, ns_id, cnt,
+            props_in_schema, classification_property, is_literal, datatype_id, in_cnt,
+            distinct_instances, blank_node_instances, data
+            ) VALUES (
+              $1, $2, $2, $3, $4,
+              $5, $6, $7, $8, $9,
+              $10, $11, $12
+            ) RETURNING id`,
         [
             c.fullName,
             c.localName,
