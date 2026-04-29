@@ -998,90 +998,147 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
 }
 
 const addPropertyPairs = async p => {
-    // Followers[],
-    //  ...
-    // IncomingProperties[],
-    //  ...
-    // OutgoingProperties[]
-    //  ...
+  // Followers[],
+  //  ...
+  // IncomingProperties[],
+  //  ...
+  // OutgoingProperties[]
+  //  ...
 
-    // p.Followers[]
-    //  propertyName: "http://dbpedia.org/property/date",
-    //  tripleCount: 0
-    //  tripleCountBase": 3
+  // p.Followers[]
+  //  propertyName: "http://dbpedia.org/property/date",
+  //  tripleCount: 0
+  //  tripleCountBase": 3
 
-    const this_prop_id = getPropertyId(p.fullName);
+  const this_prop_id = getPropertyId(p.fullName);
 
-    if (p.Followers) {
-        for (let pair of p.Followers) {
-            if (pair.tripleCount === 0) continue;
-            let other_prop_id = getPropertyId(pair.propertyName)
-            if (other_prop_id) {
-                try {
-                    await db.none(`INSERT INTO ${dbSchema}.pp_rels (property_1_id, property_2_id, type_id, cnt, cnt_base)
-                        VALUES ($1, $2, 1, $3, $4)`,
-                    [
-                        this_prop_id,
-                        other_prop_id,
-                        pair.tripleCount,
-                        pair.tripleCountBase,
-                    ]);
-                } catch(err) {
-                    console.error(err);
-                }
-            }
+  if (p.Followers) {
+    for (let pair of p.Followers) {
+      if (pair.tripleCount === 0) continue;
+      let other_prop_id = getPropertyId(pair.propertyName)
+      if (other_prop_id) {
+        let cnt = pair.tripleCount
+        let cnt_base = pair.tripleCountBase
+        let ppData
+        if (cnt && cnt_base) {
+          if (!ppData) ppData = {}
+          ppData.triple_count_raw = cnt
+          ppData.triple_count_base = cnt_base
+          cnt = Math.max(cnt, Math.floor(cnt / cnt_base * p.tripleCount))
+        } else if(cnt_base && !cnt) {
+          cnt = Math.floor(Math.pow(p.tripleCount / cnt_base * Math.log(2), 1/3))
+        } else if (!cnt && !cnt_base) {
+          // TODO: šim vajag second pass
         }
-    }
-
-    // propertyName: "http://dbpedia.org/ontology/deathPlace",
-    // tripleCount: 3,
-    // tripleCountBase: 3
-
-    if (p.IncomingProperties) {
-        for (let pair of p.IncomingProperties) {
-            if (pair.tripleCount === 0) continue;
-            let other_prop_id = getPropertyId(pair.propertyName)
-            if (other_prop_id) {
-                try {
-                    await db.none(`INSERT INTO ${dbSchema}.pp_rels (property_1_id, property_2_id, type_id, cnt, cnt_base)
-                        VALUES ($1, $2, 3, $3, $4)`,
-                    [
-                        this_prop_id,
-                        other_prop_id,
-                        pair.tripleCount,
-                        pair.tripleCountBase,
-                    ]);
-                } catch(err) {
-                    console.error(err);
-                }
-            }
+        if (!cnt) {
+          cnt = 10
+          if (!ppData) ppData = {}
+          ppData.is_assumed = true
         }
-    }
-
-    //  propertyName: "http://www.w3.org/ns/dcat#theme",
-    //  tripleCount: 4,
-    //  tripleCountBase: 2
-
-    if (p.OutgoingProperties) {
-        for (let pair of p.OutgoingProperties) {
-            if (pair.tripleCount === 0) continue;
-            let other_prop_id = getPropertyId(pair.propertyName)
-            if (other_prop_id) {
-                try {
-                    await db.none(`INSERT INTO ${dbSchema}.pp_rels (property_1_id, property_2_id, type_id, cnt, cnt_base)
-                        VALUES ($1, $2, 2, $3, $4)`,
-                    [
-                        this_prop_id,
-                        other_prop_id,
-                        pair.tripleCount,
-                        pair.tripleCountBase,
-                    ]);
-                } catch(err) {
-                    console.error(err);
-                }
-            }
+        try {
+          await db.none(`INSERT INTO ${dbSchema}.pp_rels (property_1_id, property_2_id, type_id, cnt, cnt_base, data)
+                        VALUES ($1, $2, 1, $3, $4, $5)`,
+            [
+              this_prop_id,
+              other_prop_id,
+              cnt,
+              cnt_base,
+              ppData,
+            ]);
+        } catch (err) {
+          console.error(err);
         }
+      }
     }
+  }
+
+  // propertyName: "http://dbpedia.org/ontology/deathPlace",
+  // tripleCount: 3,
+  // tripleCountBase: 3
+
+  if (p.IncomingProperties) {
+    for (let pair of p.IncomingProperties) {
+      if (pair.tripleCount === 0) continue;
+      let other_prop_id = getPropertyId(pair.propertyName)
+      if (other_prop_id) {
+        let cnt = pair.tripleCount
+        let cnt_base = pair.tripleCountBase
+        let ppData
+        if (cnt && cnt_base) {
+          if (!ppData) ppData = {}
+          ppData.triple_count_raw = cnt
+          ppData.triple_count_base = cnt_base
+          cnt = Math.max(cnt, Math.floor(cnt / cnt_base * p.objectTripleCount))
+        } else if(cnt_base && !cnt) {
+          cnt = Math.floor(Math.pow(p.objectTripleCount / cnt_base * Math.log(2), 1/3))
+        } else if (!cnt && !cnt_base) {
+          // TODO: šim vajag second pass
+        }
+        if (!cnt) {
+          cnt = 10
+          if (!ppData) ppData = {}
+          ppData.is_assumed = true
+        }
+        try {
+          await db.none(`INSERT INTO ${dbSchema}.pp_rels (property_1_id, property_2_id, type_id, cnt, cnt_base, data)
+                        VALUES ($1, $2, 3, $3, $4, $5)`,
+            [
+              this_prop_id,
+              other_prop_id,
+              cnt,
+              cnt_base,
+              ppData,
+            ]);
+        } catch (err) {
+          console.error(err);
+        }
+      }
+    }
+  }
+
+  //  propertyName: "http://www.w3.org/ns/dcat#theme",
+  //  tripleCount: 4,
+  //  tripleCountBase: 2
+
+  if (p.OutgoingProperties) {
+    for (let pair of p.OutgoingProperties) {
+      if (pair.tripleCount === 0) continue;
+      let other_prop_id = getPropertyId(pair.propertyName)
+      if (other_prop_id) {
+        let cnt = pair.tripleCount
+        let cnt_base = pair.tripleCountBase
+        let ppData
+        if (cnt && cnt_base) {
+          if (!ppData) ppData = {}
+          ppData.triple_count_raw = cnt
+          ppData.triple_count_base = cnt_base
+          cnt = Math.max(cnt, Math.floor(cnt / cnt_base * p.tripleCount))
+        } else if(cnt_base && !cnt) {
+          cnt = Math.floor(Math.pow(p.tripleCount / cnt_base * Math.log(2), 1/3))
+        } else if (!cnt && !cnt_base) {
+          // TODO: šim vajag second pass
+        }
+        if (!cnt) {
+          cnt = 10
+          if (!ppData) ppData = {}
+          ppData.is_assumed = true
+        }
+        try {
+          await db.none(`INSERT INTO ${dbSchema}.pp_rels (property_1_id, property_2_id, type_id, cnt, cnt_base, data)
+                        VALUES ($1, $2, 2, $3, $4, $5)`,
+            [
+              this_prop_id,
+              other_prop_id,
+              cnt,
+              cnt_base,
+              ppData,
+            ]);
+        } catch (err) {
+          console.error(err);
+        }
+      }
+    }
+  }
 
 }
 
