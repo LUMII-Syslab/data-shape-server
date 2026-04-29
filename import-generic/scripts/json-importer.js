@@ -461,28 +461,44 @@ const getClassId = iri => {
  * @param {*} data_cnt data triple count obtained
  * @returns fixed counts as { cnt, object_cnt, data_cnt }
  */
-function fix_cnt_values(cnt, object_cnt, data_cnt) {
-  if (cnt) {
-    if (object_cnt && object_cnt > cnt) {
-      object_cnt = cnt
-    }
-    if (data_cnt && data_cnt > cnt) {
-      data_cnt = cnt
-    }
-    if (!object_cnt && !data_cnt) {
-      object_cnt = cnt;
-      data_cnt = 0;
-    } else if (object_cnt) {
-      data_cnt = cnt - object_cnt;
-    } else if (data_cnt) {
-      object_cnt = cnt - data_cnt;
-    }
+function fix_cnt_values(p_cnt, p_object_cnt, p_data_cnt, maxTripleCountRounded) {
+  let cnt = p_cnt;
+  let object_cnt = p_object_cnt;
+  let data_cnt = p_data_cnt;
+  let pData;
+
+  if (!cnt && maxTripleCountRounded) {
+    cnt = maxTripleCountRounded;
+    pData = { triple_count_inserted: true }
   }
-  return { cnt, object_cnt, data_cnt }
+
+  if (object_cnt && object_cnt > cnt) {
+    if (!pData) pData = {}
+    pData.object_cnt_orig = object_cnt
+    object_cnt = cnt
+  }
+  if (data_cnt && data_cnt > cnt) {
+    if (!pData) pData = {}
+    pData.data_cnt_orig = data_cnt
+    data_cnt = cnt
+  }
+
+  if (!object_cnt && !data_cnt) {
+    if (!pData) pData = {}
+    pData.object_cnt_assumed = true
+    object_cnt = cnt;
+    data_cnt = 0;
+  } else if (object_cnt) {
+    data_cnt = cnt - object_cnt;
+  } else if (data_cnt) {
+    object_cnt = cnt - data_cnt;
+  }
+
+  return { cnt, object_cnt, data_cnt, pData }
 }
 
 const PROPS = new Map(); // iri -> property_id
-const addProperty = async p => {
+const addProperty = async (p, { maxTripleCountRounded }) => {
     // ?localName: "julPrecipitationDays"
     // ?namespace: "http://dbpedia.org/property/"
     // fullName: "http://dbpedia.org/property/julPrecipitationDays"
@@ -493,6 +509,11 @@ const addProperty = async p => {
     // objectTripleCount: 0 -> object_cnt
     // closedDomain: true
     // closedRange: true
+
+    // hasFollowersOK: 5
+    // hasIncomingPropertiesOK: 5
+    // hasOutgoingPropertiesOK: 5
+
     // SourceClasses[]:
     //   ...
     // TargetClasses[]:
@@ -502,48 +523,140 @@ const addProperty = async p => {
 
     let ns_id = await resolveNsPrefix(p.namespace);
 
-    let domain_class_id = null;
-    if (p.closedDomain && p.SourceClasses) {
-        const candidates = p.SourceClasses.filter(x => x.importanceIndex > 0);
-        if (candidates.length === 1) {
-            domain_class_id = getClassId(candidates[0].classFullName);
-        }
-    }
-    let range_class_id = null;
-    if (p.closedRange && p.dataTripleCount === 0 && p.TargetClasses) {
-        const candidates = p.TargetClasses.filter(x => x.importanceIndex > 0);
-        if (candidates.length === 1) {
-            range_class_id = getClassId(candidates[0].classFullName);
-        }
-    }
-
     let property_id;
+
     try {
-        let { cnt, object_cnt, data_cnt } = fix_cnt_values(
+        let { cnt, object_cnt, data_cnt, pData } = fix_cnt_values(
           p.tripleCount,
           p.objectTripleCount,
-          p.dataTripleCount
+          p.dataTripleCount,
+          maxTripleCountRounded,
         );
+
+        let domain_class_id = null;
+        // if (p.closedDomain && p.SourceClasses) {
+        //     const candidates = p.SourceClasses.filter(x => x.importanceIndex > 0);
+        //     if (candidates.length === 1) {
+        //         domain_class_id = getClassId(candidates[0].classFullName);
+        //     }
+        // }
+        if (p.SourceClasses) { //MMM vai te nevajag veco nosacījumu?
+            const candidates = p.SourceClasses.filter(x => x.isPrincipal === true);
+            if (candidates.length === 1) {
+                domain_class_id = getClassId(candidates[0].classFullName);
+                if (candidates[0].principalAssertedSize) {
+                  if (!pData) pData = {}
+                  pData.domain_asserted_size = candidates[0].principalAssertedSize
+                  pData.domain_is_indirect = true
+                }
+            }
+        }
+        let range_class_id = null;
+        // if (p.closedRange && p.dataTripleCount === 0 && p.TargetClasses) {
+        //     const candidates = p.TargetClasses.filter(x => x.importanceIndex > 0);
+        //     if (candidates.length === 1) {
+        //         range_class_id = getClassId(candidates[0].classFullName);
+        //     }
+        // }
+        if (p.TargetClasses) { //MMM vai te nevajag veco nosacījumu?
+            const candidates = p.TargetClasses.filter(x => x.isPrincipal === true);
+            if (candidates.length === 1) {
+                range_class_id = getClassId(candidates[0].classFullName);
+                if (candidates[0].principalAssertedSize) {
+                  if (!pData) pData = {}
+                  pData.range_asserted_size = candidates[0].principalAssertedSize
+                  pData.range_is_indirect = true
+                }
+            }
+        }
+
+        let has_followers_ok = false
+        let has_incoming_props_ok = false
+        let has_outgoing_props_ok = false
+        if (p.hasFollowersOK) {
+          if (!pData) pData = {}
+          pData.has_followers_ok = p.hasFollowersOK
+          has_followers_ok = true
+        }
+        if (p.hasIncomingPropertiesOK) {
+          if (!pData) pData = {}
+          pData.has_common_objects_ok = p.hasIncomingPropertiesOK
+          has_incoming_props_ok = true
+        }
+        if (p.hasOutgoingPropertiesOK) {
+          if (!pData) pData = {}
+          pData.has_common_subjects_ok = p.hasOutgoingPropertiesOK
+          has_outgoing_props_ok = true
+        }
+
+        if (p.sourceClassesOK) {
+          if (!pData) pData = {}
+          pData.source_classes_ok = p.sourceClassesOK
+        }
+        if (p.targetClassesOK) {
+          if (!pData) pData = {}
+          pData.target_classes_ok = p.targetClassesOK
+        }
+
+        let source_cover_complete = p.closedDomain || false
+        if (p.closedSourceAssertedSize) {
+          source_cover_complete = true
+          if (!pData) pData = {}
+          pData.closed_source_asserted_size = p.closedSourceAssertedSize
+          pData.closed_source_is_indirect = true
+        }
+
+        let max_cardinality = p.maxCardinality
+        if (p.maxCardinality1AssertionSize) {
+          max_cardinality = 1
+          if (!pData) pData = {}
+          pData.max_cardinality_1_asserted_size = p.maxCardinality1AssertionSize
+          pData.max_cardinality_1_is_indirect = true
+        }
+        let inverse_max_cardinality = p.maxInverseCardinality
+        if (p.maxInverseCardinality1AssertionSize) {
+          inverse_max_cardinality = 1
+          if (!pData) pData = {}
+          pData.inverse_max_cardinality_1_asserted_size = p.maxInverseCardinality1AssertionSize
+          pData.inverse_max_cardinality_1_is_indirect = true
+        }
+
+        let target_cover_complete = p.closedRange || false
+        if (p.closedTargetAssertedSize) {
+          target_cover_complete = true
+          if (!pData) pData = {}
+          pData.closed_target_asserted_size = p.closedTargetAssertedSize
+          pData.closed_target_is_indirect = true
+        }
 
         property_id = (await db.one(`INSERT INTO ${dbSchema}.properties
             (iri, ns_id, local_name, display_name,
                 cnt, object_cnt, data_cnt,
                 max_cardinality, inverse_max_cardinality,
                 source_cover_complete, target_cover_complete,
-                domain_class_id, range_class_id)
+                domain_class_id, range_class_id,
+                data,
+                has_followers_ok, has_outgoing_props_ok, has_incoming_props_ok,
+                distinct_subjects, distinct_objects, distinct_triples, blank_node_subjects, blank_node_objects)
             VALUES ($1, $2, $3, $3,
                 $4, $5, $6,
                 $7, $8,
                 $9, $10,
-                $11, $12)
+                $11, $12,
+                $13,
+                $14, $15, $16,
+                $17, $18, $19, $20, $21)
             RETURNING id`,
         [
             p.fullName, ns_id, p.localName,
             // p.tripleCount, p.objectTripleCount, p.dataTripleCount,
             cnt, object_cnt, data_cnt,
-            p.maxCardinality, p.maxInverseCardinality,
-            p.closedDomain || false, p.closedRange || false,
+            max_cardinality, inverse_max_cardinality,
+            source_cover_complete, target_cover_complete,
             domain_class_id, range_class_id,
+            pData,
+            has_followers_ok, has_outgoing_props_ok, has_incoming_props_ok,
+            p.distinctSubjectsCount, p.distinctObjectsCount, p.distinctTriples, p.blankNodeSubjects, p.blankNodeObjects,
         ])).id;
         PROPS.set(p.fullName, property_id);
 
@@ -1334,8 +1447,17 @@ const importFromJSON = async data => {
     // properties
     if (data.Properties) {
         let propsBar = new ProgressBar(`[:bar] ( :current props of :total, :percent)`, { total: data.Properties.length, width: 100, incomplete: '.' });
+
+        // calculate max of tripleCount
+        let maxTripleCount = 0
         for (const p of data.Properties) {
-            await addProperty(p);
+          if (p.tripleCount) maxTripleCount = Math.max(maxTripleCount, p.tripleCount)
+        }
+        const maxTripleCountRounded = roundUpToSingleDigitPower(maxTripleCount)
+        // end calculate max of tripleCount
+
+        for (const p of data.Properties) {
+            await addProperty(p, { maxTripleCountRounded });
             await addPropertyLabels(p);
             propsBar.tick();
         }
