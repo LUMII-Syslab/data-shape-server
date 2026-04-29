@@ -138,7 +138,7 @@ const get_KNOWN_DATA_OntTags = async () => {
 
 
 const getAllSchemaTags = async () => {
-    const r = await db.any(`SELECT * FROM public.schemata_tags where is_active order by display_name`);
+    const r = await db.any(`SELECT *, coalesce(description, display_name, '') title  FROM public.schemata_tags where is_active order by display_name`);
     return r;
 }
 
