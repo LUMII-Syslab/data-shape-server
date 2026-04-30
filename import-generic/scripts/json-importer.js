@@ -791,9 +791,20 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
         }
 
         let min_cardinality = srcClass.minCardinality
+        if (srcClass.minCardinality1AssertionSize) {
+          min_cardinality = 1
+          if (!cpData) cpData = {}
+          cpData.min_cardinality_1_asserted_size = srcClass.minCardinality1AssertionSize
+          cpData.min_cardinality_1_is_indirect = true
+        }
+
         let max_cardinality = srcClass.maxCardinality
-
-
+        if (srcClass.maxCardinality1AssertionSize) {
+          max_cardinality = 1
+          if (!cpData) cpData = {}
+          cpData.max_cardinality_1_asserted_size = srcClass.maxCardinality1AssertionSize
+          cpData.max_cardinality_1_is_indirect = true
+        }
 
         cp_rel_id = (await db.one(`INSERT INTO ${dbSchema}.cp_rels (
                     class_id, property_id, type_id,
@@ -984,7 +995,20 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
         }
 
         let min_cardinality = targetClass.minInverseCardinality
+        if (targetClass.minInverseCardinality1AssertionSize) {
+          min_cardinality = 1
+          if (!cpData) cpData = {}
+          cpData.inverse_min_cardinality_1_asserted_size = targetClass.minInverseCardinality1AssertionSize
+          cpData.inverse_min_cardinality_1_is_indirect = true
+        }
+
         let max_cardinality = targetClass.maxInverseCardinality
+        if (targetClass.maxInverseCardinality1AssertionSize) {
+          max_cardinality = 1
+          if (!cpData) cpData = {}
+          cpData.inverse_max_cardinality_1_asserted_size = targetClass.maxInverseCardinality1AssertionSize
+          cpData.inverse_max_cardinality_1_is_indirect = true
+        }
 
         cp_rel_id = (await db.one(`INSERT INTO ${dbSchema}.cp_rels (
                     class_id, property_id, type_id,
@@ -1258,7 +1282,7 @@ const addPropertyPairs = async p => {
 
 }
 
-const addCountsFromReverse = async p => {
+const addCountsFromReversePP = async p => {
   const this_prop_id = getPropertyId(p.fullName);
 
   for (let [pairs, type_id] of [[p.IncomingProperties, 3], [p.OutgoingProperties, 2]]) {
@@ -1704,7 +1728,7 @@ const importFromJSON = async data => {
     // 3rd pass - adding pp_rels counts from reverse, if needed
     let propsReverse = new ProgressBar(`props pass 3 [:bar] ( :current prop pairs of :total, :percent)`, { total: data.Properties.length, width: 100, incomplete: '.' });
     for (const p of data.Properties) {
-      await addCountsFromReverse(p);
+      await addCountsFromReversePP(p);
       propsReverse.tick();
     }
   }
