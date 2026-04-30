@@ -766,7 +766,8 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
           jauns2 = true
         }
         if (!jauns1 && !jauns2) {
-          cnt = Math.max(Math.floor(srcClass.tripleCount / srcClass.tripleCountBase * c.instanceCount), srcClass.tripleCount)
+          let c = await db.one(`select cnt from ${dbSchema}.classes where id = $1`, [ class_id ])
+          cnt = Math.max(Math.floor(srcClass.tripleCount / srcClass.tripleCountBase * Number.parseInt(c.cnt)), srcClass.tripleCount)
         }
         if (srcClass.tripleCountBase) {
           if (!cpData) cpData = {}
@@ -971,7 +972,8 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
           jauns2 = true
         }
         if (!jauns1 && !jauns2) {
-          cnt = Math.max(Math.floor(targetClass.tripleCount / targetClass.tripleCountBase * c.instanceCount), targetClass.tripleCount)
+          let c = await db.one(`select cnt from ${dbSchema}.classes where id = $1`, [ class_id ])
+          cnt = Math.max(Math.floor(targetClass.tripleCount / targetClass.tripleCountBase * Number.parseInt(c.cnt)), targetClass.tripleCount)
         }
         if (targetClass.tripleCountBase) {
           if (!cpData) cpData = {}
