@@ -1134,14 +1134,15 @@ const addPropertyPairs = async p => {
         } else if(cnt_base && !cnt) {
           cnt = Math.floor(Math.pow(p.tripleCount / cnt_base * Math.log(2), 1/3))
         } else if (!cnt && !cnt_base) {
-          // šim vajag second (i.e., third) pass
-          pair.needsCountsFromReverse = true
+          // NOP
         }
+
         if (!cnt) {
           cnt = 10
           if (!ppData) ppData = {}
           ppData.is_assumed = true
         }
+
         try {
           await db.none(`INSERT INTO ${dbSchema}.pp_rels (property_1_id, property_2_id, type_id, cnt, cnt_base, data)
                         VALUES ($1, $2, 1, $3, $4, $5)`,
@@ -1181,12 +1182,15 @@ const addPropertyPairs = async p => {
         } else if (!cnt && !cnt_base) {
           // šim vajag second (i.e., third) pass
           pair.needsCountsFromReverse = true
+          continue
         }
+
         if (!cnt) {
           cnt = 10
           if (!ppData) ppData = {}
           ppData.is_assumed = true
         }
+
         try {
           await db.none(`INSERT INTO ${dbSchema}.pp_rels (property_1_id, property_2_id, type_id, cnt, cnt_base, data)
                         VALUES ($1, $2, 3, $3, $4, $5)`,
@@ -1226,12 +1230,15 @@ const addPropertyPairs = async p => {
         } else if (!cnt && !cnt_base) {
           // šim vajag second (i.e., third) pass
           pair.needsCountsFromReverse = true
+          continue
         }
+
         if (!cnt) {
           cnt = 10
           if (!ppData) ppData = {}
           ppData.is_assumed = true
         }
+
         try {
           await db.none(`INSERT INTO ${dbSchema}.pp_rels (property_1_id, property_2_id, type_id, cnt, cnt_base, data)
                         VALUES ($1, $2, 2, $3, $4, $5)`,
@@ -1254,7 +1261,7 @@ const addPropertyPairs = async p => {
 const addCountsFromReverse = async p => {
   const this_prop_id = getPropertyId(p.fullName);
 
-  for (let [ pairs, type_id ] of [ [ p.Followers, 1 ], [ p.IncomingProperties, 3 ], [ p.OutgoingProperties, 2 ] ]) {
+  for (let [ pairs, type_id ] of [ [ p.IncomingProperties, 3 ], [ p.OutgoingProperties, 2 ] ]) {
     if (pairs) {
       for (let pair of pairs) {
         if (!pair.needsCountsFromReverse) continue
@@ -1269,14 +1276,19 @@ const addCountsFromReverse = async p => {
 
             let { cnt, cnt_base, data } = pairFromDb
             let data2 = Object.assign({}, data, { is_reverse_count: true })
+            if (!cnt) {
+              cnt = 10
+              data2.is_assumed = true
+            }
 
-            await db.none(`update ${dbSchema}.pp_rels set cnt = $1, cnt_base = $2, data = $3 where property_1_id = $4 and property_2_id = $5 and type_id = $6`, [
-              cnt,
-              cnt_base,
-              data2,
+            await db.none(`insert into ${dbSchema}.pp_rels (property_1_id, property_2_id, type_id, cnt, cnt_base, data)
+                        VALUES ($1, $2, 2, $3, $4, $5, $6)`, [
               this_prop_id,
               other_prop_id,
               type_id,
+              cnt,
+              cnt_base,
+              data2,
             ])
           } catch (err) {
             console.error(err);
