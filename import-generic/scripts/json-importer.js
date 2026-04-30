@@ -724,6 +724,7 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
     let property_domain_class_id;
     if (p.SourceClasses) {
         for (const srcClass of p.SourceClasses) {
+            let cpData;
             const class_id = getClassId(srcClass.classFullName);
             if (srcClass.isPrincipal) {
                 property_domain_class_id = class_id;
@@ -735,6 +736,11 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
                     if (pair.SourceClass !== srcClass.classFullName) continue;
                     if (pair.isPrincipalTarget) {
                         principalTargetClassId = getClassId(pair.TargetClass);
+                        if (pair.targetPrincipalAssertedSize) {
+                          if (!cpData) cpData = {}
+                          cpData.principal_asserted_size = pair.targetPrincipalAssertedSize
+                          cpData.principal_is_indirect = true
+                        }
                     }
                 }
             }
@@ -747,17 +753,47 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
                   srcClass.dataTripleCount
                 );
 
-                let cpData;
-
+                let jauns1 = false
+                let jauns2 = false
                 if (srcClass.tripleCountBase) {
-                  cnt = Math.max(srcClass.tripleCount, Math.floor(srcClass.tripleCount / srcClass.tripleCountBase * c.instanceCount));
+                  if (srcClass.objectTripleCount && srcClass.dataTripleCount) {
+                    cnt = srcClass.objectTripleCount + srcClass.dataTripleCount
+                    jauns1 = true
+                  }
+                }
+                if (!srcClass.tripleCount && !jauns1 && srcClass.tripleCountBase) {
+                  cnt = Math.floor(Math.pow(c.instanceCount / srcClass.tripleCountBase * Math.log(2), 1/3))
+                  jauns2 = true
+                }
+                if (!jauns1 && !jauns2) {
+                  cnt = Math.max(Math.floor(srcClass.tripleCount / srcClass.tripleCountBase * c.instanceCount), srcClass.tripleCount)
+                }
+                if (srcClass.tripleCountBase) {
                   if (!cpData) cpData = {}
                   cpData.triple_count_raw = srcClass.tripleCount
                   cpData.triple_count_base = srcClass.tripleCountBase
                 }
 
+
+                // if (srcClass.tripleCountBase) {
+                //   cnt = Math.max(srcClass.tripleCount, Math.floor(srcClass.tripleCount / srcClass.tripleCountBase * c.instanceCount));
+                //   if (!cpData) cpData = {}
+                //   cpData.triple_count_raw = srcClass.tripleCount
+                //   cpData.triple_count_base = srcClass.tripleCountBase
+                // }
+
+                let sub_cover_complete = srcClass.closedRange || false
+                if (srcClass.closedTargetAssertedSize) {
+                  sub_cover_complete = true
+                  if (!cpData) cpData = {}
+                  cpData.closed_target_asserted_size = srcClass.closedTargetAssertedSize
+                  cpData.closed_target_is_indirect = true
+                }
+
                 let min_cardinality = srcClass.minCardinality
                 let max_cardinality = srcClass.maxCardinality
+
+
 
                 cp_rel_id = (await db.one(`INSERT INTO ${dbSchema}.cp_rels (
                     class_id, property_id, type_id,
@@ -783,7 +819,7 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
                     min_cardinality, max_cardinality,
                     srcClass.importanceIndex,
                     p.ClassPairs ? 2 : 0,
-                    srcClass.closedRange || false,
+                    sub_cover_complete,
                     principalTargetClassId,
                     srcClass.tripleCountBase,
                     cpData,
@@ -882,6 +918,7 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
     let property_range_class_id;
     if (p.TargetClasses) {
         for (const targetClass of p.TargetClasses) {
+            let cpData;
             const class_id = getClassId(targetClass.classFullName);
             if (targetClass.isPrincipal) {
                 property_range_class_id = class_id;
@@ -893,6 +930,11 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
                     if (pair.TargetClass !== targetClass.classFullName) continue;
                     if (pair.isPrincipalSource) {
                         principalSourceClassId = getClassId(pair.SourceClass);
+                        if (pair.sourcePrincipalAssertedSize) {
+                          if (!cpData) cpData = {}
+                          cpData.principal_asserted_size = pair.sourcePrincipalAssertedSize
+                          cpData.principal_is_indirect = true
+                        }
                     }
                 }
             }
@@ -905,13 +947,40 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
                   undefined
                 );
 
-                let cpData;
-
+                let jauns1 = false
+                let jauns2 = false
                 if (targetClass.tripleCountBase) {
-                  cnt = Math.max(targetClass.tripleCount, Math.floor(targetClass.tripleCount / targetClass.tripleCountBase * c.instanceCount));
+                  if (targetClass.objectTripleCount && targetClass.dataTripleCount) {
+                    cnt = targetClass.objectTripleCount + targetClass.dataTripleCount
+                    jauns1 = true
+                  }
+                }
+                if (!targetClass.tripleCount && !jauns1 && targetClass.tripleCountBase) {
+                  cnt = Math.floor(Math.pow(c.instanceCount / targetClass.tripleCountBase * Math.log(2), 1/3))
+                  jauns2 = true
+                }
+                if (!jauns1 && !jauns2) {
+                  cnt = Math.max(Math.floor(targetClass.tripleCount / targetClass.tripleCountBase * c.instanceCount), targetClass.tripleCount)
+                }
+                if (targetClass.tripleCountBase) {
                   if (!cpData) cpData = {}
                   cpData.triple_count_raw = targetClass.tripleCount
                   cpData.triple_count_base = targetClass.tripleCountBase
+                }
+
+                // if (targetClass.tripleCountBase) {
+                //   cnt = Math.max(targetClass.tripleCount, Math.floor(targetClass.tripleCount / targetClass.tripleCountBase * c.instanceCount));
+                //   if (!cpData) cpData = {}
+                //   cpData.triple_count_raw = targetClass.tripleCount
+                //   cpData.triple_count_base = targetClass.tripleCountBase
+                // }
+
+                let sub_cover_complete = targetClass.closedDomain || false
+                if (targetClass.closedSourceAssertedSize) {
+                  sub_cover_complete = true
+                  if (!cpData) cpData = {}
+                  cpData.closed_source_asserted_size = targetClass.closedSourceAssertedSize
+                  cpData.closed_source_is_indirect = true
                 }
 
                 let min_cardinality = targetClass.minInverseCardinality
@@ -942,7 +1011,7 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
                     min_cardinality, max_cardinality,
                     targetClass.importanceIndex,
                     p.ClassPairs ? 2 : 0,
-                    targetClass.closedDomain || false,
+                    sub_cover_complete,
                     principalSourceClassId,
                     targetClass.tripleCountBase,
                     cpData,
