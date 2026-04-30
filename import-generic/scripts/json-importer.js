@@ -1134,7 +1134,8 @@ const addPropertyPairs = async p => {
         } else if(cnt_base && !cnt) {
           cnt = Math.floor(Math.pow(p.tripleCount / cnt_base * Math.log(2), 1/3))
         } else if (!cnt && !cnt_base) {
-          // TODO: šim vajag second pass
+          // šim vajag second (i.e., third) pass
+          pair.needsCountsFromReverse = true
         }
         if (!cnt) {
           cnt = 10
@@ -1178,7 +1179,8 @@ const addPropertyPairs = async p => {
         } else if(cnt_base && !cnt) {
           cnt = Math.floor(Math.pow(p.objectTripleCount / cnt_base * Math.log(2), 1/3))
         } else if (!cnt && !cnt_base) {
-          // TODO: šim vajag second pass
+          // šim vajag second (i.e., third) pass
+          pair.needsCountsFromReverse = true
         }
         if (!cnt) {
           cnt = 10
@@ -1222,7 +1224,8 @@ const addPropertyPairs = async p => {
         } else if(cnt_base && !cnt) {
           cnt = Math.floor(Math.pow(p.tripleCount / cnt_base * Math.log(2), 1/3))
         } else if (!cnt && !cnt_base) {
-          // TODO: šim vajag second pass
+          // šim vajag second (i.e., third) pass
+          pair.needsCountsFromReverse = true
         }
         if (!cnt) {
           cnt = 10
@@ -1246,6 +1249,42 @@ const addPropertyPairs = async p => {
     }
   }
 
+}
+
+const addCountsFromReverse = async p => {
+  const this_prop_id = getPropertyId(p.fullName);
+
+  for (let [ pairs, type_id ] of [ [ p.Followers, 1 ], [ p.IncomingProperties, 3 ], [ p.OutgoingProperties, 2 ] ]) {
+    if (pairs) {
+      for (let pair of pairs) {
+        if (!pair.needsCountsFromReverse) continue
+        let other_prop_id = getPropertyId(pair.propertyName)
+        if (other_prop_id) {
+          try {
+            let pairFromDb = await db.one(`select * from ${dbSchema}.pp_rels where property_1_id = $1 and property_2_id = $2 and type_id = $3`, [
+              other_prop_id,
+              this_prop_id,
+              type_id
+            ])
+
+            let { cnt, cnt_base, data } = pairFromDb
+            let data2 = Object.assign({}, data, { is_reverse_count: true })
+
+            await db.none(`update ${dbSchema}.pp_rels set cnt = $1, cnt_base = $2, data = $3 where property_1_id = $4 and property_2_id = $5 and type_id = $6`, [
+              cnt,
+              cnt_base,
+              data2,
+              this_prop_id,
+              other_prop_id,
+              type_id,
+            ])
+          } catch (err) {
+            console.error(err);
+          }
+        }
+      }
+    }
+  }
 }
 
 const postProcessingAfterImport = async (params) => {
@@ -1614,14 +1653,14 @@ const importFromJSON = async data => {
 
     // classes
     if (data.Classes) {
-        let classBar = new ProgressBar(`[:bar] ( :current classes of :total, :percent)`, { total: data.Classes.length, width: 100, incomplete: '.' });
+        let classBar = new ProgressBar(`classes pass 1 [:bar] ( :current classes of :total, :percent)`, { total: data.Classes.length, width: 100, incomplete: '.' });
         for (const c of data.Classes) {
             await addClass(c);
             await addClassLabels(c);
             classBar.tick();
         }
         // 2nd pass because sub may appear before super
-        let superClassBar = new ProgressBar(`[:bar] ( :current classes for superclasses of :total, :percent)`, { total: data.Classes.length, width: 100, incomplete: '.' });
+        let superClassBar = new ProgressBar(`classes pass 2 [:bar] ( :current classes for superclasses of :total, :percent)`, { total: data.Classes.length, width: 100, incomplete: '.' });
         for (const c of data.Classes) {
             await addClassSuperclasses(c);
             superClassBar.tick();
@@ -1630,8 +1669,6 @@ const importFromJSON = async data => {
 
     // properties
     if (data.Properties) {
-        let propsBar = new ProgressBar(`[:bar] ( :current props of :total, :percent)`, { total: data.Properties.length, width: 100, incomplete: '.' });
-
         // calculate max of tripleCount
         let maxTripleCount = 0
         for (const p of data.Properties) {
@@ -1640,16 +1677,23 @@ const importFromJSON = async data => {
         const maxTripleCountRounded = roundUpToSingleDigitPower(maxTripleCount)
         // end calculate max of tripleCount
 
+        let propsBar = new ProgressBar(`props pass 1 [:bar] ( :current props of :total, :percent)`, { total: data.Properties.length, width: 100, incomplete: '.' });
         for (const p of data.Properties) {
             await addProperty(p, { maxTripleCountRounded });
             await addPropertyLabels(p);
             propsBar.tick();
         }
         // 2nd pass because ref may appear before def
-        let propsPairsBar = new ProgressBar(`[:bar] ( :current prop pairs of :total, :percent)`, { total: data.Properties.length, width: 100, incomplete: '.' });
+        let propsPairsBar = new ProgressBar(`props pass 2 [:bar] ( :current prop pairs of :total, :percent)`, { total: data.Properties.length, width: 100, incomplete: '.' });
         for (const p of data.Properties) {
             await addPropertyPairs(p);
             propsPairsBar.tick();
+        }
+        // 3rd pass - adding pp_rels counts from reverse, if needed
+        let propsReverse = new ProgressBar(`props pass 3 [:bar] ( :current prop pairs of :total, :percent)`, { total: data.Properties.length, width: 100, incomplete: '.' });
+        for (const p of data.Properties) {
+            await addCountsFromReverse(p);
+            propsReverse.tick();
         }
     }
     // schema parameters
