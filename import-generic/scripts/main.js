@@ -17,7 +17,9 @@ const overrideExistingSchema = (process.env.OVERRIDE_DB_SCHEMA || '').toLowerCas
 
 const EMPTY_SCHEMA = 'empty'
 
-const zxMode = !!$
+// const zxMode = !!$
+let zxMode = false
+if (typeof $ !== 'undefined') zxMode = true
 console.log(`zx mode is ${zxMode}`)
 
 const testDbConnection = async () => {
