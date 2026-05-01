@@ -726,6 +726,16 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
     for (const srcClass of p.SourceClasses) {
       let cpData;
       const class_id = getClassId(srcClass.classFullName);
+
+      try {
+        let _tmp = await db.one(`select cnt from ${dbSchema}.classes where id = $1`, [ class_id ])
+        // for use in forlmulae later in the code
+        srcClass.instanceCount = Number.parseInt(_tmp.cnt)
+      } catch(err) {
+        console.error('Could not read the class instance count')
+        console.error(err)
+      }
+
       if (srcClass.isPrincipal) {
         property_domain_class_id = class_id;
       }
@@ -762,12 +772,21 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
           }
         }
         if (!srcClass.tripleCount && !jauns1 && srcClass.tripleCountBase) {
-          cnt = Math.floor(Math.pow(c.instanceCount / srcClass.tripleCountBase * Math.log(2), 1 / 3))
-          jauns2 = true
+          // formula
+          if (srcClass.instanceCount !== undefined && srcClass.tripleCountBase !== undefined) {
+            cnt = Math.floor(Math.pow(srcClass.instanceCount / srcClass.tripleCountBase * Math.log(2), 1 / 3))
+            jauns2 = true
+          } else {
+            // log
+          }
         }
         if (!jauns1 && !jauns2) {
-          let c = await db.one(`select cnt from ${dbSchema}.classes where id = $1`, [ class_id ])
-          cnt = Math.max(Math.floor(srcClass.tripleCount / srcClass.tripleCountBase * Number.parseInt(c.cnt)), srcClass.tripleCount)
+          // formula
+          if (srcClass.tripleCount !== undefined && srcClass.tripleCountBase !== undefined && srcClass.instanceCount !== undefined) {
+            cnt = Math.max(Math.floor(srcClass.tripleCount / srcClass.tripleCountBase * srcClass.instanceCount), srcClass.tripleCount)
+          } else {
+            // log
+          }
         }
         if (srcClass.tripleCountBase) {
           if (!cpData) cpData = {}
@@ -777,6 +796,7 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
 
 
         // if (srcClass.tripleCountBase) {
+        //  // formula
         //   cnt = Math.max(srcClass.tripleCount, Math.floor(srcClass.tripleCount / srcClass.tripleCountBase * c.instanceCount));
         //   if (!cpData) cpData = {}
         //   cpData.triple_count_raw = srcClass.tripleCount
@@ -855,7 +875,12 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
             let cnt_base = dtr.tripleCountBase
             let cpdData;
             if (dtr.tripleCountBase) {
-              cnt = Math.max(cnt, Math.floor(cnt / cnt_base * srcClass.dataTripleCount))
+              // formula
+              if (cnt !== undefined && cnt_base !== undefined && srcClass.dataTripleCount !== undefined) {
+                cnt = Math.max(cnt, Math.floor(cnt / cnt_base * srcClass.dataTripleCount))
+              } else {
+                // log
+              }
               if (!cpdData) cpdData = {}
               cpdData.triple_count_raw = dtr.tripleCount
               cpdData.triple_count_base = dtr.tripleCountBase
@@ -932,6 +957,16 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
     for (const targetClass of p.TargetClasses) {
       let cpData;
       const class_id = getClassId(targetClass.classFullName);
+
+      try {
+        let _tmp = await db.one(`select cnt from ${dbSchema}.classes where id = $1`, [ class_id ])
+        // for use in forlmulae later in the code
+        targetClass.instanceCount = Number.parseInt(_tmp.cnt)
+      } catch(err) {
+        console.error('Could not read the class instance count')
+        console.error(err)
+      }
+
       if (targetClass.isPrincipal) {
         property_range_class_id = class_id;
       }
@@ -968,12 +1003,21 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
           }
         }
         if (!targetClass.tripleCount && !jauns1 && targetClass.tripleCountBase) {
-          cnt = Math.floor(Math.pow(c.instanceCount / targetClass.tripleCountBase * Math.log(2), 1 / 3))
-          jauns2 = true
+          // formula
+          if (targetClass.instanceCount !== undefined && targetClass.tripleCountBase !== undefined) {
+            cnt = Math.floor(Math.pow(targetClass.instanceCount / targetClass.tripleCountBase * Math.log(2), 1 / 3))
+            jauns2 = true
+          } else {
+            // log
+          }
         }
         if (!jauns1 && !jauns2) {
-          let c = await db.one(`select cnt from ${dbSchema}.classes where id = $1`, [ class_id ])
-          cnt = Math.max(Math.floor(targetClass.tripleCount / targetClass.tripleCountBase * Number.parseInt(c.cnt)), targetClass.tripleCount)
+          // formula
+          if (targetClass.tripleCount !== undefined && targetClass.tripleCountBase !== undefined && targetClass.instanceCount !== undefined) {
+            cnt = Math.max(Math.floor(targetClass.tripleCount / targetClass.tripleCountBase * targetClass.instanceCount), targetClass.tripleCount)
+          } else {
+            // log
+          }
         }
         if (targetClass.tripleCountBase) {
           if (!cpData) cpData = {}
@@ -982,6 +1026,7 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
         }
 
         // if (targetClass.tripleCountBase) {
+        //  // formula
         //   cnt = Math.max(targetClass.tripleCount, Math.floor(targetClass.tripleCount / targetClass.tripleCountBase * c.instanceCount));
         //   if (!cpData) cpData = {}
         //   cpData.triple_count_raw = targetClass.tripleCount
@@ -1105,7 +1150,12 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
         let cnt_base = dtr.tripleCountBase
         let pdData;
         if (dtr.tripleCountBase) {
-          cnt = Math.max(cnt, Math.floor(cnt / cnt_base * p.dataTripleCount))
+          // formula
+          if (cnt !== undefined && cnt_base !== undefined && p.dataTripleCount !== undefined) {
+            cnt = Math.max(cnt, Math.floor(cnt / cnt_base * p.dataTripleCount))
+          } else {
+            // log
+          }
           if (!pdData) pdData = {}
           pdData.triple_count_raw = dtr.tripleCount
           pdData.triple_count_base = dtr.tripleCountBase
@@ -1156,9 +1206,19 @@ const addPropertyPairs = async p => {
           if (!ppData) ppData = {}
           ppData.triple_count_raw = cnt
           ppData.triple_count_base = cnt_base
-          cnt = Math.max(cnt, Math.floor(cnt / cnt_base * p.tripleCount))
+          // formula
+          if (cnt !== undefined && cnt_base !== undefined && p.tripleCount !== undefined) {
+            cnt = Math.max(cnt, Math.floor(cnt / cnt_base * p.tripleCount))
+          } else {
+            // log
+          }
         } else if (cnt_base && !cnt) {
-          cnt = Math.floor(Math.pow(p.tripleCount / cnt_base * Math.log(2), 1 / 3))
+          // formula
+          if (p.tripleCount !== undefined && cnt_base !== undefined) {
+            cnt = Math.floor(Math.pow(p.tripleCount / cnt_base * Math.log(2), 1 / 3))
+          } else {
+            // log
+          }
         } else if (!cnt && !cnt_base) {
           // NOP
         }
@@ -1202,9 +1262,19 @@ const addPropertyPairs = async p => {
           if (!ppData) ppData = {}
           ppData.triple_count_raw = cnt
           ppData.triple_count_base = cnt_base
-          cnt = Math.max(cnt, Math.floor(cnt / cnt_base * p.objectTripleCount))
+          // formula
+          if (cnt !== undefined && cnt_base !== undefined && p.objectTripleCount !== undefined) {
+            cnt = Math.max(cnt, Math.floor(cnt / cnt_base * p.objectTripleCount))
+          } else {
+            // log
+          }
         } else if (cnt_base && !cnt) {
-          cnt = Math.floor(Math.pow(p.objectTripleCount / cnt_base * Math.log(2), 1 / 3))
+          // formula
+          if (p.objectTripleCount !== undefined && cnt_base !== undefined) {
+            cnt = Math.floor(Math.pow(p.objectTripleCount / cnt_base * Math.log(2), 1 / 3))
+          } else {
+            // log
+          }
         } else if (!cnt && !cnt_base) {
           // šim vajag second (i.e., third) pass
           pair.needsCountsFromReverse = true
@@ -1250,9 +1320,19 @@ const addPropertyPairs = async p => {
           if (!ppData) ppData = {}
           ppData.triple_count_raw = cnt
           ppData.triple_count_base = cnt_base
-          cnt = Math.max(cnt, Math.floor(cnt / cnt_base * p.tripleCount))
+          // formula
+          if (cnt !== undefined && cnt_base !== undefined && p.tripleCount !== undefined) {
+            cnt = Math.max(cnt, Math.floor(cnt / cnt_base * p.tripleCount))
+          } else {
+            // log
+          }
         } else if (cnt_base && !cnt) {
-          cnt = Math.floor(Math.pow(p.tripleCount / cnt_base * Math.log(2), 1 / 3))
+          // formula
+          if (p.tripleCount !== undefined && cnt_base !== undefined) {
+            cnt = Math.floor(Math.pow(p.tripleCount / cnt_base * Math.log(2), 1 / 3))
+          } else {
+            // log
+          }
         } else if (!cnt && !cnt_base) {
           // šim vajag second (i.e., third) pass
           pair.needsCountsFromReverse = true
