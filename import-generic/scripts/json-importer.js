@@ -2,6 +2,7 @@ const ProgressBar = require('progress')
 const debug = require('debug')('import')
 const fetch = require('node-fetch');
 const col = require('ansi-colors')
+const { appendFile } = require('fs').promises
 
 const { CC_REL_TYPE, CP_REL_TYPE, PP_REL_TYPE, NS_STATS_TYPE } = require('./type-constants')
 
@@ -9,6 +10,8 @@ const { DB_CONFIG, db } = require('../config');
 
 const dbSchema = process.env.DB_SCHEMA;
 const INPUT_FILE = process.env.INPUT_FILE;
+const LOG_FILE = `./json-importer-${new Date().toISOString().slice(0,10)}.log`
+
 const registrySchema = process.env.REGISTRY_SCHEMA || 'public';
 
 const IMPORTER_VERSION = '2024-10-23';
@@ -38,6 +41,19 @@ const rememberPrefix = (id, name, value) => {
     NS_NAME_TO_ID.set(':', id);
     NS_NAME_TO_VALUE.set(':', value);
   }
+}
+
+async function log(params) {
+  let message
+  if (typeof params === 'string') {
+    message = params
+  } else if (typeof params === 'object') {
+    message = JSON.stringify(params, null, 2)
+  } else {
+    message = 'unk'
+  }
+
+  await appendFile(LOG_FILE, `[${new Date().toISOString().slice(11,19)}] ${message}\n`)
 }
 
 function roundUpToSingleDigitPower(num) {
@@ -778,6 +794,8 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
             jauns2 = true
           } else {
             // log
+            await log(`Missing arguments in formula 1: "${srcClass.instanceCount}" "${srcClass.tripleCountBase}"`)
+            await log(`Context: ${JSON.stringify(srcClass, null, 2)}`)
           }
         }
         if (!jauns1 && !jauns2) {
@@ -786,6 +804,8 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
             cnt = Math.max(Math.floor(srcClass.tripleCount / srcClass.tripleCountBase * srcClass.instanceCount), srcClass.tripleCount)
           } else {
             // log
+            await log(`Missing arguments in formula 2: "${srcClass.tripleCount}" "${srcClass.tripleCountBase}" "${srcClass.instanceCount}"`)
+            await log(`Context: ${JSON.stringify(srcClass, null, 2)}`)
           }
         }
         if (srcClass.tripleCountBase) {
@@ -880,6 +900,8 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
                 cnt = Math.max(cnt, Math.floor(cnt / cnt_base * srcClass.dataTripleCount))
               } else {
                 // log
+                await log(`Missing arguments in formula 3: "${cnt}" "${cnt_base}" "${srcClass.dataTripleCount}"`)
+                await log(`Context: ${JSON.stringify(dtr, null, 2)}`)
               }
               if (!cpdData) cpdData = {}
               cpdData.triple_count_raw = dtr.tripleCount
@@ -1009,6 +1031,8 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
             jauns2 = true
           } else {
             // log
+            await log(`Missing arguments in formula 4: "${targetClass.instanceCount}" "${targetClass.tripleCountBase}"`)
+            await log(`Context: ${JSON.stringify(targetClass, null, 2)}`)
           }
         }
         if (!jauns1 && !jauns2) {
@@ -1017,6 +1041,8 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
             cnt = Math.max(Math.floor(targetClass.tripleCount / targetClass.tripleCountBase * targetClass.instanceCount), targetClass.tripleCount)
           } else {
             // log
+            await log(`Missing arguments in formula 5: "${targetClass.tripleCount}" "${targetClass.tripleCountBase}" "${targetClass.instanceCount}"`)
+            await log(`Context: ${JSON.stringify(targetClass, null, 2)}`)
           }
         }
         if (targetClass.tripleCountBase) {
@@ -1155,6 +1181,8 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
             cnt = Math.max(cnt, Math.floor(cnt / cnt_base * p.dataTripleCount))
           } else {
             // log
+            await log(`Missing arguments in formula 6: "${cnt}" "${cnt_base}" "${p.dataTripleCount}"`)
+            await log(`Context: ${JSON.stringify(dtr, null, 2)}`)
           }
           if (!pdData) pdData = {}
           pdData.triple_count_raw = dtr.tripleCount
@@ -1211,6 +1239,8 @@ const addPropertyPairs = async p => {
             cnt = Math.max(cnt, Math.floor(cnt / cnt_base * p.tripleCount))
           } else {
             // log
+            await log(`Missing arguments in formula 7: "${cnt}" "${cnt_base}" "${p.tripleCount}"`)
+            await log(`Context: ${JSON.stringify(pair, null, 2)}`)
           }
         } else if (cnt_base && !cnt) {
           // formula
@@ -1218,6 +1248,8 @@ const addPropertyPairs = async p => {
             cnt = Math.floor(Math.pow(p.tripleCount / cnt_base * Math.log(2), 1 / 3))
           } else {
             // log
+            await log(`Missing arguments in formula 8: "${p.tripleCount}" "${cnt_base}"`)
+            await log(`Context: ${JSON.stringify(pair, null, 2)}`)
           }
         } else if (!cnt && !cnt_base) {
           // NOP
@@ -1267,6 +1299,8 @@ const addPropertyPairs = async p => {
             cnt = Math.max(cnt, Math.floor(cnt / cnt_base * p.objectTripleCount))
           } else {
             // log
+            await log(`Missing arguments in formula 9: "${cnt}" "${cnt_base}" "${p.objectTripleCount}"`)
+            await log(`Context: ${JSON.stringify(pair, null, 2)}`)
           }
         } else if (cnt_base && !cnt) {
           // formula
@@ -1274,6 +1308,8 @@ const addPropertyPairs = async p => {
             cnt = Math.floor(Math.pow(p.objectTripleCount / cnt_base * Math.log(2), 1 / 3))
           } else {
             // log
+            await log(`Missing arguments in formula 10: "${p.objectTripleCount}" "${cnt_base}"`)
+            await log(`Context: ${JSON.stringify(pair, null, 2)}`)
           }
         } else if (!cnt && !cnt_base) {
           // šim vajag second (i.e., third) pass
@@ -1325,6 +1361,8 @@ const addPropertyPairs = async p => {
             cnt = Math.max(cnt, Math.floor(cnt / cnt_base * p.tripleCount))
           } else {
             // log
+            await log(`Missing arguments in formula 11: "${cnt}" "${cnt_base}" "${p.tripleCount}"`)
+            await log(`Context: ${JSON.stringify(pair, null, 2)}`)
           }
         } else if (cnt_base && !cnt) {
           // formula
@@ -1332,6 +1370,8 @@ const addPropertyPairs = async p => {
             cnt = Math.floor(Math.pow(p.tripleCount / cnt_base * Math.log(2), 1 / 3))
           } else {
             // log
+            await log(`Missing arguments in formula 12: "${p.tripleCount}" "${cnt_base}"`)
+            await log(`Context: ${JSON.stringify(pair, null, 2)}`)
           }
         } else if (!cnt && !cnt_base) {
           // šim vajag second (i.e., third) pass
@@ -1736,6 +1776,8 @@ const printStats = async () => {
 
 const init = async () => {
   try {
+    await log(`=== importing JSON from ${INPUT_FILE} ===\n`);
+
     const nsData = await db.many(`SELECT * FROM ${dbSchema}.ns`);
     console.log(`${col.yellow(nsData.length)} ns entries loaded`);
     for (let row of nsData) {
