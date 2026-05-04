@@ -1,4 +1,5 @@
 const fs = require('fs')
+const col = require('ansi-colors')
 
 const LOG_FILE = `./json-importer-${new Date().toISOString().slice(0, 10)}.log`
 const logStream = fs.createWriteStream(LOG_FILE, { flags: 'a', encoding: 'utf-8' })
@@ -14,7 +15,7 @@ async function log(params) {
     message = 'unk'
   }
 
-  logStream.write(`[${new Date().toISOString().slice(11, 19)}] ${message}\n`)
+  logStream.write(`[${new Date().toISOString().slice(11, 19)}] ${col.unstyle(message)}\n`)
 }
 
 function logError(params) {
