@@ -2,16 +2,14 @@ const ProgressBar = require('progress')
 const debug = require('debug')('import')
 const fetch = require('node-fetch');
 const col = require('ansi-colors')
-const { appendFile } = require('fs').promises
 
 const { CC_REL_TYPE, CP_REL_TYPE, PP_REL_TYPE, NS_STATS_TYPE } = require('./type-constants')
+const { logInfo, logError } = require('./util.js')
 
 const { DB_CONFIG, db } = require('../config');
 
 const dbSchema = process.env.DB_SCHEMA;
 const INPUT_FILE = process.env.INPUT_FILE;
-const LOG_FILE = `./json-importer-${new Date().toISOString().slice(0,10)}.log`
-
 const registrySchema = process.env.REGISTRY_SCHEMA || 'public';
 
 const IMPORTER_VERSION = '2024-10-23';
@@ -43,18 +41,6 @@ const rememberPrefix = (id, name, value) => {
   }
 }
 
-async function log(params) {
-  let message
-  if (typeof params === 'string') {
-    message = params
-  } else if (typeof params === 'object') {
-    message = JSON.stringify(params, null, 2)
-  } else {
-    message = 'unk'
-  }
-
-  await appendFile(LOG_FILE, `[${new Date().toISOString().slice(11,19)}] ${message}\n`)
-}
 
 function roundUpToSingleDigitPower(num) {
   if (num <= 0) return 0;
@@ -92,12 +78,12 @@ const getAbbrFromTheWeb = async prefix => {
       const P2 = /@prefix (\w+): (<.+>)./
       let m = P2.exec(text);
       if (m) {
-        console.log(`Found abbreviation ${col.yellow(m[1])} for the prefix ${col.yellow(prefix)}`);
+        logInfo(`Found abbreviation ${col.yellow(m[1])} for the prefix ${col.yellow(prefix)}`);
         return m[1];
       }
     }
   } catch (err) {
-    console.error(err);
+    logError(err);
     // process.exit(1);
   }
   return null;
@@ -138,7 +124,7 @@ const resolveNsPrefix = async (prefixValue, prefixAbbr = null) => {
     return id;
 
   } catch (err) {
-    console.error(err);
+    logError(err);
   }
 }
 
@@ -179,7 +165,7 @@ const addDatatypeByShortIri = async shortIri => {
 
   const parts = shortIri.split(':');
   if (parts.length !== 2) {
-    console.error('Bad data type short IRI:', shortIri);
+    logError('Bad data type short IRI:', shortIri);
     return null;
   }
 
@@ -187,7 +173,7 @@ const addDatatypeByShortIri = async shortIri => {
   let prefix = NS_NAME_TO_VALUE.get(abbr);
 
   if (!prefix) {
-    console.error(`Unknown short prefix: ${abbr}`);
+    logError(`Unknown short prefix: ${abbr}`);
     return null;
   }
 
@@ -207,7 +193,7 @@ const addDatatypeByIri = async iri => {
   let ns_id = NS_VALUE_TO_ID.get(prefix);
 
   if (!ns_id) {
-    console.log(`namespace not found for the prefix '${col.yellow(prefix)}'`);
+    logInfo(`namespace not found for the prefix '${col.yellow(prefix)}'`);
     return null;
   }
 
@@ -234,7 +220,7 @@ const addDatatype = async (iri, ns_id, localName, abbr) => {
     return dt_id;
 
   } catch (err) {
-    console.error(err)
+    logError(err)
   }
 }
 
@@ -317,7 +303,7 @@ const addClass = async c => {
     }
 
   } catch (err) {
-    console.error(err);
+    logError(err);
   }
 
 }
@@ -334,7 +320,7 @@ const addNamespaceStats = async ({ namespace, count }, type_id, class_id, proper
             `,
       [ns_id, type_id, count, class_id, property_id]);
   } catch (err) {
-    console.error(err);
+    logError(err);
   }
 
 }
@@ -353,7 +339,7 @@ const addClassSuperclasses = async c => {
         ]);
 
       } catch (err) {
-        console.error(err);
+        logError(err);
       }
     }
   }
@@ -382,7 +368,7 @@ const addClassSuperclasses = async c => {
         ]);
 
       } catch (err) {
-        console.error(err);
+        logError(err);
       }
     }
 
@@ -403,7 +389,7 @@ const getOrRegisterAnnotationType = async iri => {
     return type_id;
 
   } catch (err) {
-    console.error(err);
+    logError(err);
   }
 }
 
@@ -431,7 +417,7 @@ const addClassLabels = async c => {
           lbl.language
         ]);
       } catch (err) {
-        console.error(err);
+        logError(err);
       }
     }
   }
@@ -461,7 +447,7 @@ const addPropertyLabels = async p => {
           lbl.language
         ]);
       } catch (err) {
-        console.error(err);
+        logError(err);
       }
     }
   }
@@ -470,7 +456,7 @@ const addPropertyLabels = async p => {
 const getClassId = iri => {
   let id = CLASSES.get(iri);
   if (!id) {
-    console.error(`Could not find id for the class ${iri}`);
+    logError(`Could not find id for the class ${iri}`);
   }
   return id;
 }
@@ -720,7 +706,7 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
     }
 
   } catch (err) {
-    console.error(err);
+    logError(err);
   }
 
 
@@ -744,12 +730,12 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
       const class_id = getClassId(srcClass.classFullName);
 
       try {
-        let _tmp = await db.one(`select cnt from ${dbSchema}.classes where id = $1`, [ class_id ])
+        let _tmp = await db.one(`select cnt from ${dbSchema}.classes where id = $1`, [class_id])
         // for use in forlmulae later in the code
         srcClass.instanceCount = Number.parseInt(_tmp.cnt)
-      } catch(err) {
-        console.error('Could not read the class instance count')
-        console.error(err)
+      } catch (err) {
+        logError('Could not read the class instance count')
+        logError(err)
       }
 
       if (srcClass.isPrincipal) {
@@ -786,34 +772,34 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
             cnt = srcClass.objectTripleCount + srcClass.dataTripleCount
             jauns1 = true
           }
-        
-        if (!srcClass.tripleCount && !jauns1 && srcClass.tripleCountBase) {
-          // formula
-          if (srcClass.instanceCount !== undefined && srcClass.tripleCountBase !== undefined) {
-            cnt = Math.floor(Math.pow(srcClass.instanceCount / srcClass.tripleCountBase * Math.log(2), 1 / 3))
-            jauns2 = true
-          } else {
-            // log
-            await log(`Missing arguments in formula 1: "${srcClass.instanceCount}" "${srcClass.tripleCountBase}"`)
-            await log(`Context: ${JSON.stringify(srcClass, null, 2)}`)
+
+          if (!srcClass.tripleCount && !jauns1 && srcClass.tripleCountBase) {
+            // formula
+            if (srcClass.instanceCount !== undefined && srcClass.tripleCountBase !== undefined) {
+              cnt = Math.floor(Math.pow(srcClass.instanceCount / srcClass.tripleCountBase * Math.log(2), 1 / 3))
+              jauns2 = true
+            } else {
+              // log
+              logError(`Missing arguments in formula 1: "${srcClass.instanceCount}" "${srcClass.tripleCountBase}"`)
+              logError(`Context: ${JSON.stringify(srcClass, null, 2)}`)
+            }
+          }
+          if (!jauns1 && !jauns2) {
+            // formula
+            if (srcClass.tripleCount !== undefined && srcClass.tripleCountBase !== undefined && srcClass.instanceCount !== undefined) {
+              cnt = Math.max(Math.floor(srcClass.tripleCount / srcClass.tripleCountBase * srcClass.instanceCount), srcClass.tripleCount)
+            } else {
+              // log
+              logError(`Missing arguments in formula 2: "${srcClass.tripleCount}" "${srcClass.tripleCountBase}" "${srcClass.instanceCount}"`)
+              logError(`Context: ${JSON.stringify(srcClass, null, 2)}`)
+            }
+          }
+          if (srcClass.tripleCountBase) {
+            if (!cpData) cpData = {}
+            cpData.triple_count_raw = srcClass.tripleCount
+            cpData.triple_count_base = srcClass.tripleCountBase
           }
         }
-        if (!jauns1 && !jauns2) {
-          // formula
-          if (srcClass.tripleCount !== undefined && srcClass.tripleCountBase !== undefined && srcClass.instanceCount !== undefined) {
-            cnt = Math.max(Math.floor(srcClass.tripleCount / srcClass.tripleCountBase * srcClass.instanceCount), srcClass.tripleCount)
-          } else {
-            // log
-            await log(`Missing arguments in formula 2: "${srcClass.tripleCount}" "${srcClass.tripleCountBase}" "${srcClass.instanceCount}"`)
-            await log(`Context: ${JSON.stringify(srcClass, null, 2)}`)
-          }
-        }
-        if (srcClass.tripleCountBase) {
-          if (!cpData) cpData = {}
-          cpData.triple_count_raw = srcClass.tripleCount
-          cpData.triple_count_base = srcClass.tripleCountBase
-        }
-		}
 
 
         // if (srcClass.tripleCountBase) {
@@ -879,7 +865,7 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
           ])).id;
 
       } catch (err) {
-        console.error(err);
+        logError(err);
       }
 
       //      DataTypes[]
@@ -901,8 +887,8 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
                 cnt = Math.max(cnt, Math.floor(cnt / cnt_base * srcClass.dataTripleCount))
               } else {
                 // log
-                await log(`Missing arguments in formula 3: "${cnt}" "${cnt_base}" "${srcClass.dataTripleCount}"`)
-                await log(`Context: ${JSON.stringify(dtr, null, 2)}`)
+                logError(`Missing arguments in formula 3: "${cnt}" "${cnt_base}" "${srcClass.dataTripleCount}"`)
+                logError(`Context: ${JSON.stringify(dtr, null, 2)}`)
               }
               if (!cpdData) cpdData = {}
               cpdData.triple_count_raw = dtr.tripleCount
@@ -921,7 +907,7 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
               ]);
 
           } catch (err) {
-            console.error(err);
+            logError(err);
           }
         }
       }
@@ -947,7 +933,7 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
             ]);
 
           } catch (err) {
-            console.error(err);
+            logError(err);
           }
         }
       }
@@ -962,7 +948,7 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
         property_id,
       ])
     } catch (err) {
-      console.error(err);
+      logError(err);
     }
   }
 
@@ -982,12 +968,12 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
       const class_id = getClassId(targetClass.classFullName);
 
       try {
-        let _tmp = await db.one(`select cnt from ${dbSchema}.classes where id = $1`, [ class_id ])
+        let _tmp = await db.one(`select cnt from ${dbSchema}.classes where id = $1`, [class_id])
         // for use in forlmulae later in the code
         targetClass.instanceCount = Number.parseInt(_tmp.cnt)
-      } catch(err) {
-        console.error('Could not read the class instance count')
-        console.error(err)
+      } catch (err) {
+        logError('Could not read the class instance count')
+        logError(err)
       }
 
       if (targetClass.isPrincipal) {
@@ -1024,30 +1010,30 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
             cnt = targetClass.objectTripleCount + targetClass.dataTripleCount
             jauns1 = true
           }
-        
-        if (!targetClass.tripleCount && !jauns1 && targetClass.tripleCountBase) {
-          // formula
-          if (targetClass.instanceCount !== undefined && targetClass.tripleCountBase !== undefined) {
-            cnt = Math.floor(Math.pow(targetClass.instanceCount / targetClass.tripleCountBase * Math.log(2), 1 / 3))
-            jauns2 = true
-          } else {
-            // log
-            await log(`Missing arguments in formula 4: "${targetClass.instanceCount}" "${targetClass.tripleCountBase}"`)
-            await log(`Context: ${JSON.stringify(targetClass, null, 2)}`)
+
+          if (!targetClass.tripleCount && !jauns1 && targetClass.tripleCountBase) {
+            // formula
+            if (targetClass.instanceCount !== undefined && targetClass.tripleCountBase !== undefined) {
+              cnt = Math.floor(Math.pow(targetClass.instanceCount / targetClass.tripleCountBase * Math.log(2), 1 / 3))
+              jauns2 = true
+            } else {
+              // log
+              logError(`Missing arguments in formula 4: "${targetClass.instanceCount}" "${targetClass.tripleCountBase}"`)
+              logError(`Context: ${JSON.stringify(targetClass, null, 2)}`)
+            }
+          }
+          if (!jauns1 && !jauns2) {
+            // formula
+            if (targetClass.tripleCount !== undefined && targetClass.tripleCountBase !== undefined && targetClass.instanceCount !== undefined) {
+              cnt = Math.max(Math.floor(targetClass.tripleCount / targetClass.tripleCountBase * targetClass.instanceCount), targetClass.tripleCount)
+            } else {
+              // log
+              logError(`Missing arguments in formula 5: "${targetClass.tripleCount}" "${targetClass.tripleCountBase}" "${targetClass.instanceCount}"`)
+              logError(`Context: ${JSON.stringify(targetClass, null, 2)}`)
+            }
           }
         }
-        if (!jauns1 && !jauns2) {
-          // formula
-          if (targetClass.tripleCount !== undefined && targetClass.tripleCountBase !== undefined && targetClass.instanceCount !== undefined) {
-            cnt = Math.max(Math.floor(targetClass.tripleCount / targetClass.tripleCountBase * targetClass.instanceCount), targetClass.tripleCount)
-          } else {
-            // log
-            await log(`Missing arguments in formula 5: "${targetClass.tripleCount}" "${targetClass.tripleCountBase}" "${targetClass.instanceCount}"`)
-            await log(`Context: ${JSON.stringify(targetClass, null, 2)}`)
-          }
-        }
-        }
-		if (targetClass.tripleCountBase) {
+        if (targetClass.tripleCountBase) {
           if (!cpData) cpData = {}
           cpData.triple_count_raw = targetClass.tripleCount
           cpData.triple_count_base = targetClass.tripleCountBase
@@ -1117,7 +1103,7 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
           ])).id;
 
       } catch (err) {
-        console.error(err);
+        logError(err);
       }
 
 
@@ -1144,7 +1130,7 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
             ]);
 
           } catch (err) {
-            console.error(err);
+            logError(err);
           }
         }
       }
@@ -1160,7 +1146,7 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
         property_id,
       ])
     } catch (err) {
-      console.error(err);
+      logError(err);
     }
   }
 
@@ -1183,8 +1169,8 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
             cnt = Math.max(cnt, Math.floor(cnt / cnt_base * p.dataTripleCount))
           } else {
             // log
-            await log(`Missing arguments in formula 6: "${cnt}" "${cnt_base}" "${p.dataTripleCount}"`)
-            await log(`Context: ${JSON.stringify(dtr, null, 2)}`)
+            logError(`Missing arguments in formula 6: "${cnt}" "${cnt_base}" "${p.dataTripleCount}"`)
+            logError(`Context: ${JSON.stringify(dtr, null, 2)}`)
           }
           if (!pdData) pdData = {}
           pdData.triple_count_raw = dtr.tripleCount
@@ -1201,7 +1187,7 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
             cnt_base,
           ]);
       } catch (err) {
-        console.error(err);
+        logError(err);
       }
     }
   }
@@ -1241,8 +1227,8 @@ const addPropertyPairs = async p => {
             cnt = Math.max(cnt, Math.floor(cnt / cnt_base * p.tripleCount))
           } else {
             // log
-            await log(`Missing arguments in formula 7: "${cnt}" "${cnt_base}" "${p.tripleCount}"`)
-            await log(`Context: ${JSON.stringify(pair, null, 2)}`)
+            logError(`Missing arguments in formula 7: "${cnt}" "${cnt_base}" "${p.tripleCount}"`)
+            logError(`Context: ${JSON.stringify(pair, null, 2)}`)
           }
         } else if (cnt_base && !cnt) {
           // formula
@@ -1250,8 +1236,8 @@ const addPropertyPairs = async p => {
             cnt = Math.floor(Math.pow(p.tripleCount / cnt_base * Math.log(2), 1 / 3))
           } else {
             // log
-            await log(`Missing arguments in formula 8: "${p.tripleCount}" "${cnt_base}"`)
-            await log(`Context: ${JSON.stringify(pair, null, 2)}`)
+            logError(`Missing arguments in formula 8: "${p.tripleCount}" "${cnt_base}"`)
+            logError(`Context: ${JSON.stringify(pair, null, 2)}`)
           }
         } else if (!cnt && !cnt_base) {
           // NOP
@@ -1274,7 +1260,7 @@ const addPropertyPairs = async p => {
               ppData,
             ]);
         } catch (err) {
-          console.error(err);
+          logError(err);
         }
       }
     }
@@ -1301,8 +1287,8 @@ const addPropertyPairs = async p => {
             cnt = Math.max(cnt, Math.floor(cnt / cnt_base * p.objectTripleCount))
           } else {
             // log
-            await log(`Missing arguments in formula 9: "${cnt}" "${cnt_base}" "${p.objectTripleCount}"`)
-            await log(`Context: ${JSON.stringify(pair, null, 2)}`)
+            logError(`Missing arguments in formula 9: "${cnt}" "${cnt_base}" "${p.objectTripleCount}"`)
+            logError(`Context: ${JSON.stringify(pair, null, 2)}`)
           }
         } else if (cnt_base && !cnt) {
           // formula
@@ -1310,8 +1296,8 @@ const addPropertyPairs = async p => {
             cnt = Math.floor(Math.pow(p.objectTripleCount / cnt_base * Math.log(2), 1 / 3))
           } else {
             // log
-            await log(`Missing arguments in formula 10: "${p.objectTripleCount}" "${cnt_base}"`)
-            await log(`Context: ${JSON.stringify(pair, null, 2)}`)
+            logError(`Missing arguments in formula 10: "${p.objectTripleCount}" "${cnt_base}"`)
+            logError(`Context: ${JSON.stringify(pair, null, 2)}`)
           }
         } else if (!cnt && !cnt_base) {
           // šim vajag second (i.e., third) pass
@@ -1336,7 +1322,7 @@ const addPropertyPairs = async p => {
               ppData,
             ]);
         } catch (err) {
-          console.error(err);
+          logError(err);
         }
       }
     }
@@ -1363,8 +1349,8 @@ const addPropertyPairs = async p => {
             cnt = Math.max(cnt, Math.floor(cnt / cnt_base * p.tripleCount))
           } else {
             // log
-            await log(`Missing arguments in formula 11: "${cnt}" "${cnt_base}" "${p.tripleCount}"`)
-            await log(`Context: ${JSON.stringify(pair, null, 2)}`)
+            logError(`Missing arguments in formula 11: "${cnt}" "${cnt_base}" "${p.tripleCount}"`)
+            logError(`Context: ${JSON.stringify(pair, null, 2)}`)
           }
         } else if (cnt_base && !cnt) {
           // formula
@@ -1372,8 +1358,8 @@ const addPropertyPairs = async p => {
             cnt = Math.floor(Math.pow(p.tripleCount / cnt_base * Math.log(2), 1 / 3))
           } else {
             // log
-            await log(`Missing arguments in formula 12: "${p.tripleCount}" "${cnt_base}"`)
-            await log(`Context: ${JSON.stringify(pair, null, 2)}`)
+            logError(`Missing arguments in formula 12: "${p.tripleCount}" "${cnt_base}"`)
+            logError(`Context: ${JSON.stringify(pair, null, 2)}`)
           }
         } else if (!cnt && !cnt_base) {
           // šim vajag second (i.e., third) pass
@@ -1398,7 +1384,7 @@ const addPropertyPairs = async p => {
               ppData,
             ]);
         } catch (err) {
-          console.error(err);
+          logError(err);
         }
       }
     }
@@ -1430,7 +1416,7 @@ const addCountsFromReversePP = async p => {
             }
 
             await db.none(`insert into ${dbSchema}.pp_rels (property_1_id, property_2_id, type_id, cnt, cnt_base, data)
-                        VALUES ($1, $2, 2, $3, $4, $5, $6)`, [
+                        VALUES ($1, $2, $3, $4, $5, $6)`, [
               this_prop_id,
               other_prop_id,
               type_id,
@@ -1439,7 +1425,7 @@ const addCountsFromReversePP = async p => {
               data2,
             ])
           } catch (err) {
-            console.error(err);
+            logError(err);
           }
         }
       }
@@ -1448,8 +1434,8 @@ const addCountsFromReversePP = async p => {
 }
 
 const postProcessingAfterImport = async (params) => {
-  console.log('Post processing imported schema');
-  console.log('Import parameters:', params);
+  logInfo('Post processing imported schema');
+  logInfo('Import parameters:', params);
 
   try {
     const sql1 = `update ${dbSchema}.classes
@@ -1468,13 +1454,13 @@ const postProcessingAfterImport = async (params) => {
     for (let p of params.classificationPropertiesWithConnectionsOnly ?? []) {
       specialPropIRIs.add(p)
     }
-    console.log(specialPropIRIs);
+    logInfo(specialPropIRIs);
     // const specialPropIds = [];
     // for (let p of specialPropIRIs) {
     //     let id = (await db.one(`select id from ${dbSchema}.properties where iri = $1`, [ p ])).id;
     //     specialPropIds.push(id);
     // }
-    // console.log(specialPropIds);
+    // logInfo(specialPropIds);
 
     // vispirms visiem atbilstošajiem uz false
     const sql2a = `update ${dbSchema}.properties
@@ -1574,8 +1560,8 @@ const postProcessingAfterImport = async (params) => {
     await db.none(sql6);
 
   } catch (err) {
-    console.error('Error while post processing imported schema');
-    console.error(err);
+    logError('Error while post processing imported schema');
+    logError(err);
   }
 
 }
@@ -1583,7 +1569,7 @@ const postProcessingAfterImport = async (params) => {
 const getPropertyId = iri => {
   let id = PROPS.get(iri);
   if (!id) {
-    console.error(`Could not find id for the property ${iri}`);
+    logError(`Could not find id for the property ${iri}`);
   }
   return id;
 }
@@ -1602,16 +1588,16 @@ const addPrefixAbbr = async (prefixValue, prefixName) => {
   // shortcut: "cc" (vai "cc:") vai ":"
 
   if (!prefixName) {
-    console.error(`Missing prefix name`);
+    logError(`Missing prefix name`);
     return;
   }
   if (!prefixValue) {
-    console.error(`Missing prefix value`);
+    logError(`Missing prefix value`);
     return;
   }
 
   if (!/^(\w[a-z0-9]*)?:?$/.test(prefixName)) {
-    console.error(`Bad prefix name ${prefixName}`);
+    logError(`Bad prefix name ${prefixName}`);
     return;
   }
 
@@ -1653,7 +1639,7 @@ const addPrefixAbbr = async (prefixValue, prefixName) => {
     }
 
   } catch (err) {
-    console.error(err);
+    logError(err);
   }
 }
 
@@ -1699,7 +1685,7 @@ const addOneParameter = async (param_name, param_value) => {
         ]);
       return;
     } catch (err) {
-      console.log(`not a JSON value for parameter ${col.yellow(name)}; will be stored as text`);
+      logInfo(`not a JSON value for parameter ${col.yellow(name)}; will be stored as text`);
     }
 
     await db.none(`INSERT INTO ${dbSchema}.parameters
@@ -1714,7 +1700,7 @@ const addOneParameter = async (param_name, param_value) => {
       ]);
 
   } catch (err) {
-    console.error(err);
+    logError(err);
   }
 
 }
@@ -1724,7 +1710,7 @@ const findDefaultTreeProfileName = async () => {
     let defaultTreeProfileName = (await db.one(`SELECT id FROM ${registrySchema}.tree_profiles WHERE is_default`, [])).profile_name;
     return defaultTreeProfileName;
   } catch {
-    console.error(`could not read the default tree profile name; using default`);
+    logError(`could not read the default tree profile name; using default`);
     return 'default';
   }
 }
@@ -1751,7 +1737,7 @@ const addParameters = async (params) => {
   }
 
   for (let key in parameters) {
-    console.log(`Adding parameter ${col.yellow(key)} with value ${col.yellow(parameters[key])}`);
+    logInfo(`Adding parameter ${col.yellow(key)} with value ${col.yellow(parameters[key])}`);
     await addOneParameter(key, parameters[key]);
   }
 
@@ -1767,34 +1753,34 @@ const printStats = async () => {
       stats[tn] = n;
     }
 
-    console.log(col.blue('\n=== Imported schema stats ==='));
-    console.log(JSON.stringify(stats, null, 2));
+    logInfo(col.blue('\n=== Imported schema stats ==='));
+    logInfo(JSON.stringify(stats, null, 2));
 
   } catch (err) {
-    console.error('error obtaining schema stats');
-    console.error(err);
+    logError('error obtaining schema stats');
+    logError(err);
   }
 }
 
 const init = async () => {
   try {
-    await log(`=== importing JSON from ${INPUT_FILE} ===\n`);
+    // logInfo(`=== importing JSON from ${INPUT_FILE} ===\n`);
 
     const nsData = await db.many(`SELECT * FROM ${dbSchema}.ns`);
-    console.log(`${col.yellow(nsData.length)} ns entries loaded`);
+    logInfo(`${col.yellow(nsData.length)} ns entries loaded`);
     for (let row of nsData) {
       rememberPrefix(row.id, row.name, row.value);
     }
 
     const atData = await db.many(`SELECT * FROM ${dbSchema}.annot_types`);
-    console.log(`${col.yellow(atData.length)} annotation types loaded`);
+    logInfo(`${col.yellow(atData.length)} annotation types loaded`);
     for (let row of atData) {
       ANNOT_TYPES.set(row.iri, row.id);
     }
 
   } catch (err) {
-    console.error(err);
-    console.error('cannot init; exiting');
+    logError(err);
+    logError('cannot init; exiting');
     process.exit(1);
   }
 }
