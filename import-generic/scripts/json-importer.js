@@ -1024,7 +1024,7 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
             cnt = targetClass.objectTripleCount + targetClass.dataTripleCount
             jauns1 = true
           }
-        }
+        
         if (!targetClass.tripleCount && !jauns1 && targetClass.tripleCountBase) {
           // formula
           if (targetClass.instanceCount !== undefined && targetClass.tripleCountBase !== undefined) {
@@ -1046,7 +1046,8 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
             await log(`Context: ${JSON.stringify(targetClass, null, 2)}`)
           }
         }
-        if (targetClass.tripleCountBase) {
+        }
+		if (targetClass.tripleCountBase) {
           if (!cpData) cpData = {}
           cpData.triple_count_raw = targetClass.tripleCount
           cpData.triple_count_base = targetClass.tripleCountBase
