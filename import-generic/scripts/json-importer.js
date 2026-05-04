@@ -786,7 +786,7 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
             cnt = srcClass.objectTripleCount + srcClass.dataTripleCount
             jauns1 = true
           }
-        }
+        
         if (!srcClass.tripleCount && !jauns1 && srcClass.tripleCountBase) {
           // formula
           if (srcClass.instanceCount !== undefined && srcClass.tripleCountBase !== undefined) {
@@ -813,6 +813,7 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
           cpData.triple_count_raw = srcClass.tripleCount
           cpData.triple_count_base = srcClass.tripleCountBase
         }
+		}
 
 
         // if (srcClass.tripleCountBase) {
