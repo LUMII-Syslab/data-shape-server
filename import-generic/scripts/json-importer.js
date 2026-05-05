@@ -125,7 +125,10 @@ const resolveNsPrefix = async (prefixValue, prefixAbbr = null) => {
     }
 
     let id = (await db.one(
-      `INSERT INTO ${dbSchema}.ns (value, name) values ($1, $2) RETURNING id`,
+      `INSERT INTO ${dbSchema}.ns (value, name) values ($1, $2)
+      ON CONFLICT ON CONSTRAINT ns_name_key
+      DO UPDATE SET value = $1
+      RETURNING id`,
       [
         prefixValue,
         resolvedAbbr
@@ -1646,7 +1649,13 @@ const addPrefixAbbr = async (prefixValue, prefixName) => {
       rememberPrefix(idValue, normalizedName, prefixValue);
     } else { // not name, not value
       // insert idName, idValue
-      let newId = (await db.one(`insert into ${dbSchema}.ns (name, value, is_local) values ($1, $2, false) returning id`, [normalizedName, prefixValue])).id;
+      let newId = (await db.one(`insert into ${dbSchema}.ns (name, value, is_local) values ($1, $2, false)
+        on conflict on constraint ns_name_key
+        do update set value = $2
+        returning id`,
+        [
+          normalizedName, prefixValue
+        ])).id;
       rememberPrefix(newId, normalizedName, prefixValue);
     }
 
