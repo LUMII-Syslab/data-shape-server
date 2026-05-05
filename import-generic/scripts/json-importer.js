@@ -27,6 +27,8 @@ const NS_ID_TO_NAME = new Map(); // ns_id -> abbr
 const NS_NAME_TO_VALUE = new Map(); // abbr --> prefix
 const NS_VALUE_TO_NAME = new Map(); // prefix --> abbr
 
+const ASSUMED_PP_REL_COUNT = 100
+
 const rememberPrefix = (id, name, value) => {
   NS_VALUE_TO_ID.set(value, id);
   NS_VALUE_TO_NAME.set(value, name);
@@ -1244,7 +1246,7 @@ const addPropertyPairs = async p => {
         }
 
         if (!cnt) {
-          cnt = 10
+          cnt = ASSUMED_PP_REL_COUNT
           if (!ppData) ppData = {}
           ppData.is_assumed = true
         }
@@ -1306,7 +1308,7 @@ const addPropertyPairs = async p => {
         }
 
         if (!cnt) {
-          cnt = 10
+          cnt = ASSUMED_PP_REL_COUNT
           if (!ppData) ppData = {}
           ppData.is_assumed = true
         }
@@ -1368,7 +1370,7 @@ const addPropertyPairs = async p => {
         }
 
         if (!cnt) {
-          cnt = 10
+          cnt = ASSUMED_PP_REL_COUNT
           if (!ppData) ppData = {}
           ppData.is_assumed = true
         }
@@ -1411,7 +1413,7 @@ const addCountsFromReversePP = async p => {
             let { cnt, cnt_base, data } = pairFromDb
             let data2 = Object.assign({}, data, { is_reverse_count: true })
             if (!cnt) {
-              cnt = 10
+              cnt = ASSUMED_PP_REL_COUNT
               data2.is_assumed = true
             }
 
