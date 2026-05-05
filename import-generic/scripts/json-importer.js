@@ -520,7 +520,8 @@ function fix_cnt_values(p_cnt, p_object_cnt, p_data_cnt, maxTripleCountRounded) 
   return { cnt, object_cnt, data_cnt, pData }
 }
 
-const PROPS = new Map(); // iri -> property_id
+const PROPS_ID_BY_IRI = new Map(); // iri -> property_id
+const PROPS_OBJ_BY_ID = new Map(); // id -> property
 const addProperty = async (p, { maxTripleCountRounded }) => {
   // ?localName: "julPrecipitationDays"
   // ?namespace: "http://dbpedia.org/property/"
@@ -685,7 +686,13 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
         has_followers_ok, has_outgoing_props_ok, has_incoming_props_ok,
         p.distinctSubjectsCount, p.distinctObjectsCount, p.distinctTriples, p.blankNodeSubjects, p.blankNodeObjects,
       ])).id;
-    PROPS.set(p.fullName, property_id);
+    PROPS_ID_BY_IRI.set(p.fullName, property_id);
+    PROPS_OBJ_BY_ID.set(property_id, p);
+    // for easier access in next passes
+    p.cnt = cnt;
+    p.object_cnt = object_cnt;
+    p.data_cnt = data_cnt;
+
 
     // "SubjectInstanceNamespaces" : [ {
     //     "namespace" : "https://swapi.co/resource/human/",
@@ -1221,7 +1228,7 @@ const addPropertyPairs = async p => {
   // p.Followers[]
   //  propertyName: "http://dbpedia.org/property/date",
   //  tripleCount: 0
-  //  tripleCountBase": 3
+  //  tripleCountBase?: 3
 
   const this_prop_id = getPropertyId(p.fullName);
 
@@ -1259,9 +1266,14 @@ const addPropertyPairs = async p => {
         }
 
         if (!cnt) {
-          cnt = ASSUMED_PP_REL_COUNT
-          if (!ppData) ppData = {}
-          ppData.is_assumed = true
+          let otherProp = getPropertyById(other_prop_id)
+          if (p.cnt && otherProp.cnt) {
+            cnt = Math.floor(Math.pow(p.cnt * otherProp.cnt, 1 / 3))
+          } else {
+            cnt = ASSUMED_PP_REL_COUNT
+            if (!ppData) ppData = {}
+            ppData.is_assumed = true
+          }
         }
 
         try {
@@ -1283,7 +1295,7 @@ const addPropertyPairs = async p => {
 
   // propertyName: "http://dbpedia.org/ontology/deathPlace",
   // tripleCount: 3,
-  // tripleCountBase: 3
+  // tripleCountBase?: 3
 
   if (p.IncomingProperties) {
     for (let pair of p.IncomingProperties) {
@@ -1317,13 +1329,18 @@ const addPropertyPairs = async p => {
         } else if (!cnt && !cnt_base) {
           // šim vajag second (i.e., third) pass
           pair.needsCountsFromReverse = true
-          continue
+          // continue
         }
 
         if (!cnt) {
-          cnt = ASSUMED_PP_REL_COUNT
-          if (!ppData) ppData = {}
-          ppData.is_assumed = true
+          let otherProp = getPropertyById(other_prop_id)
+          if (p.cnt && otherProp.cnt) {
+            cnt = Math.floor(Math.pow(p.cnt * otherProp.cnt, 1 / 3))
+          } else {
+            cnt = ASSUMED_PP_REL_COUNT
+            if (!ppData) ppData = {}
+            ppData.is_assumed = true
+          }
         }
 
         try {
@@ -1345,7 +1362,7 @@ const addPropertyPairs = async p => {
 
   //  propertyName: "http://www.w3.org/ns/dcat#theme",
   //  tripleCount: 4,
-  //  tripleCountBase: 2
+  //  tripleCountBase?: 2
 
   if (p.OutgoingProperties) {
     for (let pair of p.OutgoingProperties) {
@@ -1379,13 +1396,18 @@ const addPropertyPairs = async p => {
         } else if (!cnt && !cnt_base) {
           // šim vajag second (i.e., third) pass
           pair.needsCountsFromReverse = true
-          continue
+          // continue
         }
 
         if (!cnt) {
-          cnt = ASSUMED_PP_REL_COUNT
-          if (!ppData) ppData = {}
-          ppData.is_assumed = true
+          let otherProp = getPropertyById(other_prop_id)
+          if (p.cnt && otherProp.cnt) {
+            cnt = Math.floor(Math.pow(p.cnt * otherProp.cnt, 1 / 3))
+          } else {
+            cnt = ASSUMED_PP_REL_COUNT
+            if (!ppData) ppData = {}
+            ppData.is_assumed = true
+          }
         }
 
         try {
@@ -1582,11 +1604,19 @@ const postProcessingAfterImport = async (params) => {
 }
 
 const getPropertyId = iri => {
-  let id = PROPS.get(iri);
+  let id = PROPS_ID_BY_IRI.get(iri);
   if (!id) {
     logError(`Could not find id for the property ${iri}`);
   }
   return id;
+}
+
+const getPropertyById = id => {
+  let obj = PROPS_OBJ_BY_ID.get(id);
+  if (!obj) {
+    logError(`Could not find property object for the id ${id}`);
+  }
+  return obj;
 }
 
 const setDefaultNS = async prefixValue => {
