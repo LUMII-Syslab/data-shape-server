@@ -1460,7 +1460,9 @@ const addCountsFromReversePP = async p => {
             }
 
             await db.none(`insert into ${dbSchema}.pp_rels (property_1_id, property_2_id, type_id, cnt, cnt_base, data)
-                        VALUES ($1, $2, $3, $4, $5, $6)`, [
+                        VALUES ($1, $2, $3, $4, $5, $6)
+                        on conflict on constraint pp_rels_property_1_id_property_2_id_type_id_key
+                        do update set cnt = $4, cnt_base = $5, data = $6`, [
               this_prop_id,
               other_prop_id,
               type_id,
