@@ -98,12 +98,22 @@ const getAbbrFromPublic = async prefixValue => {
   }
 }
 
+const getAbbrFromPublicList = async prefixValue => {
+  let r = await db.any(`select * from public.ns_list where ns = $1 order by id`, [prefixValue]);
+  if (r.length > 0) {
+    return r[0].prefix_main;
+  }
+}
+
 const resolveNsPrefix = async (prefixValue, prefixAbbr = null) => {
   if (NS_VALUE_TO_ID.has(prefixValue)) {
     return NS_VALUE_TO_ID.get(prefixValue);
   }
   try {
     let resolvedAbbr = prefixAbbr;
+    if (!resolvedAbbr) {
+      resolvedAbbr = await getAbbrFromPublicList(prefixValue);
+    }
     if (!resolvedAbbr) {
       resolvedAbbr = await getAbbrFromPublic(prefixValue);
     }
