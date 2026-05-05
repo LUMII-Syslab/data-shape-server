@@ -1764,8 +1764,6 @@ const printStats = async () => {
 
 const init = async () => {
   try {
-    // logInfo(`=== importing JSON from ${INPUT_FILE} ===\n`);
-
     const nsData = await db.many(`SELECT * FROM ${dbSchema}.ns`);
     logInfo(`${col.yellow(nsData.length)} ns entries loaded`);
     for (let row of nsData) {
@@ -1786,6 +1784,8 @@ const init = async () => {
 }
 
 const importFromJSON = async data => {
+  logInfo(`\n\n=== start importing JSON from ${INPUT_FILE} ===\n\n`);
+
   await init();
 
   // prefixes
@@ -1884,6 +1884,8 @@ const importFromJSON = async data => {
   await printStats();
 
   return effectiveParams;
+
+  logInfo(`\n\n=== end importing JSON from ${INPUT_FILE} ===\n\n`);
 }
 
 module.exports = {
