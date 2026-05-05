@@ -185,6 +185,13 @@ const addDatatypeByShortIri = async shortIri => {
   }
 
   let [abbr, localName] = parts;
+
+  if (localName.startsWith('//')) {
+    // šis droši vien ir datu tipa garais IRI
+    logInfo(`long IRI ${shortIri} provided where abbr:local_name expected`);
+    return await addDatatypeByIri(shortIri);
+  }
+
   let prefix = NS_NAME_TO_VALUE.get(abbr);
 
   if (!prefix) {
