@@ -5,27 +5,32 @@ const LOG_FILE = `./json-importer-${new Date().toISOString().slice(0, 10)}.log`
 const logStream = fs.createWriteStream(LOG_FILE, { flags: 'a', encoding: 'utf-8' })
 
 
-async function log(params) {
+async function log(params, breakBefore = false) {
   let message
   if (typeof params === 'string') {
     message = params
   } else if (typeof params === 'object') {
-    message = JSON.stringify(params, null, 2)
+    if (params instanceof Error) {
+      message = `Error Message: ${params.message}\nQuery: "${params.query}"`
+    } else {
+      message = JSON.stringify(params, null, 2)
+    }
   } else {
     message = 'unk'
   }
 
+  if (breakBefore) logStream.write('\n')
   logStream.write(`[${new Date().toISOString().slice(11, 19)}] ${col.unstyle(message)}\n`)
 }
 
-function logError(params) {
+function logError(params, breakBefore = false) {
   console.error(params)
-  log(params)
+  log(params, breakBefore)
 }
 
-function logInfo(params) {
+function logInfo(params, breakBefore = false) {
   console.log(params)
-  log(params)
+  log(params, breakBefore)
 }
 
 function closeStream() {

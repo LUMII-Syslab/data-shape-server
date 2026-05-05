@@ -1784,7 +1784,7 @@ const init = async () => {
 }
 
 const importFromJSON = async data => {
-  logInfo(`\n\n=== start importing JSON from ${INPUT_FILE} ===\n\n`);
+  logInfo(`=== start importing JSON from ${INPUT_FILE} ===\n\n`, true);
 
   await init();
 
@@ -1883,9 +1883,9 @@ const importFromJSON = async data => {
 
   await printStats();
 
-  return effectiveParams;
+  logInfo(`=== end importing JSON from ${INPUT_FILE} ===\n\n`, true);
 
-  logInfo(`\n\n=== end importing JSON from ${INPUT_FILE} ===\n\n`);
+  return effectiveParams;
 }
 
 module.exports = {
