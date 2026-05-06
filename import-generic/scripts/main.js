@@ -1,5 +1,7 @@
 const debug = require('debug')('main')
 const col = require('ansi-colors')
+const path = require('node:path')
+const fs = require('node:fs').promises
 
 const { importFromJSON } = require('./json-importer');
 const { registerImportedSchema } = require('./schema-registrar');
@@ -7,13 +9,14 @@ const { calculateDisplayNames } = require('./display-name-calculator');
 
 const { DB_CONFIG, db } = require('../config');
 
-const schemaName = process.env.DB_SCHEMA;
-const INPUT_FILE = process.env.INPUT_FILE;
+const DB_SCHEMA = process.env.DB_SCHEMA;
 
 const registrySchema = process.env.REGISTRY_SCHEMA || 'public';
 
 const overrideExistingSchema = (process.env.OVERRIDE_DB_SCHEMA || '').toLowerCase() === 'true'
   || (process.env.OVERRIDE_EXISTING || '').toLowerCase() === 'true';
+
+const withoutConfirmation = (process.env.WITHOUT_CONFIRMATION || '').toLowerCase() === 'true'
 
 const EMPTY_SCHEMA = 'empty'
 
@@ -38,10 +41,12 @@ const checkSchemaExists = async schemaName => {
   }
 }
 
-const dropSchema = async schemaName => {
-  console.log(`Data schema ${schemaName} will be deleted and replaced with a new version`);
-  const confirm = await question('Are you sure (y/N)?');
-  if (!['y', 'yes'].includes(confirm.toLowerCase())) return false;
+const dropSchema = async (schemaName, withoutConfirmation = false) => {
+  if (!withoutConfirmation) {
+    console.log(`Data schema ${schemaName} will be deleted and replaced with a new version`);
+    const confirm = await question('Are you sure (y/N)?');
+    if (!['y', 'yes'].includes(confirm.toLowerCase())) return false;
+  }
 
   console.log(`Dropping old schema ${schemaName}...`);
   try {
@@ -64,7 +69,7 @@ const createSchema = async schemaName => {
   await $`psql -h ${DB_CONFIG.host} -p ${DB_CONFIG.port} -U ${DB_CONFIG.user} -f ${EMPTY_SCHEMA}.sql -d ${DB_CONFIG.database}`;
 }
 
-const doImport = async () => {
+const testSetup = async () => {
   const connectionOK = await testDbConnection();
   if (!connectionOK) {
     console.error('DB connection not OK. Fix it, then retry');
@@ -100,6 +105,37 @@ const doImport = async () => {
     }
   }
 
+  return true;
+}
+
+async function* enumerateFiles(folderPath, extension = 'json') {
+  try {
+    const files = await fs.readdir(folderPath)
+    const myFiles = files.filter(file => path.extname(file).toLowerCase() === extension)
+  } catch (err) {
+    console.error(`Cannot read the folder ${folderPath}`)
+    process.exit(1)
+  }
+
+  for (const file of myFiles) {
+    try {
+      const filePath = path.join(folderPath, file)
+      const data = await fs.readFile(filePath, { encoding: 'utf-8' })
+      const jsonData = JSON.parse(data)
+
+      yield { fileName: file, content: jsonData }
+
+    } catch(err) {
+      console.error(`Cannot read the file ${file} from ${folderPath}`)
+      process.exit(1)
+    }
+  }
+}
+
+const doImportOneFile = async (jsonFilePath, schemaNameParam) => {
+  let fileName = path.parse(jsonFilePath).name
+  let schemaName = schemaNameParam ?? fileName
+
   if (!schemaName) {
     console.error('Schema name not provided, exiting');
     process.exit(1);
@@ -117,7 +153,7 @@ const doImport = async () => {
   if (zxMode) {
     if (dbSchemaExists) {
       if (overrideExistingSchema) {
-        let dropped = await dropSchema(schemaName);
+        let dropped = await dropSchema(schemaName, withoutConfirmation);
         if (!dropped) {
           console.error(`Existing schema ${col.red(schemaName)} could not be dropped; exiting`);
           process.exit(1);
@@ -139,6 +175,16 @@ const doImport = async () => {
       console.error('In the manual mode, an empty schema has to be set up before import');
       process.exit(1);
     }
+    try {
+      const dbSchemaIsEmpty = await db.any(`select * from ${schemaName}.classes limit 1`);
+      if (dbSchemaIsEmpty.length > 0) {
+        console.error(`Looks like the schema ${schemaName} is not empty; exiting`);
+        process.exit(1);
+      }
+    } catch (err) {
+        console.error(`Cannot access the schema ${schemaName}; exiting`);
+        process.exit(1);
+    }
   }
 
   // now an empty schema should exist
@@ -146,9 +192,9 @@ const doImport = async () => {
 
   let data, effectiveParams;
   try {
-    data = require(INPUT_FILE);
+    data = require(jsonFilePath);
   } catch (err) {
-    console.error(`Could not read data from '${INPUT_FILE}'; exiting`);
+    console.error(`Could not read data from '${jsonFilePath}'; exiting`);
     process.exit(1);
   }
   try {
@@ -164,6 +210,33 @@ const doImport = async () => {
   }
 
   await registerImportedSchema(effectiveParams);
+
+}
+
+const doImport = async () => {
+  const setupIsOK = await testSetup()
+
+  if (!setupIsOK) {
+    console.error('Setup is not OK, exiting')
+    process.exit(1)
+  }
+
+  if (process.env.INPUT_FOLDER) {
+    // TODO: iterēt pa visiem *.json norādītajā mapē;
+    // katram taisīt doImportOneFIle(filePath)
+    console.log(col.red('folder import is not implemented yet...'))
+
+  } else if (process.env.INPUT_FILE) {
+    const filePath = path.join(__dirname, process.env.INPUT_FILE)
+    let dbSchema = DB_SCHEMA.includes('%FILE%')
+      ? DB_SCHEMA.replace('%FILE%', path.parse(filePath).name)
+      : DB_SCHEMA
+    await doImportOneFile(filePath, dbSchema)
+  } else {
+    console.error(`Either INPUT_FILE or INPUT_FOLDER must be provided.`);
+    process.exit(1);
+  }
+
 
   return 'done';
 }
