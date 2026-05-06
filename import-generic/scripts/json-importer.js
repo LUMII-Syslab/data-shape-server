@@ -1242,7 +1242,7 @@ const addPropertyPairs = async p => {
 
   if (p.Followers) {
     for (let pair of p.Followers) {
-      if (pair.tripleCount === 0) continue;
+      // if (pair.tripleCount === 0) continue;
       let other_prop_id = getPropertyId(pair.propertyName)
       if (other_prop_id) {
         let cnt = pair.tripleCount
@@ -1307,7 +1307,7 @@ const addPropertyPairs = async p => {
 
   if (p.IncomingProperties) {
     for (let pair of p.IncomingProperties) {
-      if (pair.tripleCount === 0) continue;
+      // if (pair.tripleCount === 0) continue;
       let other_prop_id = getPropertyId(pair.propertyName)
       if (other_prop_id) {
         let cnt = pair.tripleCount
@@ -1374,7 +1374,7 @@ const addPropertyPairs = async p => {
 
   if (p.OutgoingProperties) {
     for (let pair of p.OutgoingProperties) {
-      if (pair.tripleCount === 0) continue;
+      // if (pair.tripleCount === 0) continue;
       let other_prop_id = getPropertyId(pair.propertyName)
       if (other_prop_id) {
         let cnt = pair.tripleCount
