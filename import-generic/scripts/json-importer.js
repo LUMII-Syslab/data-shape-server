@@ -808,6 +808,8 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
             if (srcClass.instanceCount !== undefined && srcClass.tripleCountBase !== undefined) {
               cnt = Math.floor(Math.pow(srcClass.instanceCount / srcClass.tripleCountBase * Math.log(2), 1 / 3))
               jauns2 = true
+              if (!cpData) cpData = {}
+              cpData.estimated_from_zero = true
             } else {
               // log
               logError(`Missing arguments in formula 1: "${srcClass.instanceCount}" "${srcClass.tripleCountBase}"`)
@@ -1046,6 +1048,8 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
             if (targetClass.instanceCount !== undefined && targetClass.tripleCountBase !== undefined) {
               cnt = Math.floor(Math.pow(targetClass.instanceCount / targetClass.tripleCountBase * Math.log(2), 1 / 3))
               jauns2 = true
+              if (!cpData) cpData = {}
+              cpData.estimated_from_zero = true
             } else {
               // log
               logError(`Missing arguments in formula 4: "${targetClass.instanceCount}" "${targetClass.tripleCountBase}"`)
@@ -1264,6 +1268,10 @@ const addPropertyPairs = async p => {
           // formula
           if (p.tripleCount !== undefined && cnt_base !== undefined) {
             cnt = Math.floor(Math.pow(p.tripleCount / cnt_base * Math.log(2), 1 / 3))
+            if (!ppData) ppData = {}
+            ppData.triple_count_raw = cnt
+            ppData.triple_count_base = cnt_base
+            ppData.estimated_from_zero = true
           } else {
             // log
             logError(`Missing arguments in formula 8: "${p.tripleCount}" "${cnt_base}"`)
@@ -1329,6 +1337,10 @@ const addPropertyPairs = async p => {
           // formula
           if (p.objectTripleCount !== undefined && cnt_base !== undefined) {
             cnt = Math.floor(Math.pow(p.objectTripleCount / cnt_base * Math.log(2), 1 / 3))
+            if (!ppData) ppData = {}
+            ppData.triple_count_raw = cnt
+            ppData.triple_count_base = cnt_base
+            ppData.estimated_from_zero = true
           } else {
             // log
             logError(`Missing arguments in formula 10: "${p.objectTripleCount}" "${cnt_base}"`)
@@ -1396,6 +1408,10 @@ const addPropertyPairs = async p => {
           // formula
           if (p.tripleCount !== undefined && cnt_base !== undefined) {
             cnt = Math.floor(Math.pow(p.tripleCount / cnt_base * Math.log(2), 1 / 3))
+            if (!ppData) ppData = {}
+            ppData.triple_count_raw = cnt
+            ppData.triple_count_base = cnt_base
+            ppData.estimated_from_zero = true
           } else {
             // log
             logError(`Missing arguments in formula 12: "${p.tripleCount}" "${cnt_base}"`)
