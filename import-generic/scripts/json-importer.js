@@ -876,7 +876,8 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
                     details_level,
                     sub_cover_complete,
                     principal_class_id,
-                    cnt_base, data)
+                    cnt_base, data,
+                    distinct_subjects)
                 VALUES ($1, $2, $3,
                     $4, $5, $6,
                     $7, $8,
@@ -884,7 +885,8 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
                     $10,
                     $11,
                     $12,
-                    $13, $14) RETURNING id`,
+                    $13, $14,
+                    $15) RETURNING id`,
           [
             class_id, property_id, CP_REL_TYPE.OUTGOING,
             // srcClass.tripleCount, srcClass.objectTripleCount, srcClass.dataTripleCount,
@@ -896,6 +898,7 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
             principalTargetClassId,
             srcClass.tripleCountBase,
             cpData,
+            distinct_subjects,
           ])).id;
 
       } catch (err) {
@@ -1117,7 +1120,8 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
                     details_level,
                     sub_cover_complete,
                     principal_class_id,
-                    cnt_base, data)
+                    cnt_base, data,
+                    distinct_objects)
                 VALUES ($1, $2, $3,
                     $4, $5, $6,
                     $7, $8,
@@ -1125,7 +1129,8 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
                     $10,
                     $11,
                     $12,
-                    $13, $14)
+                    $13, $14,
+                    $15)
                 RETURNING id`,
           [
             class_id, property_id, CP_REL_TYPE.INCOMING,
@@ -1138,6 +1143,7 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
             principalSourceClassId,
             targetClass.tripleCountBase,
             cpData,
+            distinct_objects,
           ])).id;
 
       } catch (err) {
