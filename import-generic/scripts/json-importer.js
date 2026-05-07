@@ -866,6 +866,8 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
           cpData.max_cardinality_1_is_indirect = true
         }
 
+        let distinct_subjects = srcClass.distinctSubjectsCount
+
         cp_rel_id = (await db.one(`INSERT INTO ${dbSchema}.cp_rels (
                     class_id, property_id, type_id,
                     cnt, object_cnt, data_cnt,
@@ -1104,6 +1106,8 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
           cpData.inverse_max_cardinality_1_asserted_size = targetClass.maxInverseCardinality1AssertionSize
           cpData.inverse_max_cardinality_1_is_indirect = true
         }
+
+        let distinct_objects = targetClass.distinctObjectsCount
 
         cp_rel_id = (await db.one(`INSERT INTO ${dbSchema}.cp_rels (
                     class_id, property_id, type_id,
