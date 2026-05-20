@@ -1,7 +1,9 @@
 __local__
 
-
 data
+_dump
+_logs
+_doc
 
 *.env
 !sample.env
