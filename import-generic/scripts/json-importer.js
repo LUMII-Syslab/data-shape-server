@@ -603,21 +603,21 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
     }
 
     let has_followers_ok = false
-    if (p.hasFollowersOK) {
+    if (p.hasFollowersOK || p.hasFollowersOK === 0) {
       if (!pData) pData = {}
       pData.has_followers_ok = p.hasFollowersOK
       has_followers_ok = true
     }
 
     let has_incoming_props_ok = false
-    if (p.hasIncomingPropertiesOK) {
+    if (p.hasIncomingPropertiesOK || p.hasIncomingPropertiesOK === 0) {
       if (!pData) pData = {}
       pData.has_common_objects_ok = p.hasIncomingPropertiesOK
       has_incoming_props_ok = true
     }
 
     let has_outgoing_props_ok = false
-    if (p.hasOutgoingPropertiesOK) {
+    if (p.hasOutgoingPropertiesOK || p.hasOutgoingPropertiesOK === 0) {
       if (!pData) pData = {}
       pData.has_common_subjects_ok = p.hasOutgoingPropertiesOK
       has_outgoing_props_ok = true
