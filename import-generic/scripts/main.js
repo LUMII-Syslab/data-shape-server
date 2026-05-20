@@ -20,6 +20,8 @@ const withoutConfirmation = (process.env.WITHOUT_CONFIRMATION || '').toLowerCase
 
 const EMPTY_SCHEMA = 'empty'
 
+let isBatchMode = false
+
 // const zxMode = !!$
 let zxMode = false
 if (typeof $ !== 'undefined') zxMode = true
@@ -108,12 +110,14 @@ const testSetup = async () => {
   return true;
 }
 
-async function* enumerateFiles(folderPath, extension = 'json') {
+async function* enumerateFiles(folderPath, extension = '.json') {
+  let myFiles
+
   try {
     const files = await fs.readdir(folderPath)
-    const myFiles = files.filter(file => path.extname(file).toLowerCase() === extension)
+    myFiles = files.filter(file => path.extname(file).toLowerCase() === extension)
   } catch (err) {
-    console.error(`Cannot read the folder ${folderPath}`)
+    console.error(`Cannot read the folder ${folderPath}. Does it exist?`)
     process.exit(1)
   }
 
@@ -123,9 +127,8 @@ async function* enumerateFiles(folderPath, extension = 'json') {
       const data = await fs.readFile(filePath, { encoding: 'utf-8' })
       const jsonData = JSON.parse(data)
 
-      yield { fileName: file, content: jsonData }
-
-    } catch(err) {
+      yield { filePath, fileName: path.parse(filePath).name, content: jsonData }
+    } catch (err) {
       console.error(`Cannot read the file ${file} from ${folderPath}`)
       process.exit(1)
     }
@@ -182,8 +185,8 @@ const doImportOneFile = async (jsonFilePath, schemaNameParam) => {
         process.exit(1);
       }
     } catch (err) {
-        console.error(`Cannot access the schema ${schemaName}; exiting`);
-        process.exit(1);
+      console.error(`Cannot access the schema ${schemaName}; exiting`);
+      process.exit(1);
     }
   }
 
@@ -192,9 +195,13 @@ const doImportOneFile = async (jsonFilePath, schemaNameParam) => {
 
   let data, effectiveParams;
   try {
-    data = require(jsonFilePath);
+    // data = require(jsonFilePath);
+    const dataRaw = await fs.readFile(jsonFilePath, { encoding: 'utf-8' })
+    data = JSON.parse(dataRaw)
+
   } catch (err) {
     console.error(`Could not read data from '${jsonFilePath}'; exiting`);
+    console.error(err)
     process.exit(1);
   }
   try {
@@ -222,9 +229,12 @@ const doImport = async () => {
   }
 
   if (process.env.INPUT_FOLDER) {
-    // TODO: iterēt pa visiem *.json norādītajā mapē;
-    // katram taisīt doImportOneFIle(filePath)
-    console.log(col.red('folder import is not implemented yet...'))
+    isBatchMode = true
+
+    const inputFolder = path.join(__dirname, process.env.INPUT_FOLDER)
+    for await(const { filePath, fileName, content } of enumerateFiles(inputFolder)) {
+      await doImportOneFile(filePath, fileName.slice(0, 63))
+    }
 
   } else if (process.env.INPUT_FILE) {
     const filePath = path.join(__dirname, process.env.INPUT_FILE)
