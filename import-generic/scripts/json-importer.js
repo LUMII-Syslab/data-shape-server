@@ -1988,6 +1988,14 @@ const importFromJSON = async data => {
       : data.Parameters
     : {}
 
+  if (data.StartDateTime) {
+    jsonParams.extraction_start_datetime = data.StartDateTime
+  }
+
+  if (data.EndDateTime) {
+    jsonParams.extraction_end_datetime = data.EndDateTime
+  }
+
   const effectiveParams = await addParameters(jsonParams);
 
   await postProcessingAfterImport(jsonParams);
