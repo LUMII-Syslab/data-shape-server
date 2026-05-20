@@ -14,7 +14,7 @@ const dbSchema = process.env.DB_SCHEMA;
 const INPUT_FILE = process.env.INPUT_FILE;
 const registrySchema = process.env.REGISTRY_SCHEMA || 'public';
 
-const IMPORTER_VERSION = '2026-05-20';
+const IMPORTER_VERSION = '2026-05-20-2';
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -180,7 +180,7 @@ const reportBadDatatypeShortIri = badIri => {
   }
 }
 
-const printBadDatatypeIrisIfExist = () {
+const printBadDatatypeIrisIfExist = () => {
   if (Object.keys(badDatatypeShortIriCollection).length === 0) return
 
   logError(`\n${Object.keys(badDatatypeShortIriCollection).length} bad datatype IRIs detected:`)
@@ -1839,6 +1839,8 @@ const addParameters = async (params) => {
     schema_extraction_details: params,
     schema_import_datetime: new Date(),
     schema_importer_version: IMPORTER_VERSION,
+    extraction_start_datetime: params.extraction_start_datetime,
+    extraction_end_datetime: params.extraction_end_datetime,
   }
 
   const pp_rels_count = Number.parseInt((await db.one(`SELECT COUNT(*) FROM ${dbSchema}.pp_rels`)).count, 10);
