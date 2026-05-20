@@ -171,6 +171,24 @@ const DATATYPES_BY_SHORT_IRI = new Map(); // abbr:localName -> datatype_id
 const resolveDatatypeByShortIri = shortIri => DATATYPES_BY_SHORT_IRI.get(shortIri);
 const resolveDatatypeByIri = iri => DATATYPES_BY_IRI.get(iri);
 
+const badDatatypeShortIriCollection = {}
+const reportBadDatatypeShortIri = badIri => {
+  if (badDatatypeShortIriCollection[badIri]) {
+    badDatatypeShortIriCollection[badIri] += 1
+  } else {
+    badDatatypeShortIriCollection[badIri] = 1
+  }
+}
+
+const printBadDatatypeIrisIfExist = () {
+  if (Object.keys(badDatatypeShortIriCollection).length === 0) return
+
+  logError(`\n${Object.keys(badDatatypeShortIriCollection).length} bad datatype IRIs detected:`)
+  for (const k in badDatatypeShortIriCollection) {
+    logError(badDatatypeShortIriCollection[k])
+  }
+}
+
 /**
  * This method works only with data types in form "xsd:integer", as they appear in the input JSON
  */
@@ -915,6 +933,10 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
           try {
             await addDatatypeByShortIri(dtr.dataType);
             let datatype_id = resolveDatatypeByShortIri(dtr.dataType);
+            if (!datatype_id) {
+              reportBadDatatypeShortIri(dtr.dataType)
+              continue
+            }
 
             let cnt = dtr.tripleCount
             let cnt_base = dtr.tripleCountBase
@@ -1982,6 +2004,9 @@ const importFromJSON = async data => {
           ...
       }
   */
+
+  printBadDatatypeIrisIfExist()
+
   let jsonParams = typeof data.Parameters === 'object'
     ? Array.isArray(data.Parameters)
       ? Object.fromEntries(data.Parameters.map(x => [x.name, x.value]))
