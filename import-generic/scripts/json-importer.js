@@ -3,6 +3,7 @@ const debug = require('debug')('import')
 const fetch = require('node-fetch');
 const col = require('ansi-colors')
 const fs = require('node:fs/promises')
+const path = require('node:path')
 
 const { CC_REL_TYPE, CP_REL_TYPE, PP_REL_TYPE, NS_STATS_TYPE } = require('./type-constants')
 const { logInfo, logError } = require('./util.js')
@@ -1854,18 +1855,22 @@ async function dumpMap(map, filename) {
 }
 
 const saveDumps = async () => {
-  await dumpMap(NS_VALUE_TO_ID, 'NS_VALUE_TO_ID');; // prefix --> ns_id
-  await dumpMap(NS_ID_TO_VALUE, 'NS_ID_TO_VALUE'); // ns_id --> prefix
-  await dumpMap(NS_NAME_TO_ID, 'NS_NAME_TO_ID'); // abbr --> ns_id
-  await dumpMap(NS_ID_TO_NAME, 'NS_ID_TO_NAME'); // ns_id -> abbr
-  await dumpMap(NS_NAME_TO_VALUE, 'NS_NAME_TO_VALUE'); // abbr --> prefix
-  await dumpMap(NS_VALUE_TO_NAME, 'NS_VALUE_TO_NAME'); // prefix --> abbr
-  await dumpMap(DATATYPES_BY_IRI, 'DATATYPES_BY_IRI'); // iri -> datatype_id
-  await dumpMap(DATATYPES_BY_SHORT_IRI, 'DATATYPES_BY_SHORT_IRI'); // abbr:localName -> datatype_id
-  await dumpMap(CLASSES, 'CLASSES'); // iri -> class_id
-  await dumpMap(ANNOT_TYPES, 'ANNOT_TYPES'); // iri -> annot_type_id
-  await dumpMap(PROPS_ID_BY_IRI, 'PROPS_ID_BY_IRI'); // iri -> property_id
-  await dumpMap(PROPS_OBJ_BY_ID, 'PROPS_OBJ_BY_ID'); // id -> property
+  const dumpFolder = path.join(__dirname, '..', '_dump')
+  await fs.mkdir(dumpFolder, { recursive: true })
+  const getDumpFilePath = fn => path.join(dumpFolder, `${fn}.json`)
+
+  // await dumpMap(NS_VALUE_TO_ID, getDumpFilePath('NS_VALUE_TO_ID')); // prefix --> ns_id
+  // await dumpMap(NS_ID_TO_VALUE, getDumpFilePath('NS_ID_TO_VALUE')); // ns_id --> prefix
+  // await dumpMap(NS_NAME_TO_ID, getDumpFilePath('NS_NAME_TO_ID')); // abbr --> ns_id
+  // await dumpMap(NS_ID_TO_NAME, getDumpFilePath('NS_ID_TO_NAME')); // ns_id -> abbr
+  // await dumpMap(NS_NAME_TO_VALUE, getDumpFilePath('NS_NAME_TO_VALUE')); // abbr --> prefix
+  // await dumpMap(NS_VALUE_TO_NAME, getDumpFilePath('NS_VALUE_TO_NAME')); // prefix --> abbr
+  await dumpMap(DATATYPES_BY_IRI, getDumpFilePath('DATATYPES_BY_IRI')); // iri -> datatype_id
+  await dumpMap(DATATYPES_BY_SHORT_IRI, getDumpFilePath('DATATYPES_BY_SHORT_IRI')); // abbr:localName -> datatype_id
+  await dumpMap(CLASSES, getDumpFilePath('CLASSES')); // iri -> class_id
+  // await dumpMap(ANNOT_TYPES, getDumpFilePath('ANNOT_TYPES')); // iri -> annot_type_id
+  await dumpMap(PROPS_ID_BY_IRI, getDumpFilePath('PROPS_ID_BY_IRI')); // iri -> property_id
+  await dumpMap(PROPS_OBJ_BY_ID, getDumpFilePath('PROPS_OBJ_BY_ID')); // id -> property
 }
 
 const init = async () => {
