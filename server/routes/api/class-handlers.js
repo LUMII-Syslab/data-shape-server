@@ -477,22 +477,47 @@ const xx_getPropList3 = async (schema, params) => {
 
     const r = await util.getSchemaData(sql, params);
     for (var c of r.data) {
-		if ( r0[0].count == 0 ) {
-			if ( c.object_cnt == c.source_sum)
-				c.source_cover_complete = true;
-			if ( c.object_cnt == c.target_sum)
-				c.target_cover_complete = true;
-		}
-		if ( c.cnt == c.object_cnt )
-			c.p_name = `${c.prefix}:${c.display_name} (cnt-${roundCount(c.cnt)}, object property ${c.type_2}-${c.type_1})`;
-		else if ( c.cnt == c.data_cnt )
-			c.p_name = `${c.prefix}:${c.display_name} (cnt-${roundCount(c.cnt)}, data property )`;
-		else
-			c.p_name = `${c.prefix}:${c.display_name} (cnt-${roundCount(c.cnt)}, property ${c.type_2}-${c.type_1})`;
-	}
+      if ( r0[0].count == 0 ) {
+        if ( c.object_cnt == c.source_sum)
+          c.source_cover_complete = true;
+        if ( c.object_cnt == c.target_sum)
+          c.target_cover_complete = true;
+      }
+      if ( c.cnt == c.object_cnt )
+        c.p_name = `${c.prefix}:${c.display_name} (cnt-${roundCount(c.cnt)}, object property ${c.type_2}-${c.type_1})`;
+      else if ( c.cnt == c.data_cnt )
+        c.p_name = `${c.prefix}:${c.display_name} (cnt-${roundCount(c.cnt)}, data property )`;
+      else
+        c.p_name = `${c.prefix}:${c.display_name} (cnt-${roundCount(c.cnt)}, property ${c.type_2}-${c.type_1})`;
+  	}
 
     return r;
 }
+
+const xx_getPropList3a = async (schema, params) => {
+  // Izsauc pārbaudot propertiju galus, vai joprojām ir derīgi zīmēšanai
+
+	const sql = `select id, iri, display_name, prefix, cnt, object_cnt, data_cnt, max_cardinality, inverse_max_cardinality, domain_class_id, range_class_id,
+			(select count(*) from ${schema}.pp_rels where property_2_id = vpn.id and property_1_id != vpn.id and type_id = 1 and property_1_id in (${params.main.p_list_full})) as is_follower,
+      (select count(*) from ${schema}.pp_rels where property_1_id = vpn.id and property_2_id != vpn.id and type_id = 1 and property_2_id in (${params.main.p_list_full})) as follows,
+      (select count(*) from ${schema}.pp_rels where property_1_id = vpn.id and property_2_id != vpn.id and type_id = 3 and property_2_id in (${params.main.p_list_full})) as common_objects,
+      (select count(*) from ${schema}.pp_rels where property_1_id = vpn.id and property_2_id != vpn.id and type_id = 2 and property_2_id in (${params.main.p_list_full})) as common_subjects
+			from ${schema}.v_properties_ns vpn where vpn.id in (${params.main.p_list}) order by cnt desc`;
+
+    const r = await util.getSchemaData(sql, params);
+    for (var c of r.data) {
+      if ( c.cnt == c.object_cnt )
+        c.p_name = `${c.prefix}:${c.display_name} (cnt-${roundCount(c.cnt)}, object property ${c.type_2}-${c.type_1})`;
+      else if ( c.cnt == c.data_cnt )
+        c.p_name = `${c.prefix}:${c.display_name} (cnt-${roundCount(c.cnt)}, data property )`;
+      else
+        c.p_name = `${c.prefix}:${c.display_name} (cnt-${roundCount(c.cnt)}, property ${c.type_2}-${c.type_1})`;
+
+      c.full_name = `${c.prefix}:${c.display_name}`;
+  	}
+    return r;
+}
+
 const xx_getClassListInfo = async (schema, params) => {
 	let sql = `select * from ${schema}.cc_rels where class_1_id in (${params.main.c_list}) and class_2_id in (${params.main.c_list}) and ( type_id = 1 or type_id = 2 )`;
 	let rr =  await util.getSchemaData(sql, params, false);
@@ -1044,6 +1069,7 @@ module.exports = {
 	xx_getPropList,
 	xx_getPropList2,
 	xx_getPropList3,
+  xx_getPropList3a,
 	xx_getClassListInfo,
 	xx_getCCInfo,
 	xx_getCCInfoNew,

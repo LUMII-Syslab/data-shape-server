@@ -14,12 +14,13 @@ const {
 	getNamespaces,
 	getPublicNamespaces,
 	xx_getClassList,
-  xx_getClassListfromIds,
-  xx_getClassListFullfromIds,
+	xx_getClassListfromIds,
+	xx_getClassListFullfromIds,
 	xx_getClassListExt,
 	xx_getPropList,
 	xx_getPropList2,
 	xx_getPropList3,
+	xx_getPropList3a,
 	xx_getClassListInfo,
 	xx_getClassInfo,
 	xx_getClassInfoAtr,
@@ -36,9 +37,9 @@ const {
 	xx_getCPInfoNew,
 	xx_getCPCInfoNew,
 	xx_getPropInfo,
-  xx_getClassOutProperties,
-  xx_getClassInProperties,
-  xx_getClasstoClassProperties,
+	xx_getClassOutProperties,
+	xx_getClassInProperties,
+	xx_getClasstoClassProperties,
 	generateClassUpdate,
 } = require('./class-handlers')
 
@@ -373,6 +374,9 @@ router.post('/ontologies/:ont/:fn', wrapAsync(async (req, res, next) => {
 		}
 		if ( fn === 'xx_getPropList3') {
 			r = await xx_getPropList3(schema, params);
+		}
+		if ( fn === 'xx_getPropList3a') {
+			r = await xx_getPropList3a(schema, params);
 		}
 		if ( fn === 'xx_getClassListInfo') {
 			r = await xx_getClassListInfo(schema, params);
