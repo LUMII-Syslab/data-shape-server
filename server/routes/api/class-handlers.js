@@ -475,7 +475,7 @@ const xx_getPropList3 = async (schema, params) => {
 			from ${schema}.v_properties_ns vpn order by cnt desc`;
   }
 
-  const r = await util.getSchemaData(sql, params);
+  const r = await util.getSchemaData(sql, params, false);
   for (var c of r.data) {
     if (r0[0].count == 0) {
       if (c.object_cnt == c.source_sum)
@@ -1055,8 +1055,57 @@ from ${db_info.db_schema_name}.classes`
   return result;
 }
 // **************************************************************************************************************
+const get_KNOWN_DATA6 = async (par) => {
+  const r = await db.any(`SELECT * from public.v_configurations where is_active = true`);
+  let result = [];
+  for (const db_info of r) {
+    if (par.tag && !db_info.tags.includes(par.tag)) continue;
+    const r0 = await db.any(`SELECT COUNT(*) FROM information_schema."tables" where table_schema = '${db_info.db_schema_name}'`);
+	  let take = true;
+	  if ( par.count ) {
+	    const rr_c = await db.any(`SELECT COUNT(*) FROM ${db_info.db_schema_name}.classes`);
+	    if ( rr_c[0].count > Number(par.count) || rr_c[0].count < 5 )
+	      take = false;
+	  }
+    if ( r0[0].count > 0 && take ) {
+      let info = { display_name: db_info.display_name };
+      //let rr = await db.any(`SELECT COUNT(*) FROM ${db_info.db_schema_name}.classes`);
+      //info.class_count = rr[0].count;
+      const sql = `select count(*) count, (select count(*) from ${db_info.db_schema_name}.properties) pp from ${db_info.db_schema_name}.classes`
+      const rr = await db.any(sql);
+      info.class_count = rr[0].count;
+      info.properties = rr[0].pp;
+
+        const pp = await xx_getPropList3(db_info.db_schema_name, {main:{schemaName:db_info.db_schema_name}});
+        //console.log(pp.data)
+        let propT = [];
+        let propS = [];
+        for (const p of pp.data) {
+          if ( p.object_cnt !== 0 && p.type_1 === '0' && ( p.follows > 0 || p.common_objects > 0 )) {
+            propT.push(p);
+          }
+          if ( p.object_cnt !== 0 && p.type_2 === '0' && p.is_follower === '0' && p.common_subjects > 0) {
+            propS.push(p);
+          }
+        }
+        console.log(db_info.db_schema_name)
+        //console.log(propS)
+        const propSNames =  propS.map(v => `${v.prefix}:${v.display_name}`);
+        console.log(propSNames)
+        if ( propSNames.length > 0) {
+          info.prop_sources = propSNames;
+          info.target_count = propT.length;
+          result.push(info);
+        }
+    }
+  }
+  result = result.sort(function (a, b) { return b.class_count - a.class_count });
+  return result;
+}
+// **************************************************************************************************************
 
 module.exports = {
+  get_KNOWN_DATA6,
   get_KNOWN_DATA5,
   getClasses,
   getNamespaces,

@@ -8,6 +8,7 @@ const util = require('./utilities')
 const db = require('../db')
 
 const {
+  get_KNOWN_DATA6,
   get_KNOWN_DATA5,
   getClasses,
   getTreeClasses,
@@ -125,11 +126,15 @@ router.get('/info2', wrapAsync(async (req, res, next) => {
   res.json(kd);
 }));
 router.get('/info3/:tag', wrapAsync(async (req, res, next) => {
-  const kd = await util.get_KNOWN_DATA3(req.params.tag);
+  const kd = await util.get_KNOWN_DATA3({tag:req.params.tag});
+  res.json(kd);
+}));
+router.get('/info3/:tag/:count', wrapAsync(async (req, res, next) => {
+  const kd = await util.get_KNOWN_DATA3({tag:req.params.tag, count:req.params.count});
   res.json(kd);
 }));
 router.get('/info3', wrapAsync(async (req, res, next) => {
-  const kd = await util.get_KNOWN_DATA3();
+  const kd = await util.get_KNOWN_DATA3({});
   res.json(kd);
 }));
 router.get('/info4', wrapAsync(async (req, res, next) => {
@@ -138,6 +143,10 @@ router.get('/info4', wrapAsync(async (req, res, next) => {
 }));
 router.get('/info5', wrapAsync(async (req, res, next) => {
   const kd = await get_KNOWN_DATA5();
+  res.json(kd);
+}));
+router.get('/info6/:tag/:count', wrapAsync(async (req, res, next) => {
+  const kd = await get_KNOWN_DATA6({tag:req.params.tag, count:req.params.count});
   res.json(kd);
 }));
 router.get('/infoOntTags', wrapAsync(async (req, res, next) => {

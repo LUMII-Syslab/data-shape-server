@@ -66,13 +66,19 @@ const get_KNOWN_DATA2 = async () => {
   //return kd;
 }
 
-const get_KNOWN_DATA3 = async (tag) => {
+const get_KNOWN_DATA3 = async (par) => {
   const r = await db.any(`SELECT * from public.v_configurations where is_active = true`);
   let result = [];
   for (const db_info of r) {
-    if (tag && !db_info.tags.includes(tag)) continue;
-    let r0 = await db.any(`SELECT COUNT(*) FROM information_schema."tables" where table_schema = '${db_info.db_schema_name}'`);
-    if (r0[0].count > 0) {
+    if (par.tag && !db_info.tags.includes(par.tag)) continue;
+    const r0 = await db.any(`SELECT COUNT(*) FROM information_schema."tables" where table_schema = '${db_info.db_schema_name}'`);
+	let take = true;
+	if ( par.count ) {
+	  const rr_c = await db.any(`SELECT COUNT(*) FROM ${db_info.db_schema_name}.classes`);
+	  if ( rr_c[0].count > Number(par.count) )
+	    take = false;
+	}
+    if ( r0[0].count > 0 && take ) {
       let info = { display_name: db_info.display_name };
       //let rr = await db.any(`SELECT COUNT(*) FROM ${db_info.db_schema_name}.classes`);
       //info.class_count = rr[0].count;
@@ -80,7 +86,7 @@ const get_KNOWN_DATA3 = async (tag) => {
 (select count(*) from ${db_info.db_schema_name}.cc_rels where type_id = 1 ) cc1, (select count(*) from ${db_info.db_schema_name}.cc_rels where type_id = 2 ) cc2, (select count(*) from ${db_info.db_schema_name}.cc_rels where type_id = 3 ) cc3,
 (select count(*) - count(distinct class_1_id) > 0 from ${db_info.db_schema_name}.cc_rels) multi,
 (select count(*) from ${db_info.db_schema_name}.cc_rels cr , ${db_info.db_schema_name}.classes c1, ${db_info.db_schema_name}.classes c2 where type_id = 1 and cr.class_1_id = c1.id and cr.class_2_id = c2.id and c1.cnt = c2.cnt) ekv
-from ${db_info.db_schema_name}.classes`
+from ${db_info.db_schema_name}.classes`;
       const rr = await db.any(sql);
       info.class_count = rr[0].count;
       info.properties = rr[0].pp;
@@ -107,7 +113,7 @@ const get_KNOWN_DATA4 = async () => {
 				(select count(*) from ${db_info.db_schema_name}.properties p where (select count(*) from ${db_info.db_schema_name}.cp_rels where property_id = p.id and type_id = 2 ) = 0 and p.object_cnt > 0 ) type_2,
 				(select jsonvalue from ${db_info.db_schema_name}.parameters where name = 'schema_import_datetime' ) date,
 				(select count(*) from ${db_info.db_schema_name}.properties p where p.target_cover_complete = true) cover_compl
-					from ${db_info.db_schema_name}.classes`
+					from ${db_info.db_schema_name}.classes`;
 
         const rr = await db.any(sql);
 
