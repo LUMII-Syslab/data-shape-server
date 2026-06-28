@@ -503,6 +503,10 @@ const getClassId = iri => {
   return id;
 }
 
+function isDefined(num) {
+  return (num || num === 0) && !Number.isNaN(num);
+}
+
 /**
  * Fixes the counts for partially successful explorations
  *
@@ -816,11 +820,15 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
 
         let jauns1 = false
         let jauns2 = false
-        if (srcClass.tripleCountBase) {
-          if (srcClass.objectTripleCount && srcClass.dataTripleCount) {
+
+        if (isDefined(srcClass.objectTripleCount)
+          && isDefined(srcClass.dataTripleCount)
+          && srcClass.objectTripleCount + srcClass.dataTripleCount > 0) {
             cnt = srcClass.objectTripleCount + srcClass.dataTripleCount
             jauns1 = true
-          }
+        }
+
+        if (srcClass.tripleCountBase) {
 
           if (!srcClass.tripleCount && !jauns1 && srcClass.tripleCountBase) {
             // formula
@@ -852,6 +860,27 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
           }
         }
 
+        if (cnt === undefined) {
+          if (srcClass.objectTripleCount) {
+            cnt = srcClass.objectTripleCount
+            if (!cpData) cpData = {}
+            cpData.is_assumed = true
+          } else if (srcClass.dataTripleCount) {
+            cnt = srcClass.dataTripleCount
+            if (!cpData) cpData = {}
+            cpData.is_assumed = true
+          }
+        }
+        if (cnt === undefined) {
+          cnt = 100
+          if (!cpData) cpData = {}
+          cpData.is_assumed = true
+        }
+
+        // final fix
+        if ((cnt === undefined || Number.isNaN(cnt)) && isDefined(object_cnt) && isDefined(data_cnt)) cnt = object_cnt + data_cnt
+        if ((object_cnt === undefined || Number.isNaN(object_cnt)) && isDefined(cnt) && isDefined(data_cnt)) object_cnt = cnt - data_cnt
+        if ((data_cnt === undefined || Number.isNaN(data_cnt)) && isDefined(cnt) && isDefined(object_cnt)) data_cnt = cnt - object_cnt
 
         // if (srcClass.tripleCountBase) {
         //  // formula
@@ -1065,11 +1094,15 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
 
         let jauns1 = false
         let jauns2 = false
-        if (targetClass.tripleCountBase) {
-          if (targetClass.objectTripleCount && targetClass.dataTripleCount) {
+
+        if (isDefined(targetClass.objectTripleCount)
+          && isDefined(targetClass.dataTripleCount)
+          && targetClass.objectTripleCount + targetClass.dataTripleCount > 0) {
             cnt = targetClass.objectTripleCount + targetClass.dataTripleCount
             jauns1 = true
-          }
+        }
+
+        if (targetClass.tripleCountBase) {
 
           if (!targetClass.tripleCount && !jauns1 && targetClass.tripleCountBase) {
             // formula
@@ -1100,6 +1133,28 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
           cpData.triple_count_raw = targetClass.tripleCount
           cpData.triple_count_base = targetClass.tripleCountBase
         }
+
+        if (cnt === undefined) {
+          if (targetClass.objectTripleCount) {
+            cnt = targetClass.objectTripleCount
+            if (!cpData) cpData = {}
+            cpData.is_assumed = true
+          } else if (targetClass.dataTripleCount) {
+            cnt = targetClass.dataTripleCount
+            if (!cpData) cpData = {}
+            cpData.is_assumed = true
+          }
+        }
+        if (cnt === undefined) {
+          cnt = 100
+          if (!cpData) cpData = {}
+          cpData.is_assumed = true
+        }
+
+        // final fix
+        if ((cnt === undefined || Number.isNaN(cnt)) && isDefined(object_cnt) && isDefined(data_cnt)) cnt = object_cnt + data_cnt
+        if ((object_cnt === undefined || Number.isNaN(object_cnt)) && isDefined(cnt) && isDefined(data_cnt)) object_cnt = cnt - data_cnt
+        if ((data_cnt === undefined || Number.isNaN(data_cnt)) && isDefined(cnt) && isDefined(object_cnt)) data_cnt = cnt - object_cnt
 
         // if (targetClass.tripleCountBase) {
         //  // formula
