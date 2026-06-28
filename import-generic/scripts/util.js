@@ -29,12 +29,12 @@ async function log(params, breakBefore = false) {
 }
 
 function logError(params, breakBefore = false) {
-  console.error(params)
+  console.log(col.red(params))
   log(params, breakBefore)
 }
 
 function logInfo(params, breakBefore = false) {
-  console.log(params)
+  console.log(col.yellow(params))
   log(params, breakBefore)
 }
 
@@ -66,7 +66,37 @@ function init() {
   });
 }
 
+class Counter {
+  constructor(name) {
+    this.name = name;
+    this.counts = {};
+  }
+
+  add(tag) {
+    if (this.counts[tag]) {
+      this.counts[tag] += 1;
+    } else {
+      this.counts[tag] = 1;
+    }
+  }
+
+  isEmpty() {
+    return Object.keys(this.counts).length === 0
+  }
+
+  print() {
+    if (this.isEmpty()) return;
+
+    console.log(col.yellow(`\n--- Counter: ${this.name} ---`));
+    for (const [tag, count] of Object.entries(this.counts)) {
+      console.log(`${tag}: ${count}`);
+    }
+    console.log()
+  }
+}
+
 module.exports = {
   logInfo,
   logError,
+  Counter,
 }

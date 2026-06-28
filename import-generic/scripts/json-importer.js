@@ -6,7 +6,7 @@ const fs = require('node:fs/promises')
 const path = require('node:path')
 
 const { CC_REL_TYPE, CP_REL_TYPE, PP_REL_TYPE, NS_STATS_TYPE } = require('./type-constants')
-const { logInfo, logError } = require('./util.js')
+const { logInfo, logError, Counter } = require('./util.js')
 
 const { DB_CONFIG, db } = require('../config');
 
@@ -824,8 +824,8 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
         if (isDefined(srcClass.objectTripleCount)
           && isDefined(srcClass.dataTripleCount)
           && srcClass.objectTripleCount + srcClass.dataTripleCount > 0) {
-            cnt = srcClass.objectTripleCount + srcClass.dataTripleCount
-            jauns1 = true
+          cnt = srcClass.objectTripleCount + srcClass.dataTripleCount
+          jauns1 = true
         }
 
         if (srcClass.tripleCountBase) {
@@ -1098,8 +1098,8 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
         if (isDefined(targetClass.objectTripleCount)
           && isDefined(targetClass.dataTripleCount)
           && targetClass.objectTripleCount + targetClass.dataTripleCount > 0) {
-            cnt = targetClass.objectTripleCount + targetClass.dataTripleCount
-            jauns1 = true
+          cnt = targetClass.objectTripleCount + targetClass.dataTripleCount
+          jauns1 = true
         }
 
         if (targetClass.tripleCountBase) {
@@ -1716,11 +1716,12 @@ const postProcessingAfterImport = async (params) => {
   }
 
 }
-
+const missingPropertyCounter = new Counter('Missing properties')
 const getPropertyId = iri => {
   let id = PROPS_ID_BY_IRI.get(iri);
   if (!id) {
-    logError(`Could not find id for the property ${iri}`);
+    // logError(`Could not find id for the property ${iri}`);
+    missingPropertyCounter.add(iri)
   }
   return id;
 }
@@ -1820,49 +1821,54 @@ const addOneParameter = async (param_name, param_value) => {
 
   let name = param_name.trim();
 
+
   try {
     if (typeof param_value !== 'string') {
+      const valueToInsert = JSON.stringify(param_value)
       await db.none(`INSERT INTO ${dbSchema}.parameters
-                (name, jsonvalue)
-                VALUES ($1, $2)
-                ON CONFLICT ON CONSTRAINT parameters_name_key
-                DO UPDATE SET jsonvalue = $2
-            `,
+        (name, jsonvalue)
+        VALUES ($1, $2)
+        ON CONFLICT ON CONSTRAINT parameters_name_key
+        DO UPDATE SET jsonvalue = $2
+        `,
         [
           name,
           // param_value,
-          JSON.stringify(param_value),
+          valueToInsert,
         ]);
+      logInfo(`Adding parameter ${col.yellow(name)} with JSON value ${col.yellow(valueToInsert)}`);
       return;
     }
 
     try {
       let parsed = JSON.parse(param_value);
       await db.none(`INSERT INTO ${dbSchema}.parameters
-                (name, jsonvalue)
-                VALUES ($1, $2)
-                ON CONFLICT ON CONSTRAINT parameters_name_key
-                DO UPDATE SET jsonvalue = $2
-            `,
+          (name, jsonvalue)
+          VALUES ($1, $2)
+          ON CONFLICT ON CONSTRAINT parameters_name_key
+          DO UPDATE SET jsonvalue = $2
+          `,
         [
           name,
           parsed,
         ]);
+      logInfo(`Adding parameter ${col.yellow(name)} with JSON value ${col.yellow(param_value)}`);
       return;
     } catch (err) {
-      logInfo(`not a JSON value for parameter ${col.yellow(name)}; will be stored as text`);
+      // logInfo(`not a JSON value for parameter ${col.yellow(name)}; will be stored as text`);
     }
 
     await db.none(`INSERT INTO ${dbSchema}.parameters
-            (name, textvalue)
-            VALUES ($1, $2)
-            ON CONFLICT ON CONSTRAINT parameters_name_key
-            DO UPDATE SET textvalue = $2
+        (name, textvalue)
+        VALUES ($1, $2)
+        ON CONFLICT ON CONSTRAINT parameters_name_key
+        DO UPDATE SET textvalue = $2
         `,
       [
         name,
         param_value,
       ]);
+    logInfo(`Adding parameter ${col.yellow(name)} with text value ${col.yellow(param_value)}`);
 
   } catch (err) {
     logError(err);
@@ -1904,7 +1910,6 @@ const addParameters = async (params) => {
   }
 
   for (let key in parameters) {
-    logInfo(`Adding parameter ${col.yellow(key)} with value ${col.yellow(parameters[key])}`);
     await addOneParameter(key, parameters[key]);
   }
 
@@ -2062,8 +2067,6 @@ const importFromJSON = async data => {
       }
   */
 
-  printBadDatatypeIrisIfExist()
-
   let jsonParams = typeof data.Parameters === 'object'
     ? Array.isArray(data.Parameters)
       ? Object.fromEntries(data.Parameters.map(x => [x.name, x.value]))
@@ -2082,7 +2085,14 @@ const importFromJSON = async data => {
 
   await postProcessingAfterImport(jsonParams);
 
+  printBadDatatypeIrisIfExist()
+  missingPropertyCounter.print()
+
   await printStats();
+
+  if (!missingPropertyCounter.isEmpty()) {
+    logError('There have been missing properties in the input JSON file.', true)
+  }
 
   if (process.env.SAVE_DUMPS) {
     await saveDumps();
