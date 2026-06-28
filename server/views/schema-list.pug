@@ -1,0 +1,75 @@
+extends layout
+
+mixin renderTag(tagName)
+  a(href=`/schemas?tag=${tagName}`)
+    span.tag= tagName
+
+block header-scripts
+  link(href="https://cdn.jsdelivr.net/npm/simple-datatables@latest/dist/style.css" rel="stylesheet" type="text/css")
+  script(src="https://cdn.jsdelivr.net/npm/simple-datatables@latest" type="text/javascript")
+block footer-scripts
+
+block content
+  style.
+    span.tag {
+      font-size: 0.7em;
+      font-weight: 700;
+      color: white;
+      background-color: green;
+      border-radius: 1em;
+      corner-shape: squircle;
+      padding: 0.2em;
+      margin-left: 0.5em;
+      opacity: 0.75;
+    }
+    table tbody tr:nth-child(even) {
+      background-color: #f0f0f0;
+    }
+
+  h1 Schema List
+  //- if schemaList
+    pre= JSON.stringify(schemaList[0], null, 2)
+  //- ul
+    each s in schemaList
+      li
+        a(href=`/schemas/${s.db_schema_name}`)= s.display_name
+        if s.tags
+          each tag in s.tags
+            |
+            +renderTag(tag)
+        if s.description
+          span= s.description
+  table#schema-list.table.table-sm.table-striped
+    thead
+      th Schema
+      th Tags
+      th Description
+      th YasGui
+      th ViziQuer
+
+    tbody
+      each s in schemaList
+        tr
+          td
+            a(href=`/schemas/${s.db_schema_name}`)= s.display_name
+          td
+            if s.tags
+              each tag in s.tags
+                |
+                +renderTag(tag)
+          td
+            if s.description
+              span= s.description
+          td
+            a(href="https://yasgui.semtech.lv" target="_blank") YasGui
+          td
+            a(href="https://viziquer.app" target="_blank") ViziQuer
+
+  script.
+    const dataTable = new simpleDatatables.DataTable('#schema-list', {
+      searchable: true,
+      fixedHeight: true,
+      perPage: 100,
+      perPageSelect: [10, 50, 100, ['All', 0]],
+      header: true,
+    })

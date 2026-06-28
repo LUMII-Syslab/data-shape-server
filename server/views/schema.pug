@@ -1,0 +1,83 @@
+extends layout
+
+block content
+  style.
+    dt {
+      font-weight: 700;
+    }
+
+    table tbody {
+      tr {
+        padding 1em;
+      }
+      tr:nth-child(even) {
+        background-color: #f0f0f0;
+      }
+    }
+
+  h1 Schema Details
+  p
+    a(href="/") Home
+    |  >
+    a(href="/schemas") Schema List
+    |  >
+    span= schemaName
+
+  //- pre= JSON.stringify(Object.keys(schemaInfo), null, 2)
+  table
+    thead
+      th Attribute
+      th Value
+    tbody
+      each p in Object.entries(schemaInfo).filter(e => e[1])
+        tr
+          td= p[0]
+          if ['topNclasses', 'topNprops'].includes(p[0])
+            td
+              each c in p[1]
+                a(href=`/schemas/${schemaName}/classes/${c.id}`)= c.display_name
+                span= ` (${c.cnt})`
+                br
+          else if typeof p[1] === 'object'
+            td
+              pre= JSON.stringify(p[1], null, 2)
+          else if typeof p[1] === 'string'
+            if p[1].startsWith('http://') || p[1].startsWith('https://')
+              td
+                a(href=p[1] target="_blank")= p[1]
+            else
+              td= p[1]
+          else
+            td= p[1]
+
+
+  //- dl
+    each p in Object.entries(schemaInfo)
+      //- if p[0] === 'metaProperties'
+        dt metaProperties
+        dd= JSON.stringify(p[1][0])
+        each row in p[1]
+          if row.textvalue
+            dt= row.name
+            dd= row.textvalue
+          else if row.jsonvalue
+            dt= row.name
+            dd= JSON.stringify(row.jsonvalue)
+
+      //- else
+        dt= p[0]
+        if typeof p[1] === 'object'
+          dd= JSON.stringify(p[1]()
+        else
+          dd= p[1]
+      dt= p[0]
+      if typeof p[1] === 'object'
+        dd= JSON.stringify(p[1])
+      else
+        dd= p[1]
+
+
+    //- dt Name
+    //- dd= schemaName
+    //- dt Class count
+    //- dd 33
