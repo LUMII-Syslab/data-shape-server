@@ -1,6 +1,6 @@
 {
   "name": "data-shape-server",
-  "version": "0.0.4",
+  "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "node --watch ./bin/www",
@@ -13,25 +13,26 @@
     "cors": "^2.8.6",
     "debug": "~4.4.3",
     "dotenv": "^17.4.2",
-    "express": "~4.21.0",
+    "express": "^5.2.1",
     "http-errors": "~2.0.1",
-    "joi": "^17.13.3",
+    "joi": "^18.2.3",
     "lodash": "^4.18.1",
     "minimist": "^1.2.8",
     "morgan": "~1.11.0",
-    "pg-promise": "^12.6.2",
+    "pg-promise": "^12.7.0",
     "pug": "^3.0.4",
-    "sparql-http-client": "^2.4.2"
+    "sparql-http-client": "^2.4.2",
+    "mime-types": "^3.0.2"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/lodash": "^4.17.24",
     "@types/morgan": "^1.9.10",
-    "@types/node": "^25.9.3",
+    "@types/node": "^26.1.0",
     "@types/pug": "^2.0.10",
     "eslint": "^8.55.0",
     "eslint-config-airbnb-base": "^15.0.0",
     "eslint-plugin-import": "^2.32.0",
-    "globals": "^17.6.0"
+    "globals": "^17.7.0"
   }
 }

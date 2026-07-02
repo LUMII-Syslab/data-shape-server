@@ -119,64 +119,64 @@ router.get('/', (req, res, next) => {
 /**
  * List of known schema tags
  */
-router.get('/schema_tags', wrapAsync(async (req, res, next) => {
+router.get('/schema_tags', async (req, res, next) => {
   const d = await util.getAllSchemaTags();
   res.json(d);
-}));
+});
 
 /**
  * List of known ontologies
  */
-router.get('/info', wrapAsync(async (req, res, next) => {
+router.get('/info', async (req, res, next) => {
   const kd = await util.get_KNOWN_DATA2();
   res.json(kd);
-}));
-router.get('/info2', wrapAsync(async (req, res, next) => {
+});
+router.get('/info2', async (req, res, next) => {
   const kd = await util.get_KNOWN_DATA2();
   res.json(kd);
-}));
-router.get('/info3/:tag', wrapAsync(async (req, res, next) => {
+});
+router.get('/info3/:tag', async (req, res, next) => {
   const kd = await util.get_KNOWN_DATA3({tag:req.params.tag});
   res.json(kd);
-}));
-router.get('/info3/:tag/:count', wrapAsync(async (req, res, next) => {
+});
+router.get('/info3/:tag/:count', async (req, res, next) => {
   const kd = await util.get_KNOWN_DATA3({tag:req.params.tag, count:req.params.count});
   res.json(kd);
-}));
-router.get('/info3', wrapAsync(async (req, res, next) => {
+});
+router.get('/info3', async (req, res, next) => {
   const kd = await util.get_KNOWN_DATA3({});
   res.json(kd);
-}));
-router.get('/info4', wrapAsync(async (req, res, next) => {
+});
+router.get('/info4', async (req, res, next) => {
   const kd = await util.get_KNOWN_DATA4();
   res.json(kd);
-}));
-router.get('/info5', wrapAsync(async (req, res, next) => {
+});
+router.get('/info5', async (req, res, next) => {
   const kd = await get_KNOWN_DATA5();
   res.json(kd);
-}));
-router.get('/info6/:tag/:count', wrapAsync(async (req, res, next) => {
+});
+router.get('/info6/:tag/:count', async (req, res, next) => {
   const kd = await get_KNOWN_DATA6({tag:req.params.tag, count:req.params.count});
   res.json(kd);
-}));
-router.get('/infoOntTags', wrapAsync(async (req, res, next) => {
+});
+router.get('/infoOntTags', async (req, res, next) => {
   const kd = await util.get_KNOWN_DATA_OntTags();
   res.json(kd);
-}));
+});
 
 
 /**
  * List of known prefixes
  */
-router.get('/public_ns', wrapAsync(async (req, res, next) => {
+router.get('/public_ns', async (req, res, next) => {
   const ns = await getPublicNamespaces();
   res.json(ns);
-}));
+});
 
 /**
  * List of namespaces in given ontology
  */
-router.get('/ontologies/:ont/ns', wrapAsync(async (req, res, next) => {
+router.get('/ontologies/:ont/ns', async (req, res, next) => {
   try {
     const ont = req.params['ont'];
     const err = await checkOntology(ont);
@@ -192,12 +192,12 @@ router.get('/ontologies/:ont/ns', wrapAsync(async (req, res, next) => {
     console.error(err)
     next(err)
   }
-}));
+});
 
 /**
  * List of classes in given ontology
  */
-router.get('/ontologies/:ont/classes/:limit', wrapAsync(async (req, res, next) => {
+router.get('/ontologies/:ont/classes/:limit', async (req, res, next) => {
   try {
     const ont = req.params['ont'];
     const limit = Number(req.params['limit']);
@@ -216,12 +216,12 @@ router.get('/ontologies/:ont/classes/:limit', wrapAsync(async (req, res, next) =
     console.error(err)
     next(err)
   }
-}));
+});
 
 /**
  * List of classes in given ontology whose name or prefix matches given filter
  */
-router.get('/ontologies/:ont/classes-filtered/:filter/:limit', wrapAsync(async (req, res, next) => {
+router.get('/ontologies/:ont/classes-filtered/:filter/:limit', async (req, res, next) => {
   try {
     const ont = req.params['ont'];
     const filter = req.params['filter'];
@@ -241,12 +241,12 @@ router.get('/ontologies/:ont/classes-filtered/:filter/:limit', wrapAsync(async (
     console.error(err)
     next(err)
   }
-}));
+});
 
 /**
  * List of properties in given ontology
  */
-router.get('/ontologies/:ont/properties/:limit', wrapAsync(async (req, res, next) => {
+router.get('/ontologies/:ont/properties/:limit', async (req, res, next) => {
   try {
     const ont = req.params['ont'];
     const limit = Number(req.params['limit']);
@@ -265,12 +265,12 @@ router.get('/ontologies/:ont/properties/:limit', wrapAsync(async (req, res, next
     console.error(err)
     next(err)
   }
-}));
+});
 
 /**
  * List of properties in given ontology whose name or prefix matches given filter
  */
-router.get('/ontologies/:ont/properties-filtered/:filter/:limit', wrapAsync(async (req, res, next) => {
+router.get('/ontologies/:ont/properties-filtered/:filter/:limit', async (req, res, next) => {
   try {
     const ont = req.params['ont'];
     const filter = req.params['filter'];
@@ -290,10 +290,10 @@ router.get('/ontologies/:ont/properties-filtered/:filter/:limit', wrapAsync(asyn
     console.error(err)
     next(err)
   }
-}));
+});
 
 // ***********************************************************************************
-router.post('/ontologies/:ont/:fn', wrapAsync(async (req, res, next) => {
+router.post('/ontologies/:ont/:fn', async (req, res, next) => {
   console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~');
   try {
     const ont = req.params['ont'];
@@ -320,7 +320,7 @@ router.post('/ontologies/:ont/:fn', wrapAsync(async (req, res, next) => {
         return;
       }
 	}
-	
+
 	if ( params.main.p_list_full !== undefined ) {
 	  err = checkIdList(`${params.main.p_list_full}`);
 	  if (err.err_msg !== '') {
@@ -485,13 +485,13 @@ router.post('/ontologies/:ont/:fn', wrapAsync(async (req, res, next) => {
     console.error(err)
     next(err)
   }
-}));
+});
 
 
 /**
  * Example for a generic route where all parameters including the function name are provided in JSON
  */
-router.post('/fn1', wrapAsync(async (req, res, next) => {
+router.post('/fn1', async (req, res, next) => {
   const params = req.body;
   const fname = params['fname']
   console.log(fname, params);
@@ -500,7 +500,7 @@ router.post('/fn1', wrapAsync(async (req, res, next) => {
   let result = { kaut: 1, kas: 3, input: req.body }
 
   res.json(result)
-}));
+});
 
 
 module.exports = router;
