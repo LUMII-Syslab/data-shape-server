@@ -62,6 +62,7 @@ const {
 } = require('../../util/sparql/endpoint-queries')
 
 const validateOntologyName = name => /^[a-zA-Z0-9_-]+$/.test(name)
+const validateIdList = idList => /^[0-9,]+$/.test(idList)
 
 const checkSchemaName = async (name) => {
   const kd = await util.get_KNOWN_DATA();
@@ -89,6 +90,15 @@ const checkOntology = async (ont) => {
   else
     err.schema = schema;
 
+  return err;
+}
+
+const checkIdList = (idList) => {
+  let err = { err_msg: '' };
+  if (!validateIdList(idList)) {
+    err.status = 400;
+    err.err_msg = 'bad id list';
+  }
   return err;
 }
 
@@ -289,13 +299,36 @@ router.post('/ontologies/:ont/:fn', wrapAsync(async (req, res, next) => {
     const ont = req.params['ont'];
     const fn = req.params['fn'];
 
-    const err = await checkOntology(ont);
+    let err = await checkOntology(ont);
     if (err.err_msg !== '') {
       res.status(err.status).send(err.err_msg);
       return;
     }
     const schema = err.schema;
     let params = req.body;
+	if ( params.main.c_list !== undefined ) {
+	  err = checkIdList(params.main.c_list);
+	  if (err.err_msg !== '') {
+	    res.status(err.status).send(err.err_msg);
+        return;
+      }
+	}
+	if ( params.main.p_list !== undefined ) {
+	  err = checkIdList(`${params.main.p_list}`);
+	  if (err.err_msg !== '') {
+	    res.status(err.status).send(err.err_msg);
+        return;
+      }
+	}
+	
+	if ( params.main.p_list_full !== undefined ) {
+	  err = checkIdList(`${params.main.p_list_full}`);
+	  if (err.err_msg !== '') {
+	    res.status(err.status).send(err.err_msg);
+        return;
+      }
+	}
+
     const kd = await util.get_KNOWN_DATA();
     params = await util.checkEndpoint(params, schema, kd);
     console.log(params);
