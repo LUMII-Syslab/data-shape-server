@@ -363,6 +363,7 @@ const xx_getClassListExt = async (schema, params) => {
     }
 
     c.display_name = `${c.full_name} (weight-${roundCount(c.cnt_sum)} cnt-${roundCount(c.cnt)} ${in_props})`;
+    c.full_name_lc = c.full_name.toLowerCase();
     c.sel = 0;
     ii = ii + 1;
   }
