@@ -227,6 +227,13 @@ const getNamespaces = async schema => {
   if (local_ns.length == 0)
     r[0].is_local = true;
 
+  for (const ns of r) {
+    ns.cl_count = Number(ns.cl_count);
+    ns.prop_count = Number(ns.prop_count);
+    ns.cl_count_R = roundCount(ns.cl_count);
+    ns.prop_count_R = roundCount(ns.prop_count);
+  }
+
   r = util.correctValue(r);
   return r;
 }
@@ -490,6 +497,8 @@ const xx_getPropList3 = async (schema, params) => {
       c.p_name = `${c.prefix}:${c.display_name} (cnt-${roundCount(c.cnt)}, data property )`;
     else
       c.p_name = `${c.prefix}:${c.display_name} (cnt-${roundCount(c.cnt)}, property ${c.type_2}-${c.type_1})`;
+
+    c.cntR = roundCount(c.cnt);
   }
 
   return r;
