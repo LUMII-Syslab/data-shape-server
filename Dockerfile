@@ -1,4 +1,4 @@
-FROM node:25-alpine3.23
+FROM node:26-alpine3.24
 
 ARG NODE_ENV=production
 ENV NODE_ENV=$NODE_ENV
@@ -9,8 +9,6 @@ EXPOSE $PORT
 
 ARG DB_URL
 ENV DB_URL=$DB_URL
-
-RUN npm i npm@latest -g
 
 RUN mkdir -p /opt/app && chown -R node:node /opt/app
 WORKDIR /opt/app
