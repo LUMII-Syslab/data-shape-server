@@ -2,7 +2,6 @@ const db = require('../db')
 const debug = require('debug')('dss:classops')
 const util = require('./utilities')
 
-
 const {
   sparqlGetIndividualClasses,
   sparqlGetClassLabels,
