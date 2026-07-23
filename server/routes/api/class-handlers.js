@@ -505,8 +505,9 @@ const xx_getPropList3 = async (schema, params) => {
 
 const xx_getPropList3a = async (schema, params) => {
   // Izsauc pārbaudot propertiju galus, vai joprojām ir derīgi zīmēšanai
-
-  const sql = `select id, iri, display_name, prefix, cnt, object_cnt, data_cnt, max_cardinality, inverse_max_cardinality, domain_class_id, range_class_id,
+  const col_info = await util.columnChecking(schema, 'v_properties_ns', 'distinct_objects');
+  const distinctObjects = (col_info ? 'distinct_objects,': '');
+  const sql = `select id, iri, display_name, prefix, cnt, object_cnt, data_cnt, max_cardinality, inverse_max_cardinality, domain_class_id, range_class_id, ${distinctObjects}
 			(select count(*) from ${schema}.pp_rels where property_2_id = vpn.id and property_1_id != vpn.id and type_id = 1 and property_1_id in (${params.main.p_list_full})) as is_follower,
       (select count(*) from ${schema}.pp_rels where property_1_id = vpn.id and property_2_id != vpn.id and type_id = 1 and property_2_id in (${params.main.p_list_full})) as follows,
       (select count(*) from ${schema}.pp_rels where property_1_id = vpn.id and property_2_id != vpn.id and type_id = 3 and property_2_id in (${params.main.p_list_full})) as common_objects,
@@ -523,6 +524,12 @@ const xx_getPropList3a = async (schema, params) => {
       c.p_name = `${c.prefix}:${c.display_name} (cnt-${roundCount(c.cnt)}, property ${c.type_2}-${c.type_1})`;
 
     c.full_name = `${c.prefix}:${c.display_name}`;
+    c.object_cnt = Number(c.object_cnt);
+    if (col_info && c.distinct_objects != null ) {
+      c.object_cnt = Number(c.distinct_objects);
+      c.hasDistinctObjects = true;
+    }
+
   }
   return r;
 }
