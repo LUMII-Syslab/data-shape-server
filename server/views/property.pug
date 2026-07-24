@@ -15,16 +15,19 @@ block content
       }
     }
 
-  h1 Schema Details
+  h1 Property Details
   p
     a(href="/") Home
     |  >
     a(href="/schemas") Schema List
     |  >
-    span= schemaName
+    a(href=`/schemas/${schemaName}`)= schemaName
+    |  >
+    span Property #[strong=propertyName]
 
-  //- pre= JSON.stringify(Object.keys(schemaInfo), null, 2)
-  table
+  pre= JSON.stringify(propertyInfo, null, 2)
+
+  //- table
     thead
       th Attribute
       th Value
@@ -32,19 +35,7 @@ block content
       each p in Object.entries(schemaInfo).filter(e => e[1])
         tr
           td= p[0]
-          if 'topNclasses' === p[0]
-            td
-              each c in p[1]
-                a(href=`/schemas/${schemaName}/classes/${c.id}`)= c.display_name
-                span= ` (${c.cnt})`
-                br
-          else if 'topNprops' === p[0]
-            td
-              each c in p[1]
-                a(href=`/schemas/${schemaName}/properties/${c.id}`)= c.display_name
-                span= ` (${c.cnt})`
-                br
-          else if typeof p[1] === 'object'
+          if typeof p[1] === 'object'
             td
               pre= JSON.stringify(p[1], null, 2)
           else if typeof p[1] === 'string'

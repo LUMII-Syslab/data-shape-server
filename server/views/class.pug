@@ -21,9 +21,9 @@ block content
     |  >
     a(href="/schemas") Schema List
     |  >
-    a(href=`/schemas/${schemaName}`) Schema #{schemaName}
+    a(href=`/schemas/${schemaName}`)= schemaName
     |  >
-    span Class #{className}
+    span Class #[strong=className]
 
   pre= JSON.stringify(classInfo, null, 2)
 
