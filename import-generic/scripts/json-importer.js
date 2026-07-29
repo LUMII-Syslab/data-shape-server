@@ -537,14 +537,14 @@ function fix_cnt_values(p_cnt, p_object_cnt, p_data_cnt, maxTripleCountRounded) 
     data_cnt = cnt
   }
 
-  if (!object_cnt && !data_cnt) {
+  if (object_cnt === undefined && data_cnt === undefined) {
     if (!pData) pData = {}
     pData.object_cnt_assumed = true
     object_cnt = cnt;
     data_cnt = 0;
-  } else if (object_cnt) {
+  } else if (object_cnt !== undefined) {
     data_cnt = cnt - object_cnt;
-  } else if (data_cnt) {
+  } else if (data_cnt !== undefined) {
     object_cnt = cnt - data_cnt;
   }
 
