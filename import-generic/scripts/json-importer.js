@@ -14,7 +14,7 @@ const dbSchema = process.env.DB_SCHEMA;
 const INPUT_FILE = process.env.INPUT_FILE;
 const registrySchema = process.env.REGISTRY_SCHEMA || 'public';
 
-const IMPORTER_VERSION = '2026-07-29';
+const IMPORTER_VERSION = '2026-07-30';
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -2025,6 +2025,37 @@ const importFromJSON = async data => {
     }
     const maxTripleCountRounded = roundUpToSingleDigitPower(maxTripleCount)
     // end calculate max of tripleCount
+
+    // insert placeholders for reverse pp_rels
+    // incoming (common object)
+    for (const p of data.Properties) {
+      let pName = p.fullName
+      for (const qq of p.IncomingProperties) {
+        let qName = qq.propertyName
+        let q = data.Properties.find(x => x.fullName === qName)
+        if (q && q.IncomingProperties) {
+          let pp = q.IncomingProperties.find(x => x.propertyName === pName)
+          if (!pp) {
+            q.IncomingProperties.push({ propertyName: pName })
+          }
+        }
+      }
+    }
+    // outgoing (common subject)
+    for (const p of data.Properties) {
+      let pName = p.fullName
+      for (const qq of p.OutgoingProperties) {
+        let qName = qq.propertyName
+        let q = data.Properties.find(x => x.fullName === qName)
+        if (q && q.OutgoingProperties) {
+          let pp = q.OutgoingProperties.find(x => x.propertyName === pName)
+          if (!pp) {
+            q.OutgoingProperties.push({ propertyName: pName })
+          }
+        }
+      }
+    }
+    // end of insert placeholders for reverse pp_rels
 
     let propsBar = new ProgressBar(`props pass 1 [:bar] ( :current props of :total, :percent)`, { total: data.Properties.length, width: 100, incomplete: '.' });
     for (const p of data.Properties) {
