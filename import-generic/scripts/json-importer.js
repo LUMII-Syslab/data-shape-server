@@ -812,11 +812,9 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
 
       let cp_rel_id;
       try {
-        let { cnt, object_cnt, data_cnt } = fix_cnt_values(
-          srcClass.tripleCount,
-          srcClass.objectTripleCount,
-          srcClass.dataTripleCount
-        );
+        let cnt = srcClass.tripleCount
+        let object_cnt = srcClass.objectTripleCount
+        let data_cnt = srcClass.dataTripleCount
 
         let jauns1 = false
         let jauns2 = false
@@ -876,6 +874,11 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
           if (!cpData) cpData = {}
           cpData.is_assumed = true
         }
+
+        let fixedCounts = fix_cnt_values(cnt, object_cnt, data_cnt)
+        cnt = fixedCounts.cnt
+        object_cnt = fixedCounts.object_cnt
+        data_cnt = fixedCounts.data_cnt
 
         // final fix
         if ((cnt === undefined || Number.isNaN(cnt)) && isDefined(object_cnt) && isDefined(data_cnt)) cnt = object_cnt + data_cnt
@@ -1086,11 +1089,9 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
 
       let cp_rel_id;
       try {
-        let { cnt, object_cnt, data_cnt } = fix_cnt_values(
-          targetClass.tripleCount,
-          undefined,
-          undefined
-        );
+        let cnt = targetClass.tripleCount
+        let object_cnt = targetClass.objectTripleCount
+        let data_cnt = targetClass.dataTripleCount
 
         let jauns1 = false
         let jauns2 = false
@@ -1150,6 +1151,11 @@ const addProperty = async (p, { maxTripleCountRounded }) => {
           if (!cpData) cpData = {}
           cpData.is_assumed = true
         }
+
+        let fixedCounts = fix_cnt_values(cnt, object_cnt, data_cnt)
+        cnt = fixedCounts.cnt
+        object_cnt = fixedCounts.object_cnt
+        data_cnt = fixedCounts.data_cnt
 
         // final fix
         if ((cnt === undefined || Number.isNaN(cnt)) && isDefined(object_cnt) && isDefined(data_cnt)) cnt = object_cnt + data_cnt
