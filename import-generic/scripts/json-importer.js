@@ -14,7 +14,7 @@ const dbSchema = process.env.DB_SCHEMA;
 const INPUT_FILE = process.env.INPUT_FILE;
 const registrySchema = process.env.REGISTRY_SCHEMA || 'public';
 
-const IMPORTER_VERSION = '2026-07-30';
+const IMPORTER_VERSION = '2026-08-06';
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
