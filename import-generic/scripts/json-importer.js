@@ -1829,7 +1829,7 @@ const addOneParameter = async (param_name, param_value) => {
 
 
   try {
-    if (typeof param_value !== 'string') {
+    if (typeof param_value !== 'string' && !(param_value instanceof Date)) {
       const valueToInsert = JSON.stringify(param_value)
       await db.none(`INSERT INTO ${dbSchema}.parameters
         (name, jsonvalue)
