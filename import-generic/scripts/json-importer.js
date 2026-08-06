@@ -2112,10 +2112,16 @@ const importFromJSON = async data => {
 
   if (data.StartDateTime) {
     jsonParams.extraction_start_datetime = data.StartDateTime
+    if (/^\d\d-\d\d-\d\d \d\d:\d\d/.test(jsonParams.extraction_start_datetime)) {
+      jsonParams.extraction_start_datetime[10] = 'T'
+    }
   }
 
   if (data.EndDateTime) {
     jsonParams.extraction_end_datetime = data.EndDateTime
+    if (/^\d\d-\d\d-\d\d \d\d:\d\d/.test(jsonParams.extraction_end_datetime)) {
+      jsonParams.extraction_end_datetime[10] = 'T'
+    }
   }
 
   const effectiveParams = await addParameters(jsonParams);
