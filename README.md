@@ -31,4 +31,5 @@ Then you can proceed as in the section `Getting started`.
 ## Acknowledgements
 
 The Data Shape Server has been developed at Institute of Mathematics and Computer Science, University of Latvia, https://lumii.lv, 
-with partial support from Latvian Science Council project lzp-2021/1-0389 "Visual Queries in Distributed Knowledge Graphs" (since 2022).
+with partial support from Latvian Science Council project lzp-2021/1-0389 "Visual Queries in Distributed Knowledge Graphs" (2022-2024) and
+Latvian Science Council project lzp-2024/1-0665 "What is in Your Knowledge Graph?" (Since 2025).
