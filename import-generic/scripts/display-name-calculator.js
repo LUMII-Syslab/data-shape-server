@@ -59,7 +59,7 @@ const annotTypePrio = a => {
 
 const nameIsTechnical = async (row, baseTable) => {
   let dn = row.display_name
-  let tailPos = dn.search(/[\d_]/)
+  let tailPos = dn.search(/_?\d+/)
   if (tailPos === -1) return false
 
   let head = dn.slice(0, tailPos)
