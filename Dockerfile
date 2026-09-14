@@ -1,5 +1,11 @@
 FROM node:26-alpine3.24
 
+# Accept the build argument from GitHub Actions
+ARG APP_VERSION=dev
+
+# Persist it as an environment variable for runtime
+ENV APP_VERSION=${APP_VERSION}
+
 ARG NODE_ENV=production
 ENV NODE_ENV=$NODE_ENV
 
